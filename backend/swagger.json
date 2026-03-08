@@ -136,7 +136,6 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "email": { "type": "string", "format": "email", "example": "neighbor@iasi.ro" },
                   "displayName": { "type": "string", "example": "Alex Slatina" },
                   "radius": {"type": "integer", "description": "The radius in meters", "example": 800},
                   "location": {
