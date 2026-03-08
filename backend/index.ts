@@ -12,16 +12,45 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-const registerUserSchema = z.object({
-    email: z.email(),
-    displayName: z.string(),
-    password: z.string().min(8),
-});
+const BAD_REQUEST = new Response(null, { status: 400, headers: corsHeaders });
+const FORBIDDEN = new Response(null, { status: 403, headers: corsHeaders });
+const UNAUTHORIZED = new Response(null, { status: 401, headers: corsHeaders });
+const SERVER_ERROR = new Response(null, { status: 500, headers: corsHeaders });
 
-const loginUserSchema = z.object({
-    email: z.email(),
-    password: z.string(),
-});
+const registerUserSchema = z
+    .object({
+        email: z.email(),
+        displayName: z.string().nonempty(),
+        password: z.string().min(8),
+    })
+    .strict();
+
+const loginUserSchema = z
+    .object({
+        email: z.email(),
+        password: z.string(),
+    })
+    .strict();
+
+const updateUserSchema = z
+    .object({
+        email: z.email().optional(),
+        displayName: z.string().nonempty().optional(),
+        radius: z.number().min(0),
+        location: z
+            .object({
+                lat: z.number(),
+                lng: z.number(),
+            })
+            .optional(),
+        quietHours: z
+            .object({
+                start: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:MM"),
+                end: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:MM"),
+            })
+            .optional(),
+    })
+    .strict();
 
 type RegisterUserBody = z.infer<typeof registerUserSchema>;
 type LoginUserBody = z.infer<typeof loginUserSchema>;
@@ -31,13 +60,13 @@ bun.serve({
     routes: {
         "/api/docs/swagger.json": async (req) => {
             if (req.method != "GET") {
-                return Response.json({ error: "Bad Request" }, { status: 400 });
+                return BAD_REQUEST;
             }
             return Response.json(swaggerDoc, { headers: corsHeaders });
         },
         "/api/docs": async (req) => {
             if (req.method != "GET") {
-                return Response.json({ error: "Bad Request" }, { status: 400 });
+                return BAD_REQUEST;
             }
 
             const html = `
@@ -64,22 +93,17 @@ bun.serve({
                 </html>
           `;
             return new Response(html, {
-                headers: { "Content-Type": "text/html" },
+                headers: { ...corsHeaders, "Content-Type": "text/html" },
             });
         },
         "/api/auth/register": async (req) => {
             if (req.method != "POST") {
-                return Response.json({ error: "Bad Request" }, { status: 400 });
+                return BAD_REQUEST;
             }
             const session = auth.verifyToken(req);
 
             if (session != null) {
-                return Response.json(
-                    {
-                        error: "You are already authenticated. Please log out first.",
-                    },
-                    { status: 403, headers: corsHeaders },
-                );
+                return FORBIDDEN;
             }
 
             try {
@@ -90,10 +114,10 @@ bun.serve({
                 const res = await auth.registerUser(body as auth.RegisterUser);
 
                 if (!res.success) {
-                    return Response.json(
-                        { error: res.error },
-                        { status: res.status, headers: corsHeaders },
-                    );
+                    return new Response(null, {
+                        status: res.status,
+                        headers: corsHeaders,
+                    });
                 }
 
                 return Response.json(
@@ -102,24 +126,15 @@ bun.serve({
                 );
             } catch (err) {
                 if (err instanceof z.ZodError) {
-                    return Response.json(
-                        { error: "Invalid body" },
-                        { status: 400, headers: corsHeaders },
-                    );
+                    return BAD_REQUEST;
                 }
                 console.error(err);
-                return Response.json(
-                    { error: `Internal error` },
-                    { status: 500, headers: corsHeaders },
-                );
+                return SERVER_ERROR;
             }
         },
         "/api/auth/login": async (req) => {
             if (req.method != "POST") {
-                return Response.json(
-                    { error: "Bad Request" },
-                    { status: 400, headers: corsHeaders },
-                );
+                return BAD_REQUEST;
             }
 
             try {
@@ -130,10 +145,10 @@ bun.serve({
                 const res = await auth.loginUser(body as auth.LoginUser);
 
                 if (!res.success) {
-                    return Response.json(
-                        { error: res.error },
-                        { status: res.status, headers: corsHeaders },
-                    );
+                    return new Response(null, {
+                        status: res.status,
+                        headers: corsHeaders,
+                    });
                 }
 
                 return Response.json(
@@ -142,16 +157,10 @@ bun.serve({
                 );
             } catch (err) {
                 if (err instanceof z.ZodError) {
-                    return Response.json(
-                        { error: "Invalid body" },
-                        { status: 400, headers: corsHeaders },
-                    );
+                    return BAD_REQUEST;
                 }
                 console.log(err);
-                return Response.json(
-                    { error: "Internal error" },
-                    { status: 500, headers: corsHeaders },
-                );
+                return SERVER_ERROR;
             }
         },
     },

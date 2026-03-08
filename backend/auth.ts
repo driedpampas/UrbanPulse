@@ -11,7 +11,7 @@ if (JWT_SECRET == undefined) {
 
 export type AuthResult =
     | { success: true; token: string; user: { id: string; role: string } }
-    | { success: false; error: string; status: number };
+    | { success: false; status: number };
 
 export type RegisterUser = {
     email: string;
@@ -30,7 +30,6 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
     if (existingId) {
         return {
             success: false,
-            error: "An account with this email already exists",
             status: 409,
         };
     }
@@ -52,7 +51,7 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
 export async function loginUser(user: LoginUser): Promise<AuthResult> {
     const [dbUser] = await db.selectUser(user.email);
     if (!dbUser) {
-        return { success: false, error: "Invalid credentials", status: 401 };
+        return { success: false, status: 401 };
     }
 
     const matches = await bun.password.verify(
@@ -61,7 +60,7 @@ export async function loginUser(user: LoginUser): Promise<AuthResult> {
     );
 
     if (!matches) {
-        return { success: false, error: "Invalid credentials", status: 401 };
+        return { success: false, status: 401 };
     }
 
     const token = jwt.sign(
