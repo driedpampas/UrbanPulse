@@ -30,9 +30,23 @@ export async function selectId(email: string) {
     `;
 }
 
-export async function selectUser(email: string) {
+export async function selectPasswordHash(id: string) {
+    return await sql`
+    SELECT password_hash FROM users WHERE id = ${id}
+    `;
+}
+
+export async function selectUserAuth(email: string) {
     return await sql`
     SELECT id, password_hash, role FROM users WHERE email = ${email}
+    `;
+}
+
+export async function updateUserPassword(id: string, newHashedPass: string) {
+    await sql`
+        UPDATE app.users
+        SET password_hash = ${newHashedPass}
+        WHERE id = ${id}
     `;
 }
 

@@ -49,7 +49,7 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
 }
 
 export async function loginUser(user: LoginUser): Promise<AuthResult> {
-    const [dbUser] = await db.selectUser(user.email);
+    const [dbUser] = await db.selectUserAuth(user.email);
     if (!dbUser) {
         return { success: false, status: 401 };
     }

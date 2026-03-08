@@ -55,9 +55,17 @@ const updateUserSchema = z
     })
     .strict();
 
+const updatePassSchema = z
+    .object({
+        newPassword: z.string().nonempty().min(8),
+        oldPassword: z.string().nonempty(),
+    })
+    .strict();
+
 type RegisterUserBody = z.infer<typeof registerUserSchema>;
 type LoginUserBody = z.infer<typeof loginUserSchema>;
 type UpdateUserBody = z.infer<typeof updateUserSchema>;
+type UpdatePassBody = z.infer<typeof updatePassSchema>;
 
 bun.serve({
     port: PORT,
@@ -185,6 +193,48 @@ bun.serve({
                     .then((raw) => updateUserSchema.parse(raw));
 
                 await db.updateUserProfile({ id: payload.id, ...body });
+
+                return SUCCESS;
+            } catch (err) {
+                if (err instanceof z.ZodError) {
+                    return BAD_REQUEST;
+                }
+                console.log(err);
+                return SERVER_ERROR;
+            }
+        },
+        "/api/user/password": async (req) => {
+            if (req.method != "PATCH") {
+                return BAD_REQUEST;
+            }
+
+            const session = auth.verifyToken(req);
+
+            if (!session) {
+                return UNAUTHORIZED;
+            }
+
+            try {
+                const payload: JwtPayload = session as JwtPayload;
+                const body: UpdatePassBody = await req
+                    .json()
+                    .then((raw) => updatePassSchema.parse(raw));
+
+                const [{ password_hash }] = await db.selectPasswordHash(
+                    payload.id,
+                );
+
+                const isCorrect = await bun.password.verify(
+                    body.oldPassword,
+                    password_hash,
+                );
+
+                if (!isCorrect) {
+                    return UNAUTHORIZED;
+                }
+
+                const newPassHash = await bun.password.hash(body.newPassword);
+                await db.updateUserPassword(payload.id, newPassHash);
 
                 return SUCCESS;
             } catch (err) {
