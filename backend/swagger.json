@@ -184,6 +184,51 @@
           }
         }
       }
+    },
+    "/api/user/password": {
+      "patch": {
+        "summary": "Update user password",
+        "description": "Updates the user's password, identified with the session token, with the provided parameters.",
+        "security": [
+          { "bearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["newPassword", "oldPassword"],
+                "properties": {
+                  "newPassword": {
+                      "type": "string",
+                      "example": "newSecurePassword1234",
+                      "minLength": 8 
+                  },
+                  "oldPassword": {
+                      "type": "string",
+                      "example": "securePassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password successfully changed"
+          },
+          "400": {
+            "description": "Bad request or Invalid body"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
     }
   }
 }
