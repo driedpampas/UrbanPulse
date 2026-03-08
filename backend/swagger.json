@@ -150,7 +150,19 @@
                     "properties": {
                       "start": {"type": "string", "example": "22:00"},
                       "end": {"type": "string", "example": "06:00"}
-                    }
+                    },
+                    "nullable": true
+                  },
+                  "quietDays": {
+                    "type": "array",
+                    "example": [0, 6],
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "maximum": 7,
+                    "nullable": true
                   }
                 }
               }
