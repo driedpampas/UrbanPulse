@@ -1,5 +1,17 @@
 import { sql } from "bun";
 
+interface User {
+    id: string;
+    email?: string | null;
+    role?: string;
+    passwordHash?: string | null;
+    displayName?: string | null;
+    radius?: number | null;
+    location?: { lat: number; lng: number } | null;
+    quietHours?: { start: string; end: string } | null;
+    quietDays?: number[] | null;
+}
+
 export async function insertUser(
     email: string,
     hashedPass: string,
@@ -22,4 +34,60 @@ export async function selectUser(email: string) {
     return await sql`
     SELECT id, password_hash, role FROM users WHERE email = ${email}
     `;
+}
+
+export async function updateUserProfile(user: User) {
+    const displayName = user.displayName ?? null;
+    const radius = user.radius ?? null;
+    const lat = user.location?.lat ?? null;
+    const lng = user.location?.lng ?? null;
+
+    const shouldClearQuietHours = user.quietHours === null;
+    const shouldClearQuietDays = user.quietDays === null;
+
+    let quietHours = null;
+    if (user.quietHours) {
+        const { start, end } = user.quietHours;
+        quietHours =
+            start < end
+                ? `{ "[${start},${end})" }`
+                : `{ "[${start},24:00)", "[00:00,${end})" }`;
+    }
+
+    let quietDays = null;
+    if (user.quietDays && user.quietDays.length > 0) {
+        quietDays = `{${user.quietDays.join(",")}}`;
+    }
+
+    try {
+        await sql`
+      UPDATE app.users 
+      SET 
+        display_name = COALESCE(${displayName}, display_name),
+        distance_limit_meters = COALESCE(${radius}, distance_limit_meters),
+        
+        location = CASE 
+          WHEN ${lat}::numeric IS NOT NULL AND ${lng}::numeric IS NOT NULL 
+          THEN ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography 
+          ELSE location 
+        END,
+
+      quiet_hours = CASE 
+        WHEN ${shouldClearQuietHours} THEN '{}'::app.timerange[] 
+        WHEN ${quietHours}::text IS NOT NULL THEN ${quietHours}::app.timerange[]
+        ELSE quiet_hours 
+      END,
+
+      -- 🚨 The fixed Quiet Days logic
+      quiet_days = CASE 
+        WHEN ${shouldClearQuietDays} THEN '{}'::int[] 
+        WHEN ${quietDays}::text IS NOT NULL THEN ${quietDays}::int[] 
+        ELSE quiet_days 
+      END
+
+      WHERE id = ${user.id}
+    `;
+    } catch (err) {
+        throw err;
+    }
 }

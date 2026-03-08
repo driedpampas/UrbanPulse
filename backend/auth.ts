@@ -63,11 +63,9 @@ export async function loginUser(user: LoginUser): Promise<AuthResult> {
         return { success: false, status: 401 };
     }
 
-    const token = jwt.sign(
-        { userId: dbUser.id, role: dbUser.role },
-        JWT_SECRET!,
-        { expiresIn: "7d" },
-    );
+    const token = jwt.sign({ id: dbUser.id, role: dbUser.role }, JWT_SECRET!, {
+        expiresIn: "7d",
+    });
 
     return { success: true, token, user: { id: dbUser.id, role: dbUser.role } };
 }

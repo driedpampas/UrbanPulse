@@ -3,12 +3,13 @@ import * as db from "./db";
 import * as auth from "./auth";
 import { z } from "zod";
 import swaggerDoc from "./swagger.json";
+import type { JwtPayload } from "jsonwebtoken";
 
 const PORT = 3000;
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
@@ -16,6 +17,7 @@ const BAD_REQUEST = new Response(null, { status: 400, headers: corsHeaders });
 const FORBIDDEN = new Response(null, { status: 403, headers: corsHeaders });
 const UNAUTHORIZED = new Response(null, { status: 401, headers: corsHeaders });
 const SERVER_ERROR = new Response(null, { status: 500, headers: corsHeaders });
+const SUCCESS = new Response(null, { status: 200 });
 
 const registerUserSchema = z
     .object({
@@ -36,7 +38,7 @@ const updateUserSchema = z
     .object({
         email: z.email().optional(),
         displayName: z.string().nonempty().optional(),
-        radius: z.number().min(0),
+        radius: z.number().min(0).optional(),
         location: z
             .object({
                 lat: z.number(),
@@ -48,12 +50,14 @@ const updateUserSchema = z
                 start: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:MM"),
                 end: z.string().regex(/^\d{2}:\d{2}$/, "Must be HH:MM"),
             })
-            .optional(),
+            .nullish(),
+        quietDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
     })
     .strict();
 
 type RegisterUserBody = z.infer<typeof registerUserSchema>;
 type LoginUserBody = z.infer<typeof loginUserSchema>;
+type UpdateUserBody = z.infer<typeof updateUserSchema>;
 
 bun.serve({
     port: PORT,
@@ -155,6 +159,34 @@ bun.serve({
                     { token: res.token, user: res.user },
                     { status: 200, headers: corsHeaders },
                 );
+            } catch (err) {
+                if (err instanceof z.ZodError) {
+                    return BAD_REQUEST;
+                }
+                console.log(err);
+                return SERVER_ERROR;
+            }
+        },
+        "/api/user": async (req) => {
+            if (req.method != "PATCH") {
+                return BAD_REQUEST;
+            }
+
+            const session = auth.verifyToken(req);
+
+            if (!session) {
+                return UNAUTHORIZED;
+            }
+
+            try {
+                const payload: JwtPayload = session as JwtPayload;
+                const body: UpdateUserBody = await req
+                    .json()
+                    .then((raw) => updateUserSchema.parse(raw));
+
+                await db.updateUserProfile({ id: payload.id, ...body });
+
+                return SUCCESS;
             } catch (err) {
                 if (err instanceof z.ZodError) {
                     return BAD_REQUEST;
