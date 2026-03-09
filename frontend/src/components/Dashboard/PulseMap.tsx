@@ -1,7 +1,10 @@
 import { AlertCircle, MapPin } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import type { ErrorEvent as MapboxErrorEvent, Map as MapboxMap } from 'mapbox-gl';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
+const MAPBOX_STYLE_ID = 'mapbox/light-v11';
+const MAPBOX_STYLE_URL = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE_ID}`;
 
 const MOCK_MARKERS = [
     { lat: 40.7128, lng: -74.006, label: 'Grocery help needed', type: 'need' },
@@ -19,85 +22,178 @@ const typeColors: Record<string, string> = {
     pet: '#ec4899',
 };
 
-export function PulseMap() {
+function ensureMapboxToken(token: string) {
+    if (!token) {
+        throw new Error(
+            'Missing VITE_MAPBOX_TOKEN. Set a public Mapbox token before loading the map.'
+        );
+    }
+
+    if (!token.startsWith('pk.')) {
+        throw new Error(
+            'Invalid Mapbox token. Browser apps must use a public token that starts with "pk.".'
+        );
+    }
+}
+
+async function verifyMapboxToken(token: string) {
+    ensureMapboxToken(token);
+
+    const response = await fetch(`${MAPBOX_STYLE_URL}?access_token=${encodeURIComponent(token)}`);
+    if (response.ok) {
+        return;
+    }
+
+    const responseBody = await response.text().catch(() => '');
+    const details = responseBody.includes('Not Authorized')
+        ? ' Token is not authorized for this style or domain.'
+        : '';
+
+    throw new Error(
+        `Invalid Mapbox token. Style request failed with ${response.status} ${response.statusText}.${details}`
+    );
+}
+
+export function PulseMap({ expanded = false }: { expanded?: boolean }) {
     const mapContainer = useRef<HTMLDivElement>(null);
-    const [mapError, setMapError] = useState(false);
+    const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
 
     useEffect(() => {
-        if (!MAPBOX_TOKEN || !mapContainer.current) {
-            setMapError(true);
+        if (!mapContainer.current) {
             return;
         }
 
-        let map: mapboxgl.Map | undefined;
+        let disposed = false;
+        let map: MapboxMap | undefined;
+        let resizeObserver: ResizeObserver | undefined;
+
         const initMap = async () => {
-            try {
-                const mapboxgl = await import('mapbox-gl');
-                await import('mapbox-gl/dist/mapbox-gl.css');
+            await verifyMapboxToken(MAPBOX_TOKEN);
 
-                (mapboxgl as any).accessToken = MAPBOX_TOKEN;
-                map = new mapboxgl.Map({
-                    container: mapContainer.current!,
-                    style: 'mapbox://styles/mapbox/light-v11',
-                    center: [-74.006, 40.7128],
-                    zoom: 14,
-                });
+            const [{ default: mapboxgl }] = await Promise.all([
+                import('mapbox-gl'),
+                import('mapbox-gl/dist/mapbox-gl.css'),
+            ]);
 
-                map.on('load', () => {
-                    setMapLoaded(true);
-                    MOCK_MARKERS.forEach((m) => {
-                        const el = document.createElement('div');
-                        el.style.width = '14px';
-                        el.style.height = '14px';
-                        el.style.borderRadius = '50%';
-                        el.style.backgroundColor = typeColors[m.type] || '#8b5cf6';
-                        el.style.border = '2px solid white';
-                        el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-                        el.title = m.label;
-
-                        new mapboxgl.Marker(el)
-                            .setLngLat([m.lng, m.lat])
-                            .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label))
-                            .addTo(map!);
-                    });
-                });
-
-                map.on('error', () => setMapError(true));
-            } catch {
-                setMapError(true);
+            if (disposed || !mapContainer.current) {
+                return;
             }
+
+            mapboxgl.accessToken = MAPBOX_TOKEN;
+            map = new mapboxgl.Map({
+                container: mapContainer.current,
+                style: `mapbox://styles/${MAPBOX_STYLE_ID}`,
+                center: [-74.006, 40.7128],
+                zoom: 14,
+            });
+
+            resizeObserver = new ResizeObserver(() => {
+                map?.resize();
+            });
+            resizeObserver.observe(mapContainer.current);
+
+            map.on('load', () => {
+                if (disposed) {
+                    return;
+                }
+
+                map?.resize();
+                setMapLoaded(true);
+                const activeMap = map;
+                if (!activeMap) {
+                    return;
+                }
+
+                MOCK_MARKERS.forEach((m) => {
+                    const el = document.createElement('div');
+                    el.style.width = '14px';
+                    el.style.height = '14px';
+                    el.style.borderRadius = '50%';
+                    el.style.backgroundColor = typeColors[m.type] || '#8b5cf6';
+                    el.style.border = '2px solid white';
+                    el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+                    el.title = m.label;
+
+                    new mapboxgl.Marker(el)
+                        .setLngLat([m.lng, m.lat])
+                        .setPopup(new mapboxgl.Popup({ offset: 12 }).setText(m.label))
+                        .addTo(activeMap);
+                });
+            });
+
+            map.on('error', (event: MapboxErrorEvent) => {
+                const message = event.error?.message || 'Mapbox failed to render the map.';
+                const status = (event.error as { status?: number } | undefined)?.status;
+
+                if (
+                    status === 401 ||
+                    status === 403 ||
+                    /token|authorized|authentication/i.test(message)
+                ) {
+                    const error = new Error(`Invalid Mapbox token. ${message}`);
+                    console.error(error);
+                    setMapError(error.message);
+                    return;
+                }
+
+                setMapError(message);
+            });
         };
 
-        initMap();
+        initMap().catch((error: unknown) => {
+            if (disposed) {
+                return;
+            }
+
+            const mapInitError =
+                error instanceof Error ? error : new Error('Mapbox failed to initialize.');
+            console.error(mapInitError);
+            setMapError(mapInitError.message);
+        });
+
         return () => {
+            disposed = true;
+            resizeObserver?.disconnect();
             if (map) map.remove();
         };
     }, []);
 
     if (mapError) {
-        return <MapOfflineFallback />;
+        return <MapOfflineFallback expanded={expanded} reason={mapError} />;
     }
 
     return (
-        <div class="mx-4 mt-3 rounded-2xl overflow-hidden glass">
+        <div
+            class={`mx-4 mt-3 rounded-2xl overflow-hidden glass flex flex-col ${
+                expanded ? 'flex-1 min-h-[50dvh]' : ''
+            }`}
+        >
             {!mapLoaded && (
-                <div class="h-52 flex items-center justify-center bg-surface-dim/30">
+                <div
+                    class={`flex items-center justify-center bg-surface-dim/30 ${
+                        expanded ? 'min-h-[50dvh] flex-1' : 'h-52'
+                    }`}
+                >
                     <div class="animate-pulse text-text-secondary text-sm">Loading map…</div>
                 </div>
             )}
             <div
                 ref={mapContainer}
-                class="h-52 w-full"
+                class={`w-full ${expanded ? 'flex-1 min-h-[50dvh]' : 'h-52'}`}
                 style={{ display: mapLoaded ? 'block' : 'none' }}
             />
         </div>
     );
 }
 
-function MapOfflineFallback() {
+function MapOfflineFallback({ expanded, reason }: { expanded?: boolean; reason: string }) {
     return (
-        <div class="mx-4 mt-3 rounded-2xl glass p-5 animate-fade-up">
+        <div
+            class={`mx-4 mt-3 rounded-2xl glass p-5 animate-fade-up ${
+                expanded ? 'flex-1 min-h-[50dvh]' : ''
+            }`}
+        >
             <div class="flex items-center gap-3 mb-4">
                 <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                     <MapPin size={20} class="text-primary" />
@@ -123,7 +219,7 @@ function MapOfflineFallback() {
                 ))}
             </div>
             <p class="text-[10px] text-text-secondary mt-3 flex items-center gap-1">
-                <AlertCircle size={10} /> Set VITE_MAPBOX_TOKEN to enable the interactive map
+                <AlertCircle size={10} /> {reason}
             </p>
         </div>
     );

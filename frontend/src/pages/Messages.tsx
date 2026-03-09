@@ -9,6 +9,13 @@ export function Messages() {
     const [loading, setLoading] = useState(true);
     const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
 
+    const handleThreadUpdate = (updatedThread: ChatThread) => {
+        setThreads((prev) =>
+            prev.map((thread) => (thread.id === updatedThread.id ? updatedThread : thread))
+        );
+        setActiveThread(updatedThread);
+    };
+
     useEffect(() => {
         fetchChats().then((data) => {
             setThreads(data);
@@ -17,7 +24,13 @@ export function Messages() {
     }, []);
 
     if (activeThread) {
-        return <ChatView thread={activeThread} onBack={() => setActiveThread(null)} />;
+        return (
+            <ChatView
+                thread={activeThread}
+                onBack={() => setActiveThread(null)}
+                onThreadUpdate={handleThreadUpdate}
+            />
+        );
     }
 
     return (
@@ -69,11 +82,23 @@ export function Messages() {
     );
 }
 
-function ChatView({ thread, onBack }: { thread: ChatThread; onBack: () => void }) {
-    const [messages, setMessages] = useState<ChatMessage[]>(thread.messages);
+function ChatView({
+    thread,
+    onBack,
+    onThreadUpdate,
+}: {
+    thread: ChatThread;
+    onBack: () => void;
+    onThreadUpdate: (thread: ChatThread) => void;
+}) {
+    const [messages, setMessages] = useState<ChatMessage[]>(() => [...thread.messages]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setMessages([...thread.messages]);
+    }, [thread.id, thread.messages]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -81,11 +106,24 @@ function ChatView({ thread, onBack }: { thread: ChatThread; onBack: () => void }
 
     const handleSend = async () => {
         if (!input.trim() || sending) return;
+        const content = input.trim();
         setSending(true);
-        const msg = await sendMessage(thread.id, input.trim());
-        setMessages((prev) => [...prev, msg]);
-        setInput('');
-        setSending(false);
+
+        try {
+            const msg = await sendMessage(thread.id, content);
+            setMessages((prev) => {
+                const nextMessages = [...prev, msg];
+                onThreadUpdate({
+                    ...thread,
+                    messages: nextMessages,
+                    lastMessage: msg,
+                });
+                return nextMessages;
+            });
+            setInput('');
+        } finally {
+            setSending(false);
+        }
     };
 
     const otherNames = thread.participantNames.filter((n) => n !== 'Alex Rivera');

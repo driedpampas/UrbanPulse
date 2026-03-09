@@ -8,7 +8,7 @@ import {
     PawPrint,
     Wrench,
 } from 'lucide-preact';
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { connectWebSocket, disconnectWebSocket, fetchPulses } from '../../lib/mockApi';
 import type { Pulse } from '../../lib/types';
 
@@ -50,6 +50,7 @@ export function LiveFeed(_props: Props) {
     const [pulses, setPulses] = useState<Pulse[]>([]);
     const [loading, setLoading] = useState(true);
     const [newPulseFlash, setNewPulseFlash] = useState<string | null>(null);
+    const clearFlashTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         fetchPulses().then((data) => {
@@ -61,12 +62,26 @@ export function LiveFeed(_props: Props) {
     const handleWS = useCallback((pulse: Pulse) => {
         setPulses((prev) => [pulse, ...prev]);
         setNewPulseFlash(pulse.id);
-        setTimeout(() => setNewPulseFlash(null), 2000);
+
+        if (clearFlashTimeoutRef.current !== null) {
+            window.clearTimeout(clearFlashTimeoutRef.current);
+        }
+
+        clearFlashTimeoutRef.current = window.setTimeout(() => {
+            setNewPulseFlash((current) => (current === pulse.id ? null : current));
+            clearFlashTimeoutRef.current = null;
+        }, 2000);
     }, []);
 
     useEffect(() => {
         connectWebSocket(handleWS);
-        return () => disconnectWebSocket(handleWS);
+        return () => {
+            disconnectWebSocket(handleWS);
+
+            if (clearFlashTimeoutRef.current !== null) {
+                window.clearTimeout(clearFlashTimeoutRef.current);
+            }
+        };
     }, [handleWS]);
 
     if (loading) {
@@ -99,46 +114,58 @@ export function LiveFeed(_props: Props) {
                 return (
                     <div
                         key={pulse.id}
-                        class={`glass rounded-2xl p-4 transition-all duration-500 animate-fade-up ${
-                            isNew ? 'ring-2 ring-primary/50 animate-pulse-glow' : ''
-                        } ${pulse.type === 'emergency' ? 'border-l-4 border-l-danger' : ''}`}
+                        class="relative animate-fade-up"
                         style={{ animationDelay: `${i * 60}ms` }}
                     >
-                        <div class="flex gap-3">
-                            <img
-                                src={pulse.userAvatar}
-                                alt=""
-                                class="w-10 h-10 rounded-full bg-surface-dim shrink-0"
+                        {isNew && (
+                            <div
+                                aria-hidden="true"
+                                class="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-primary/50 animate-pulse-glow"
                             />
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-semibold text-sm">{pulse.userName}</span>
-                                    <span
-                                        class={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}
-                                    >
-                                        <Icon size={10} class="inline -mt-0.5 mr-0.5" />
-                                        {cfg.label}
-                                    </span>
-                                    {isVerified && (
-                                        <span class="text-[10px] text-secondary flex items-center gap-0.5">
-                                            <CheckCircle size={10} /> Verified
-                                        </span>
-                                    )}
-                                </div>
-                                <p class="text-sm mt-1.5 text-text leading-relaxed">
-                                    {pulse.content}
-                                </p>
-                                <div class="flex items-center gap-3 mt-2 text-[11px] text-text-secondary">
-                                    <span class="flex items-center gap-1">
-                                        <Clock size={11} />
-                                        {timeAgo(pulse.timestamp)}
-                                    </span>
-                                    {pulse.confirmations > 0 && (
+                        )}
+                        <div
+                            class={`glass rounded-2xl p-4 transition-all duration-500 ${
+                                pulse.type === 'emergency' ? 'border-l-4 border-l-danger' : ''
+                            }`}
+                        >
+                            <div class="flex gap-3">
+                                <img
+                                    src={pulse.userAvatar}
+                                    alt=""
+                                    class="w-10 h-10 rounded-full bg-surface-dim shrink-0"
+                                />
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="font-semibold text-sm">{pulse.userName}</span>
                                         <span class="flex items-center gap-1">
-                                            <CheckCircle size={11} />
-                                            {pulse.confirmations} confirmed
+                                            <span
+                                                class={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}
+                                            >
+                                                <Icon size={10} class="inline -mt-0.5 mr-0.5" />
+                                                {cfg.label}
+                                            </span>
+                                            {isVerified && (
+                                                <span class="text-[10px] text-secondary flex items-center gap-0.5">
+                                                    <CheckCircle size={10} /> Verified
+                                                </span>
+                                            )}
                                         </span>
-                                    )}
+                                    </div>
+                                    <p class="text-sm mt-1.5 text-text leading-relaxed">
+                                        {pulse.content}
+                                    </p>
+                                    <div class="flex items-center gap-3 mt-2 text-[11px] text-text-secondary">
+                                        <span class="flex items-center gap-1">
+                                            <Clock size={11} />
+                                            {timeAgo(pulse.timestamp)}
+                                        </span>
+                                        {pulse.confirmations > 0 && (
+                                            <span class="flex items-center gap-1">
+                                                <CheckCircle size={11} />
+                                                {pulse.confirmations} confirmed
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

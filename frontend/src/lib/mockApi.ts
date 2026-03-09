@@ -460,7 +460,16 @@ export async function postLibraryItem(item: Omit<LibraryItem, 'id'>): Promise<Li
 
 export async function fetchChats(): Promise<ChatThread[]> {
     await delay(300);
-    return mockChats.map((c) => ({ ...c, lastMessage: c.messages[c.messages.length - 1] }));
+    return mockChats.map((chat) => {
+        const messages = chat.messages.map((message) => ({ ...message }));
+        const lastMessage = messages[messages.length - 1];
+
+        return {
+            ...chat,
+            messages,
+            lastMessage: lastMessage ? { ...lastMessage } : undefined,
+        };
+    });
 }
 
 export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
