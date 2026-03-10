@@ -1,6 +1,6 @@
 import { AlertCircle, MapPin } from 'lucide-preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ErrorEvent as MapboxErrorEvent, Map as MapboxMap } from 'mapbox-gl';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const MAPBOX_STYLE_ID = 'mapbox/light-v11';

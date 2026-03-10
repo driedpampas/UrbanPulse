@@ -1,11 +1,15 @@
 import { MapPin, Moon, Plus, Save, Trash2, X } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
+import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { TrustBadge } from '../components/Profile/TrustBadge';
+import { useAuth } from '../lib/auth';
 import { deleteAccount, fetchCurrentUser, updateProfile } from '../lib/mockApi';
 import type { User } from '../lib/types';
 
 export function Profile() {
+    const [, setLocation] = useLocation();
+    const { logout, updateLocalUser } = useAuth();
     const [user, setUser] = useState<User | null>(null);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState<Partial<User>>({});
@@ -24,10 +28,16 @@ export function Profile() {
         if (!draft) return;
         setSaving(true);
         const updated = await updateProfile(draft);
+        updateLocalUser({ displayName: updated.name });
         setUser(updated);
         setDraft(updated);
         setEditing(false);
         setSaving(false);
+    };
+
+    const handleSignOut = () => {
+        logout();
+        setLocation('/auth');
     };
 
     const addSkill = () => {
@@ -88,8 +98,8 @@ export function Profile() {
                     </div>
 
                     <div class="mt-4">
-                        <label class="text-xs font-medium text-text-secondary">
-                            Bio
+                        <div class="text-xs font-medium text-text-secondary">
+                            <p>Bio</p>
                             {editing ? (
                                 <textarea
                                     value={draft.bio || ''}
@@ -102,9 +112,9 @@ export function Profile() {
                                     class="w-full mt-1 rounded-xl border border-border p-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 />
                             ) : (
-                                <p class="text-sm mt-1">{user.bio}</p>
+                                <p class="mt-1 text-sm text-text">{user.bio}</p>
                             )}
-                        </label>
+                        </div>
                     </div>
                 </div>
 
@@ -254,6 +264,14 @@ export function Profile() {
 
                 <button
                     type="button"
+                    onClick={handleSignOut}
+                    class="w-full rounded-2xl border border-border bg-white/80 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-dim"
+                >
+                    Sign Out
+                </button>
+
+                <button
+                    type="button"
                     onClick={() => setShowDeleteConfirm(true)}
                     class="w-full text-xs text-danger/60 hover:text-danger py-2 transition-colors flex items-center justify-center gap-1"
                 >
@@ -276,6 +294,8 @@ export function Profile() {
                                     type="button"
                                     onClick={() => {
                                         deleteAccount();
+                                        logout();
+                                        setLocation('/auth');
                                         setShowDeleteConfirm(false);
                                     }}
                                     class="flex-1 bg-danger text-white py-2.5 rounded-xl font-semibold text-sm"

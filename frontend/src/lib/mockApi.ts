@@ -1,3 +1,4 @@
+import { readStoredAuthSession } from './auth';
 import type {
     AdminFlag,
     ChatMessage,
@@ -34,6 +35,20 @@ let currentUser: User = {
     quietHoursEnd: '07:00',
     distanceLimitKm: 2,
 };
+
+function syncCurrentUserWithSession() {
+    const session = readStoredAuthSession();
+
+    if (!session?.user) {
+        return;
+    }
+
+    currentUser = {
+        ...currentUser,
+        id: session.user.id,
+        name: session.user.displayName?.trim() || currentUser.name,
+    };
+}
 
 const mockUsers: User[] = [
     currentUser,
@@ -399,11 +414,13 @@ const mockFlags: AdminFlag[] = [
 
 export async function fetchCurrentUser(): Promise<User> {
     await delay(300);
+    syncCurrentUserWithSession();
     return { ...currentUser };
 }
 
 export async function updateProfile(updates: Partial<User>): Promise<User> {
     await delay(400);
+    syncCurrentUserWithSession();
     currentUser = { ...currentUser, ...updates };
     return { ...currentUser };
 }
@@ -423,7 +440,7 @@ export async function postPulse(
     await delay(300);
     const newPulse: Pulse = {
         ...pulse,
-        id: 'p' + Date.now(),
+        id: `p${Date.now()}`,
         timestamp: Date.now(),
         verified: false,
         confirmations: 0,
@@ -453,7 +470,7 @@ export async function fetchLibrary(): Promise<LibraryItem[]> {
 
 export async function postLibraryItem(item: Omit<LibraryItem, 'id'>): Promise<LibraryItem> {
     await delay(300);
-    const newItem: LibraryItem = { ...item, id: 'l' + Date.now() };
+    const newItem: LibraryItem = { ...item, id: `l${Date.now()}` };
     mockLibrary.push(newItem);
     return newItem;
 }
@@ -475,7 +492,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
 export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
     await delay(200);
     const msg: ChatMessage = {
-        id: 'm' + Date.now(),
+        id: `m${Date.now()}`,
         senderId: 'me',
         senderName: 'Alex Rivera',
         content,
@@ -509,11 +526,13 @@ export async function fetchUsers(): Promise<User[]> {
 
 export async function login(_email: string, _password: string): Promise<User> {
     await delay(500);
+    syncCurrentUserWithSession();
     return { ...currentUser };
 }
 
 export async function register(_name: string, _email: string, _password: string): Promise<User> {
     await delay(600);
+    syncCurrentUserWithSession();
     return { ...currentUser };
 }
 
@@ -575,7 +594,7 @@ export function connectWebSocket(handler: WSHandler) {
         let idx = 0;
         wsInterval = setInterval(() => {
             const event = WS_EVENTS[idx % WS_EVENTS.length];
-            const pulse: Pulse = { ...event, id: 'ws' + Date.now(), timestamp: Date.now() };
+            const pulse: Pulse = { ...event, id: `ws${Date.now()}`, timestamp: Date.now() };
             for (const h of wsHandlers) h(pulse);
             idx++;
         }, 12000);
