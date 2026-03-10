@@ -5,7 +5,6 @@ import {
     EyeOff,
     LoaderCircle,
     LogIn,
-    ShieldCheck,
     UserPlus,
 } from 'lucide-preact';
 import { useState } from 'preact/hooks';
@@ -26,7 +25,6 @@ type FormErrors = Partial<{
 export function Auth() {
     const [, setLocation] = useLocation();
     const { login, register, debugSignIn } = useAuth();
-    const isDevEnvironment = import.meta.env.DEV;
     const [mode, setMode] = useState<AuthMode>('login');
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
@@ -149,7 +147,7 @@ export function Auth() {
 
             <div class="relative mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl items-center justify-center">
                 <div class="grid w-full overflow-hidden rounded-[32px] border border-white/60 bg-white/65 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
-                    <section class="hidden bg-[linear-gradient(160deg,rgba(124,58,237,0.96),rgba(16,185,129,0.86))] px-8 py-10 text-white lg:flex lg:flex-col lg:justify-between">
+                    {/* <section class="hidden bg-[linear-gradient(160deg,rgba(124,58,237,0.96),rgba(16,185,129,0.86))] px-8 py-10 text-white lg:flex lg:flex-col lg:justify-between">
                         <div class="space-y-4 animate-fade-up">
                             <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white/90">
                                 UrbanPulse Access
@@ -183,11 +181,11 @@ export function Auth() {
                                 </p>
                             </div>
                         </div>
-                    </section>
+                    </section> */}
 
                     <section class="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
                         <div class="mx-auto w-full max-w-md animate-fade-up">
-                            <div class="mb-8 lg:hidden">
+                            {/* <div class="mb-8 lg:hidden">
                                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
                                     UrbanPulse Access
                                 </p>
@@ -198,8 +196,9 @@ export function Auth() {
                                     Use the live backend auth endpoints to enter the app or create a
                                     new account.
                                 </p>
-                            </div>
+                            </div> */}
 
+                            {/* Tab switcher
                             <div class="mb-6 flex rounded-2xl bg-surface-dim p-1">
                                 <button
                                     type="button"
@@ -226,7 +225,9 @@ export function Auth() {
                                     <UserPlus size={16} /> Register
                                 </button>
                             </div>
+                            */}
 
+                            {/* Info blurb
                             <div class="mb-6 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
                                 <p class="font-semibold text-text">
                                     {mode === 'login'
@@ -239,6 +240,7 @@ export function Auth() {
                                         : 'Registration requires display name, email, and a password with at least 8 characters.'}
                                 </p>
                             </div>
+                            */}
 
                             <form onSubmit={handleSubmit} class="space-y-4">
                                 {mode === 'register' && (
@@ -407,16 +409,14 @@ export function Auth() {
                                     )}
                                 </button>
 
-                                {isDevEnvironment && (
-                                    <button
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={handleDebugAccess}
-                                        class="flex w-full items-center justify-center gap-2 rounded-2xl border border-secondary/35 bg-secondary/10 px-4 py-3 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/15 disabled:opacity-60"
-                                    >
-                                        Skip auth (debug) and open dashboard
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={handleDebugAccess}
+                                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-secondary/35 bg-secondary/10 px-4 py-3 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/15 disabled:opacity-60"
+                                >
+                                    Skip auth (debug) and open dashboard
+                                </button>
                             </form>
 
                             <div class="mt-6 flex items-center justify-between rounded-2xl border border-border/70 bg-white/70 px-4 py-3 text-sm text-text-secondary">
