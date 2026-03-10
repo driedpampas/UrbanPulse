@@ -1,4 +1,4 @@
-import { sql } from "bun";
+import { sql } from 'bun';
 
 interface User {
     id: string;
@@ -12,11 +12,7 @@ interface User {
     quietDays?: number[] | null;
 }
 
-export async function insertUser(
-    email: string,
-    hashedPass: string,
-    displayname: string,
-) {
+export async function insertUser(email: string, hashedPass: string, displayname: string) {
     return await sql`
     INSERT INTO users (email, display_name, password_hash)
     VALUES (${email}, ${displayname}, ${hashedPass})
@@ -63,14 +59,12 @@ export async function updateUserProfile(user: User) {
     if (user.quietHours) {
         const { start, end } = user.quietHours;
         quietHours =
-            start < end
-                ? `{ "[${start},${end})" }`
-                : `{ "[${start},24:00)", "[00:00,${end})" }`;
+            start < end ? `{ "[${start},${end})" }` : `{ "[${start},24:00)", "[00:00,${end})" }`;
     }
 
     let quietDays = null;
     if (user.quietDays && user.quietDays.length > 0) {
-        quietDays = `{${user.quietDays.join(",")}}`;
+        quietDays = `{${user.quietDays.join(',')}}`;
     }
 
     try {
