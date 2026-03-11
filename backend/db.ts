@@ -10,6 +10,7 @@ interface User {
     location?: { lat: number; lng: number } | null;
     quietHours?: { start: string; end: string } | null;
     quietDays?: number[] | null;
+    bio?: string | null;
 }
 
 export async function insertUser(email: string, hashedPass: string, displayname: string) {
@@ -48,6 +49,7 @@ export async function updateUserPassword(id: string, newHashedPass: string) {
 
 export async function updateUserProfile(user: User) {
     const displayName = user.displayName ?? null;
+    const bio = user.bio ?? null;
     const radius = user.radius ?? null;
     const lat = user.location?.lat ?? null;
     const lng = user.location?.lng ?? null;
@@ -72,6 +74,7 @@ export async function updateUserProfile(user: User) {
       UPDATE app.users 
       SET 
         display_name = COALESCE(${displayName}, display_name),
+        bio = COALESCE(${bio}, bio),
         distance_limit_meters = COALESCE(${radius}, distance_limit_meters),
         
         location = CASE 
@@ -86,7 +89,6 @@ export async function updateUserProfile(user: User) {
         ELSE quiet_hours 
       END,
 
-      -- 🚨 The fixed Quiet Days logic
       quiet_days = CASE 
         WHEN ${shouldClearQuietDays} THEN '{}'::int[] 
         WHEN ${quietDays}::text IS NOT NULL THEN ${quietDays}::int[] 

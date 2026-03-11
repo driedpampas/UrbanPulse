@@ -85,8 +85,8 @@ const loginUserSchema = z.strictObject({
 });
 
 const updateUserSchema = z.strictObject({
-    email: z.email().optional(),
     displayName: z.string().nonempty().optional(),
+    bio: z.string().optional(),
     radius: z.number().min(0).optional(),
     location: z
         .object({
