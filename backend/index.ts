@@ -8,7 +8,7 @@ import type { JwtPayload } from 'jsonwebtoken';
 const PORT = 3000;
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'https://urbanpulse.syu.nl.eu.org',
     'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS, PATCH',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -245,6 +245,9 @@ bun.serve({
                         return SUCCESS;
                     })
                 ),
+        },
+        '/*': {
+            OPTIONS: OPTIONS_RESPONSE,
         },
     },
 });
