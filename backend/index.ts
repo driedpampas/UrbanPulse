@@ -19,6 +19,7 @@ const OPTIONS_RESPONSE = new Response(null, { status: 204 });
 const BAD_REQUEST = new Response(null, { status: 400 });
 const UNAUTHORIZED = new Response(null, { status: 401 });
 const FORBIDDEN = new Response(null, { status: 403 });
+const NOT_FOUND = new Response(null, { status: 404 });
 const SERVER_ERROR = new Response(null, { status: 500 });
 
 function withCors(response: Response): Response {
@@ -49,12 +50,13 @@ function caught(handler: () => Response | Promise<Response>): Response | Promise
 
 function authorize(
     request: Request,
-    handler: (payload: string | JwtPayload) => Response | Promise<Response>
+    handler: (payload: string | JwtPayload) => Response | Promise<Response>,
+    fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
 ): Response | Promise<Response> {
     const session = auth.verifyToken(request);
 
     if (session === null) {
-        return withCors(UNAUTHORIZED);
+        return fallback();
     }
 
     return handler(session);
@@ -204,22 +206,7 @@ bun.serve({
                     );
                 }),
         },
-        '/api/user': {
-            PATCH: async (req) =>
-                authorize(req, async (session) =>
-                    caught(async () => {
-                        const payload: JwtPayload = session as JwtPayload;
-                        const body: UpdateUserBody = await req
-                            .json()
-                            .then((raw) => updateUserSchema.parse(raw));
-
-                        await db.updateUserProfile({ id: payload.id, ...body });
-
-                        return SUCCESS;
-                    })
-                ),
-        },
-        '/api/user/password': {
+        '/api/auth/password': {
             PATCH: async (req) =>
                 authorize(req, async (session) =>
                     caught(async () => {
@@ -246,8 +233,36 @@ bun.serve({
                     })
                 ),
         },
+        '/api/user': {
+            PATCH: async (req) =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const body: UpdateUserBody = await req
+                            .json()
+                            .then((raw) => updateUserSchema.parse(raw));
+
+                        await db.updateUserProfile({ id: payload.id, ...body });
+
+                        return SUCCESS;
+                    })
+                ),
+        },
+        '/api/users/:id': {
+            GET: async (req) => {
+                const id = req.params.id;
+
+                const user = await db.selectFullUser(id);
+
+                if (!user) {
+                    return withCors(NOT_FOUND);
+                }
+
+                return withCors(Response.json(user, { status: 200 }));
+            },
+        },
         '/*': {
-            OPTIONS: OPTIONS_RESPONSE,
+            OPTIONS: withCors(OPTIONS_RESPONSE),
         },
     },
 });

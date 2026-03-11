@@ -33,6 +33,46 @@ export async function selectPasswordHash(id: string) {
     `;
 }
 
+export async function selectFullUser(id: string): Promise<User | null> {
+    const [rawUser] = await sql`
+    SELECT id, role, display_name, distance_limit_meters, (ST_AsGeoJSON(location)::json->'coordinates') AS location, quiet_hours, quiet_days, bio FROM users WHERE id = ${id}
+    `;
+    if (!rawUser) return null;
+
+    const qh = rawUser.quiet_hours
+        .replace('[', '(')
+        .replace(']', ')')
+        .replace('{', '[')
+        .replace('}', ']');
+
+    const strs = JSON.parse(qh);
+
+    let quietHours = null;
+
+    if (strs.length == 1) {
+        const sl = strs[0].split(',');
+        quietHours = { start: sl[0].substring(0, 8), end: sl[1].substring(0, 8) };
+    } else if (strs.length == 2) {
+        const s1 = strs[0].split(',');
+        const s2 = strs[1].split(',');
+
+        quietHours = { start: s1[0].substring(1, 9), end: s2[1].substring(0, 8) };
+    }
+
+    var user: User = {
+        id: rawUser.id,
+        role: rawUser.role,
+        displayName: rawUser.display_name,
+        radius: rawUser.distance_limit_meters,
+        location: { lat: rawUser.location[0], lng: rawUser.location[1] },
+        quietHours: quietHours,
+        quietDays: rawUser.quiet_days,
+        bio: rawUser.bio,
+    };
+
+    return user;
+}
+
 export async function selectUserAuth(email: string) {
     return await sql`
     SELECT id, password_hash, role FROM users WHERE email = ${email}
