@@ -155,7 +155,7 @@ bun.serve({
             GET: withCors(Response.json(swaggerDoc)),
         },
         '/api/docs': {
-            GET: (r) => {
+            GET: () => {
                 const html = `
              <!DOCTYPE html>
              <html lang="en">
@@ -270,16 +270,9 @@ bun.serve({
                             .json()
                             .then((raw) => updateUserSchema.parse(raw));
 
-                        // Normalize quietHours to single Timerange for storage
-                        let normalizedQuietHours = body.quietHours as any;
-                        if (Array.isArray(body.quietHours) && body.quietHours.length > 0) {
-                            normalizedQuietHours = body.quietHours[0];
-                        }
-
                         await db.updateUserProfile({
                             id: payload.id,
                             ...body,
-                            quietHours: normalizedQuietHours,
                         });
 
                         return SUCCESS;
@@ -301,19 +294,27 @@ bun.serve({
             GET: async (req) => {
                 return caught(async () => {
                     const url = new URL(req.url);
+                    const verifiedParam = url.searchParams.get('verified');
+                    const radiusParam = url.searchParams.get('radius');
+                    const latParam = url.searchParams.get('lat');
+                    const lngParam = url.searchParams.get('lng');
 
                     const query: SearchUsersQuery = searchUsersSchema.parse({
                         displayName: url.searchParams.get('displayName'),
                         role: url.searchParams.get('role'),
-                        verified: url.searchParams.get('verified'),
-                        radius: url.searchParams.get('radius'),
+                        verified:
+                            verifiedParam === null
+                                ? undefined
+                                : verifiedParam.toLowerCase() === 'true',
+                        radius: radiusParam === null ? undefined : Number(radiusParam),
                         location: {
-                            lat: url.searchParams.get('lat'),
-                            lng: url.searchParams.get('lng'),
+                            lat: latParam === null ? undefined : Number(latParam),
+                            lng: lngParam === null ? undefined : Number(lngParam),
                         },
                         availableDays: url.searchParams
                             .getAll('availableDays')
-                            .map((d) => parseInt(d, 10)),
+                            .map((d) => parseInt(d, 10))
+                            .filter((d) => !Number.isNaN(d)),
                         availableHours: url.searchParams.getAll('availableHours').map((range) => {
                             const ranges = range.split(',');
                             const hours = [];
@@ -327,12 +328,20 @@ bun.serve({
                         bio: url.searchParams.get('bio'),
                     });
 
+                    const location =
+                        query.location?.lat != null && query.location?.lng != null
+                            ? {
+                                  lat: query.location.lat,
+                                  lng: query.location.lng,
+                              }
+                            : null;
+
                     const searchParams = {
                         displayName: query.displayName ?? null,
                         role: query.role ?? null,
                         verified: query.verified ?? null,
                         radius: query.radius ?? null,
-                        location: query.location ?? null,
+                        location,
                         availableHours: query.availableHours ?? null,
                         availableDays: query.availableDays ?? null,
                         bio: query.bio ?? null,
