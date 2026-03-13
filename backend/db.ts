@@ -1,5 +1,18 @@
 import { sql } from 'bun';
 
+const SEARCH_LIMIT = 50;
+
+interface Location {
+    lat: number | null;
+    lng: number | null;
+}
+
+interface Timerange {
+    start: string;
+    end: string;
+}
+
+
 interface User {
     id: string;
     email?: string | null;
@@ -7,10 +20,22 @@ interface User {
     passwordHash?: string | null;
     displayName?: string | null;
     radius?: number | null;
-    location?: { lat: number; lng: number } | null;
-    quietHours?: { start: string; end: string } | null;
+    location?: Location | null;
+    quietHours?: Timerange[] | null;
     quietDays?: number[] | null;
     bio?: string | null;
+    verified?: boolean;
+}
+
+interface UserSearchParams {
+    displayName: string | null;
+    role: string | null;
+    radius: number | null;
+    location: Location | null;
+    availableHours: Timerange[] | null;
+    availableDays: number[] | null;
+    bio: string | null;
+    verified: boolean | null;
 }
 
 export async function insertUser(email: string, hashedPass: string, displayname: string) {
@@ -35,42 +60,80 @@ export async function selectPasswordHash(id: string) {
 
 export async function selectFullUser(id: string): Promise<User | null> {
     const [rawUser] = await sql`
-    SELECT id, role, display_name, distance_limit_meters, (ST_AsGeoJSON(location)::json->'coordinates') AS location, quiet_hours, quiet_days, bio FROM users WHERE id = ${id}
+    SELECT 
+      id,
+      email,
+      role,
+      display_name,
+      distance_limit_meters,
+      (ST_AsGeoJSON(location)::json->'coordinates') AS location, 
+      SELECT jsonb_agg(sonb_build_object('start', lower(rng)::text, 'end', upper(rng)::text)) FROM unnest(quiet_hours) AS rng, 
+      quiet_days, 
+      bio 
+    FROM users 
+    WHERE 
+        id = ${id}
     `;
-    if (!rawUser) return null;
 
-    const qh = rawUser.quiet_hours
-        .replace('[', '(')
-        .replace(']', ')')
-        .replace('{', '[')
-        .replace('}', ']');
-
-    const strs = JSON.parse(qh);
-
-    let quietHours = null;
-
-    if (strs.length == 1) {
-        const sl = strs[0].split(',');
-        quietHours = { start: sl[0].substring(0, 8), end: sl[1].substring(0, 8) };
-    } else if (strs.length == 2) {
-        const s1 = strs[0].split(',');
-        const s2 = strs[1].split(',');
-
-        quietHours = { start: s1[0].substring(1, 9), end: s2[1].substring(0, 8) };
-    }
-
-    var user: User = {
+    return {
         id: rawUser.id,
+        email: rawUser.email,
         role: rawUser.role,
         displayName: rawUser.display_name,
         radius: rawUser.distance_limit_meters,
-        location: { lat: rawUser.location[0], lng: rawUser.location[1] },
-        quietHours: quietHours,
+        location: rawUser.coordinates,
+        quietHours: rawUser.quiet_hours,
         quietDays: rawUser.quiet_days,
         bio: rawUser.bio,
-    };
+    } as User;
+}
 
-    return user;
+export async function searchUsers(userSearch: UserSearchParams): Promise<User[]> {
+    const results = await sql`
+    SELECT 
+      id,
+      role,
+      display_name,
+      distance_limit_meters,
+      (ST_AsGeoJSON(location)::json->'coordinates') AS location, 
+      SELECT jsonb_agg(
+                jsonb_build_object(
+                    'start', lower(rng)::text,
+                    'end', upper(rng)::text
+                )
+            )
+            FROM unnest(quiet_hours) AS rng,
+      AS quiet_hours, 
+      quiet_days, 
+      bio 
+    FROM users 
+    WHERE 
+      (${userSearch.displayName}::text IS NULL OR display_name ILIKE ${'%' + userSearch.displayName + '%'})
+      AND (${userSearch.role}::text IS NULL OR role = ${userSearch.role})
+      AND (${userSearch.verified}::boolean IS NULL OR is_verified_neighbor = ${userSearch.verified})
+      AND (${userSearch.location} IS NULL OR ST_DWithin(
+        location,
+        ST_SetSRID(ST_MakePoint(${userSearch.location?.lng ?? null}, ${userSearch.location?.lat ?? null}), 4326)::geography,
+        ${userSearch.radius}
+      ))
+      AND (${userSearch.availableDays} IS NULL OR NOT quiet_days && ${userSearch.availableDays}::int[])
+      AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${'%' + userSearch.bio + '%'})
+    LIMIT ${SEARCH_LIMIT}
+    `;
+
+    return results.map((rawUser: any) => {
+
+        return {
+            id: rawUser.id,
+            role: rawUser.role,
+            displayName: rawUser.display_name,
+            radius: rawUser.distance_limit_meters,
+            location: rawUser.coordinates,
+            quietHours: rawUser.quiet_hours,
+            quietDays: rawUser.quiet_days,
+            bio: rawUser.bio,
+        } as User;
+    });
 }
 
 export async function selectUserAuth(email: string) {
@@ -93,21 +156,12 @@ export async function updateUserProfile(user: User) {
     const radius = user.radius ?? null;
     const lat = user.location?.lat ?? null;
     const lng = user.location?.lng ?? null;
+    const quietHours = user.quietHours ? JSON.stringify(user.quietHours) : null;
+    const quietDays = user.quietDays ?? null;
 
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
 
-    let quietHours = null;
-    if (user.quietHours) {
-        const { start, end } = user.quietHours;
-        quietHours =
-            start < end ? `{ "[${start},${end})" }` : `{ "[${start},24:00)", "[00:00,${end})" }`;
-    }
-
-    let quietDays = null;
-    if (user.quietDays && user.quietDays.length > 0) {
-        quietDays = `{${user.quietDays.join(',')}}`;
-    }
 
     try {
         await sql`
@@ -124,14 +178,14 @@ export async function updateUserProfile(user: User) {
         END,
 
       quiet_hours = CASE 
-        WHEN ${shouldClearQuietHours} THEN '{}'::app.timerange[] 
-        WHEN ${quietHours}::text IS NOT NULL THEN ${quietHours}::app.timerange[]
+        WHEN ${shouldClearQuietHours} THEN '{}'::timemultirange 
+        WHEN ${quietHours}::jsondb IS NOT NULL THEN jsondb_to_timemultirange(${quietHours}::jsonb)
         ELSE quiet_hours 
       END,
 
       quiet_days = CASE 
-        WHEN ${shouldClearQuietDays} THEN '{}'::int[] 
-        WHEN ${quietDays}::text IS NOT NULL THEN ${quietDays}::int[] 
+        WHEN ${shouldClearQuietDays} THEN '{}'::integer[] 
+        WHEN ${quietDays}::text IS NOT NULL THEN ${quietDays}::integer[] 
         ELSE quiet_days 
       END
 

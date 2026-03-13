@@ -4,6 +4,7 @@ import * as auth from './auth';
 import { z } from 'zod';
 import swaggerDoc from './swagger.json';
 import type { JwtPayload } from 'jsonwebtoken';
+import { validate as isValidUUID } from 'uuid';
 
 const PORT = 3000;
 
@@ -89,6 +90,9 @@ const loginUserSchema = z.strictObject({
 const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
     bio: z.string().optional(),
+    skillsResources: z.strictObject({
+
+    }).optional(),
     radius: z.number().min(0).optional(),
     location: z
         .object({
@@ -96,11 +100,10 @@ const updateUserSchema = z.strictObject({
             lng: z.number(),
         })
         .optional(),
-    quietHours: z
-        .object({
-            start: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM'),
-            end: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM'),
-        })
+    quietHours: z.array(z.object({
+        start: z.string().regex(/^\d{2}:\d{2}$/),
+        end: z.string().regex(/^\d{2}:\d{2}$/),
+    }))
         .nullish(),
     quietDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
 });
@@ -112,10 +115,28 @@ const updatePassSchema = z
     })
     .strict();
 
+const searchUsersSchema = z.strictObject({
+    displayName: z.string().nullish(),
+    role: z.string().nullish(),
+    verified: z.boolean().nullish(),
+    radius: z.number().min(1).nullish(),
+    location: z.object({
+        lat: z.number().nullish(),
+        lng: z.number().nullish(),
+    }).nullish(),
+    availableDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
+    availableHours: z.array(z.object({
+        start: z.string().regex(/^\d{2}:\d{2}$/),
+        end: z.string().regex(/^\d{2}:\d{2}$/),
+    })).nullish(),
+    bio: z.string().nullish(),
+});
+
 type RegisterUserBody = z.infer<typeof registerUserSchema>;
 type LoginUserBody = z.infer<typeof loginUserSchema>;
 type UpdateUserBody = z.infer<typeof updateUserSchema>;
 type UpdatePassBody = z.infer<typeof updatePassSchema>;
+type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
 
 bun.serve({
     port: PORT,
@@ -126,7 +147,7 @@ bun.serve({
         '/api/docs/swagger.json': {
             GET: withCors(Response.json(swaggerDoc)),
         },
-        '/api/docs/': {
+        '/api/docs': {
             GET: (r) => {
                 const html = `
              <!DOCTYPE html>
@@ -242,15 +263,85 @@ bun.serve({
                             .json()
                             .then((raw) => updateUserSchema.parse(raw));
 
-                        await db.updateUserProfile({ id: payload.id, ...body });
+                        // Normalize quietHours to single Timerange for storage
+                        let normalizedQuietHours = body.quietHours as any;
+                        if (Array.isArray(body.quietHours) && body.quietHours.length > 0) {
+                            normalizedQuietHours = body.quietHours[0];
+                        }
+
+                        await db.updateUserProfile({
+                            id: payload.id,
+                            ...body,
+                            quietHours: normalizedQuietHours,
+                        });
 
                         return SUCCESS;
                     })
                 ),
+            GET: async (req) =>
+                authorize(req, async (session) => {
+                    return caught(async () => {
+                        const payload = session as JwtPayload;
+                        const user = await db.selectFullUser(payload.id);
+                        if (!user) {
+                            return withCors(NOT_FOUND);
+                        }
+                        return withCors(Response.json(user, { status: 200 }));
+                    });
+                }),
+        },
+        '/api/users': {
+            GET: async (req) => {
+                return caught(async () => {
+                    const url = new URL(req.url);
+
+                    const query: SearchUsersQuery = searchUsersSchema.parse({
+                        displayName: url.searchParams.get('displayName'),
+                        role: url.searchParams.get('role'),
+                        verified: url.searchParams.get('verified'),
+                        radius: url.searchParams.get('radius'),
+                        location: {
+                            lat: url.searchParams.get('lat'),
+                            lng: url.searchParams.get('lng')
+                        },
+                        availableDays: url.searchParams.getAll('availableDays').map((d) => parseInt(d)),
+                        availableHours: url.searchParams.getAll('availableHours').map((range) => {
+                            const ranges = range.split(',');
+                            let hours = [];
+                            for (const r of ranges) {
+                                const [start, end] = r.split('-');
+
+                                hours.push({ start, end });
+                            }
+                            return hours;
+                        }),
+                        bio: url.searchParams.get('bio'),
+                    });
+
+                    const searchParams = {
+                        displayName: query.displayName ?? null,
+                        role: query.role ?? null,
+                        verified: query.verified ?? null,
+                        radius: query.radius ?? null,
+                        location: query.location ?? null,
+                        availableHours: query.availableHours ?? null,
+                        availableDays: query.availableDays ?? null,
+                        bio: query.bio ?? null,
+                    };
+
+                    const users = await db.searchUsers(searchParams);
+
+                    return withCors(Response.json(users, { status: 200 }));
+                });
+            },
         },
         '/api/users/:id': {
             GET: async (req) => {
                 const id = req.params.id;
+
+                if (!isValidUUID(id)) {
+                    return BAD_REQUEST;
+                }
 
                 const user = await db.selectFullUser(id);
 
