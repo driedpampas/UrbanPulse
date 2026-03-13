@@ -12,7 +12,6 @@ interface Timerange {
     end: string;
 }
 
-
 interface User {
     id: string;
     email?: string | null;
@@ -122,7 +121,6 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
     `;
 
     return results.map((rawUser: any) => {
-
         return {
             id: rawUser.id,
             role: rawUser.role,
@@ -162,9 +160,7 @@ export async function updateUserProfile(user: User) {
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
 
-
-    try {
-        await sql`
+    await sql`
       UPDATE app.users 
       SET 
         display_name = COALESCE(${displayName}, display_name),
@@ -191,7 +187,4 @@ export async function updateUserProfile(user: User) {
 
       WHERE id = ${user.id}
     `;
-    } catch (err) {
-        throw err;
-    }
 }

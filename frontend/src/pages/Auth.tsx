@@ -1,12 +1,4 @@
-import {
-    AlertCircle,
-    ArrowRight,
-    Eye,
-    EyeOff,
-    LoaderCircle,
-    LogIn,
-    UserPlus,
-} from 'lucide-preact';
+import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle, LogIn, UserPlus } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AuthApiError, useAuth } from '../lib/auth';

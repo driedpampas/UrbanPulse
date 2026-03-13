@@ -1,15 +1,19 @@
 import * as bun from 'bun';
-import * as db from './db';
 import * as jwt from 'jsonwebtoken';
+import * as db from './db';
 
-var JWT_SECRET: string;
+function getJwtSecret(): string {
+    const jwtSecret = bun.env.JWT_SECRET;
 
-if (bun.env.JWT_SECRET === undefined) {
-    console.error('JWT_SECRET environment variable MUST be defined.');
-    process.exit(1);
-} else {
-    JWT_SECRET = bun.env.JWT_SECRET;
+    if (jwtSecret === undefined) {
+        console.error('JWT_SECRET environment variable MUST be defined.');
+        process.exit(1);
+    }
+
+    return jwtSecret;
 }
+
+const JWT_SECRET = getJwtSecret();
 
 export type AuthResult =
     | { success: true; token: string; user: { id: string; role: string } }

@@ -1,10 +1,10 @@
 import * as bun from 'bun';
-import * as db from './db';
-import * as auth from './auth';
-import { z } from 'zod';
-import swaggerDoc from './swagger.json';
 import type { JwtPayload } from 'jsonwebtoken';
 import { validate as isValidUUID } from 'uuid';
+import { z } from 'zod';
+import * as auth from './auth';
+import * as db from './db';
+import swaggerDoc from './swagger.json';
 
 const PORT = 3000;
 
@@ -90,9 +90,7 @@ const loginUserSchema = z.strictObject({
 const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
     bio: z.string().optional(),
-    skillsResources: z.strictObject({
-
-    }).optional(),
+    skillsResources: z.strictObject({}).optional(),
     radius: z.number().min(0).optional(),
     location: z
         .object({
@@ -100,10 +98,13 @@ const updateUserSchema = z.strictObject({
             lng: z.number(),
         })
         .optional(),
-    quietHours: z.array(z.object({
-        start: z.string().regex(/^\d{2}:\d{2}$/),
-        end: z.string().regex(/^\d{2}:\d{2}$/),
-    }))
+    quietHours: z
+        .array(
+            z.object({
+                start: z.string().regex(/^\d{2}:\d{2}$/),
+                end: z.string().regex(/^\d{2}:\d{2}$/),
+            })
+        )
         .nullish(),
     quietDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
 });
@@ -120,15 +121,21 @@ const searchUsersSchema = z.strictObject({
     role: z.string().nullish(),
     verified: z.boolean().nullish(),
     radius: z.number().min(1).nullish(),
-    location: z.object({
-        lat: z.number().nullish(),
-        lng: z.number().nullish(),
-    }).nullish(),
+    location: z
+        .object({
+            lat: z.number().nullish(),
+            lng: z.number().nullish(),
+        })
+        .nullish(),
     availableDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
-    availableHours: z.array(z.object({
-        start: z.string().regex(/^\d{2}:\d{2}$/),
-        end: z.string().regex(/^\d{2}:\d{2}$/),
-    })).nullish(),
+    availableHours: z
+        .array(
+            z.object({
+                start: z.string().regex(/^\d{2}:\d{2}$/),
+                end: z.string().regex(/^\d{2}:\d{2}$/),
+            })
+        )
+        .nullish(),
     bio: z.string().nullish(),
 });
 
@@ -302,12 +309,14 @@ bun.serve({
                         radius: url.searchParams.get('radius'),
                         location: {
                             lat: url.searchParams.get('lat'),
-                            lng: url.searchParams.get('lng')
+                            lng: url.searchParams.get('lng'),
                         },
-                        availableDays: url.searchParams.getAll('availableDays').map((d) => parseInt(d)),
+                        availableDays: url.searchParams
+                            .getAll('availableDays')
+                            .map((d) => parseInt(d, 10)),
                         availableHours: url.searchParams.getAll('availableHours').map((range) => {
                             const ranges = range.split(',');
-                            let hours = [];
+                            const hours = [];
                             for (const r of ranges) {
                                 const [start, end] = r.split('-');
 
