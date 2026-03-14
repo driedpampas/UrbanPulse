@@ -1,10 +1,11 @@
 import * as bun from 'bun';
+import * as db from './db';
+import * as auth from './auth';
+import { z } from 'zod';
+import swaggerDoc from './swagger.json';
 import type { JwtPayload } from 'jsonwebtoken';
 import { validate as isValidUUID } from 'uuid';
-import { z } from 'zod';
-import * as auth from './auth';
-import * as db from './db';
-import swaggerDoc from './swagger.json';
+import type { Timerange } from './db';
 
 const PORT = 3000;
 
@@ -37,9 +38,9 @@ function withCors(response: Response): Response {
     return res;
 }
 
-function caught(handler: () => Response | Promise<Response>): Response | Promise<Response> {
+async function caught(handler: () => Promise<Response>): Promise<Response> {
     try {
-        return handler();
+        return await handler();
     } catch (err) {
         if (err instanceof z.ZodError) {
             return BAD_REQUEST;
@@ -49,31 +50,31 @@ function caught(handler: () => Response | Promise<Response>): Response | Promise
     }
 }
 
-function authorize(
+async function authorize(
     request: Request,
     handler: (payload: string | JwtPayload) => Response | Promise<Response>,
     fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
-): Response | Promise<Response> {
+): Promise<Response> {
     const session = auth.verifyToken(request);
 
     if (session === null) {
-        return fallback();
+        return await fallback();
     }
 
-    return handler(session);
+    return await handler(session);
 }
 
-function unauthorize(
+async function unauthorize(
     request: Request,
     handler: () => Response | Promise<Response>
-): Response | Promise<Response> {
+): Promise<Response> {
     const session = auth.verifyToken(request);
 
     if (session !== null) {
-        return withCors(FORBIDDEN);
+        return await withCors(FORBIDDEN);
     }
 
-    return handler();
+    return await handler();
 }
 
 const registerUserSchema = z.strictObject({
@@ -90,21 +91,17 @@ const loginUserSchema = z.strictObject({
 const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
     bio: z.string().optional(),
-    skillsResources: z.strictObject({}).optional(),
     radius: z.number().min(0).optional(),
     location: z
         .object({
-            lat: z.number(),
-            lng: z.number(),
+            lat: z.number().optional(),
+            lng: z.number().optional(),
         })
         .optional(),
-    quietHours: z
-        .array(
-            z.object({
-                start: z.string().regex(/^\d{2}:\d{2}$/),
-                end: z.string().regex(/^\d{2}:\d{2}$/),
-            })
-        )
+    quietHours: z.array(z.object({
+        start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+        end: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    }))
         .nullish(),
     quietDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
 });
@@ -117,25 +114,22 @@ const updatePassSchema = z
     .strict();
 
 const searchUsersSchema = z.strictObject({
+    id: z.uuid().nullish(),
+    email: z.email().nullish(),
     displayName: z.string().nullish(),
+    min_trust: z.coerce.number().nullish(),
+    max_trust: z.coerce.number().nullish(),
+    created_before: z.coerce.date().nullish(),
+    created_after: z.coerce.date().nullish(),
     role: z.string().nullish(),
-    verified: z.boolean().nullish(),
-    radius: z.number().min(1).nullish(),
-    location: z
-        .object({
-            lat: z.number().nullish(),
-            lng: z.number().nullish(),
-        })
-        .nullish(),
-    availableDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
-    availableHours: z
-        .array(
-            z.object({
-                start: z.string().regex(/^\d{2}:\d{2}$/),
-                end: z.string().regex(/^\d{2}:\d{2}$/),
-            })
-        )
-        .nullish(),
+    verified: z.enum(['true', 'false']).nullish(),
+    radius: z.coerce.number().nullish(),
+    location: z.object({
+        lat: z.coerce.number().nullish(),
+        lng: z.coerce.number().nullish(),
+    }).nullish(),
+    availableDays: z.array(z.coerce.number().min(0).max(6)).max(7).nullish(),
+    availableHours: z.array(z.string().regex(/^\d{2}:\d{2}-\d{2}:\d{2}(,\d{2}:\d{2}-\d{2}:\d{2})*$/)).nullish(),
     bio: z.string().nullish(),
 });
 
@@ -155,7 +149,7 @@ bun.serve({
             GET: withCors(Response.json(swaggerDoc)),
         },
         '/api/docs': {
-            GET: () => {
+            GET: (r) => {
                 const html = `
              <!DOCTYPE html>
              <html lang="en">
@@ -243,11 +237,14 @@ bun.serve({
                             .json()
                             .then((raw) => updatePassSchema.parse(raw));
 
-                        const [{ password_hash }] = await db.selectPasswordHash(payload.id);
+                        const [passwordRow] = await db.selectPasswordHash(payload.id);
+                        if (!passwordRow?.password_hash) {
+                            return UNAUTHORIZED;
+                        }
 
                         const isCorrect = await bun.password.verify(
                             body.oldPassword,
-                            password_hash
+                            passwordRow.password_hash
                         );
 
                         if (!isCorrect) {
@@ -270,9 +267,15 @@ bun.serve({
                             .json()
                             .then((raw) => updateUserSchema.parse(raw));
 
+
                         await db.updateUserProfile({
                             id: payload.id,
-                            ...body,
+                            displayName: body.displayName,
+                            bio: body.bio,
+                            radius: body.radius,
+                            location: body.location,
+                            quietHours: body.quietHours as Timerange[] | null,
+                            quietDays: body.quietDays as number[] | null,
                         });
 
                         return SUCCESS;
@@ -282,7 +285,7 @@ bun.serve({
                 authorize(req, async (session) => {
                     return caught(async () => {
                         const payload = session as JwtPayload;
-                        const user = await db.selectFullUser(payload.id);
+                        const [user] = await db.searchUsers({ id: payload.id, email: null, min_trust: null, max_trust: null, created_before: null, created_after: null, displayName: null, role: null, verified: null, radius: null, location: null, availableHours: null, availableDays: null, bio: null });
                         if (!user) {
                             return withCors(NOT_FOUND);
                         }
@@ -294,56 +297,54 @@ bun.serve({
             GET: async (req) => {
                 return caught(async () => {
                     const url = new URL(req.url);
-                    const verifiedParam = url.searchParams.get('verified');
-                    const radiusParam = url.searchParams.get('radius');
-                    const latParam = url.searchParams.get('lat');
-                    const lngParam = url.searchParams.get('lng');
 
                     const query: SearchUsersQuery = searchUsersSchema.parse({
+                        id: url.searchParams.get('id'),
+                        email: url.searchParams.get('email'),
+                        min_trust: url.searchParams.get('min_trust'),
+                        max_trust: url.searchParams.get('max_trust'),
+                        created_before: url.searchParams.get('created_before'),
+                        created_after: url.searchParams.get('created_after'),
                         displayName: url.searchParams.get('displayName'),
                         role: url.searchParams.get('role'),
-                        verified:
-                            verifiedParam === null
-                                ? undefined
-                                : verifiedParam.toLowerCase() === 'true',
-                        radius: radiusParam === null ? undefined : Number(radiusParam),
-                        location: {
-                            lat: latParam === null ? undefined : Number(latParam),
-                            lng: lngParam === null ? undefined : Number(lngParam),
-                        },
-                        availableDays: url.searchParams
-                            .getAll('availableDays')
-                            .map((d) => parseInt(d, 10))
-                            .filter((d) => !Number.isNaN(d)),
-                        availableHours: url.searchParams.getAll('availableHours').map((range) => {
-                            const ranges = range.split(',');
-                            const hours = [];
-                            for (const r of ranges) {
-                                const [start, end] = r.split('-');
-
-                                hours.push({ start, end });
+                        verified: url.searchParams.get('verified'),
+                        radius: url.searchParams.get('radius'),
+                        location: url.searchParams.get('lat') || url.searchParams.get('lng')
+                            ? {
+                                lat: url.searchParams.get('lat'),
+                                lng: url.searchParams.get('lng')
                             }
-                            return hours;
-                        }),
+                            : null,
+                        availableDays: url.searchParams.getAll('available_days'),
+                        availableHours: url.searchParams.getAll('available_hours'),
                         bio: url.searchParams.get('bio'),
                     });
 
-                    const location =
-                        query.location?.lat != null && query.location?.lng != null
-                            ? {
-                                  lat: query.location.lat,
-                                  lng: query.location.lng,
-                              }
-                            : null;
-
                     const searchParams = {
+                        id: query.id ?? null,
+                        email: query.email ?? null,
+                        min_trust: query.min_trust ?? null,
+                        max_trust: query.max_trust ?? null,
+                        created_before: query.created_before ?? null,
+                        created_after: query.created_after ?? null,
                         displayName: query.displayName ?? null,
                         role: query.role ?? null,
-                        verified: query.verified ?? null,
+                        verified: query.verified !== undefined ? query.verified : null,
                         radius: query.radius ?? null,
-                        location,
-                        availableHours: query.availableHours ?? null,
-                        availableDays: query.availableDays ?? null,
+                        location: query.location
+                            ? {
+                                lat: query.location.lat ?? null,
+                                lng: query.location.lng ?? null,
+                            }
+                            : null,
+                        availableHours:
+                            query.availableHours && query.availableHours.length > 0
+                                ? query.availableHours.flatMap((csv) => csv.split(','))
+                                : null,
+                        availableDays:
+                            query.availableDays && query.availableDays.length > 0
+                                ? query.availableDays
+                                : null,
                         bio: query.bio ?? null,
                     };
 
@@ -351,23 +352,6 @@ bun.serve({
 
                     return withCors(Response.json(users, { status: 200 }));
                 });
-            },
-        },
-        '/api/users/:id': {
-            GET: async (req) => {
-                const id = req.params.id;
-
-                if (!isValidUUID(id)) {
-                    return BAD_REQUEST;
-                }
-
-                const user = await db.selectFullUser(id);
-
-                if (!user) {
-                    return withCors(NOT_FOUND);
-                }
-
-                return withCors(Response.json(user, { status: 200 }));
             },
         },
         '/*': {
