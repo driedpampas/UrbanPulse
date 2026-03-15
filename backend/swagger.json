@@ -2,7 +2,7 @@
     "openapi": "3.0.0",
     "info": {
         "title": "UrbanPulse API",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "description": "API documentation for the FIICode UrbanPulse backend."
     },
     "components": {
@@ -25,14 +25,21 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["email", "password", "displayName"],
+                                "required": [
+                                    "email",
+                                    "password",
+                                    "displayName"
+                                ],
                                 "properties": {
                                     "email": {
                                         "type": "string",
                                         "format": "email",
                                         "example": "neighbor@iasi.ro"
                                     },
-                                    "displayName": { "type": "string", "example": "Alex Slanina" },
+                                    "displayName": {
+                                        "type": "string",
+                                        "example": "Alex Slanina"
+                                    },
                                     "password": {
                                         "type": "string",
                                         "minLength": 8,
@@ -58,8 +65,14 @@
                                         "user": {
                                             "type": "object",
                                             "properties": {
-                                                "id": { "type": "string", "format": "uuid" },
-                                                "role": { "type": "string", "example": "user" }
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "user"
+                                                }
                                             }
                                         }
                                     }
@@ -95,14 +108,20 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["email", "password"],
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
                                 "properties": {
                                     "email": {
                                         "type": "string",
                                         "format": "email",
                                         "example": "neighbor@iasi.ro"
                                     },
-                                    "password": { "type": "string", "example": "securePassword123" }
+                                    "password": {
+                                        "type": "string",
+                                        "example": "securePassword123"
+                                    }
                                 }
                             }
                         }
@@ -123,8 +142,14 @@
                                         "user": {
                                             "type": "object",
                                             "properties": {
-                                                "id": { "type": "string", "format": "uuid" },
-                                                "role": { "type": "string", "example": "user" }
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "role": {
+                                                    "type": "string",
+                                                    "example": "user"
+                                                }
                                             }
                                         }
                                     }
@@ -151,15 +176,25 @@
             "patch": {
                 "summary": "Update existing user",
                 "description": "Updates the existing user, identified with the session token, with the provided parameters.",
-                "security": [{ "bearerAuth": [] }],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
                 "requestBody": {
                     "content": {
                         "application/json": {
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "displayName": { "type": "string", "example": "Alex Slatina" },
-                                    "bio": { "type": "string", "example": "I like shrimp!" },
+                                    "displayName": {
+                                        "type": "string",
+                                        "example": "Alex Slatina"
+                                    },
+                                    "bio": {
+                                        "type": "string",
+                                        "example": "I like shrimp!"
+                                    },
                                     "radius": {
                                         "type": "integer",
                                         "description": "The radius in meters",
@@ -168,27 +203,57 @@
                                     "location": {
                                         "type": "object",
                                         "properties": {
-                                            "lat": { "type": "number", "example": 10.67 },
-                                            "lng": { "type": "number", "example": 20.69 }
+                                            "lat": {
+                                                "type": "number",
+                                                "example": 10.67
+                                            },
+                                            "lng": {
+                                                "type": "number",
+                                                "example": 20.69
+                                            }
                                         }
                                     },
                                     "quietHours": {
-                                        "type": "object",
-                                        "properties": {
-                                            "start": { "type": "string", "example": "22:00" },
-                                            "end": { "type": "string", "example": "06:00" }
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "start": {
+                                                    "type": "string",
+                                                    "example": "22:00"
+                                                },
+                                                "end": {
+                                                    "type": "string",
+                                                    "example": "06:00"
+                                                }
+                                            }
                                         },
                                         "nullable": true
                                     },
                                     "quietDays": {
                                         "type": "array",
-                                        "example": [0, 6],
+                                        "example": [
+                                            0,
+                                            6
+                                        ],
                                         "items": {
                                             "type": "integer",
                                             "minimum": 0,
                                             "maximum": 6
                                         },
                                         "maximum": 7,
+                                        "nullable": true
+                                    },
+                                    "skills_and_resources": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "first aid",
+                                            "portable generator",
+                                            "pet transport"
+                                        ],
                                         "nullable": true
                                     }
                                 }
@@ -213,20 +278,144 @@
                         "description": "Server error"
                     }
                 }
+            },
+            "get": {
+                "summary": "Get current user profile",
+                "description": "Returns the profile of the authenticated user.",
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User profile fetched",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "example": "7f2c6517-0ed2-4ec7-b5fd-f5d0a2f73613"
+                                        },
+                                        "role": {
+                                            "type": "string",
+                                            "example": "user"
+                                        },
+                                        "displayName": {
+                                            "type": "string",
+                                            "example": "Alex Slatina"
+                                        },
+                                        "verified": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "radius": {
+                                            "type": "number",
+                                            "example": 800
+                                        },
+                                        "location": {
+                                            "type": "object",
+                                            "nullable": true,
+                                            "properties": {
+                                                "lat": {
+                                                    "type": "number",
+                                                    "example": 47.1585
+                                                },
+                                                "lng": {
+                                                    "type": "number",
+                                                    "example": 27.6014
+                                                }
+                                            }
+                                        },
+                                        "quietHours": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "start": {
+                                                        "type": "string",
+                                                        "example": "22:00"
+                                                    },
+                                                    "end": {
+                                                        "type": "string",
+                                                        "example": "06:00"
+                                                    }
+                                                }
+                                            },
+                                            "example": [
+                                                {
+                                                    "start": "22:00",
+                                                    "end": "06:00"
+                                                }
+                                            ]
+                                        },
+                                        "quietDays": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "integer",
+                                                "minimum": 0,
+                                                "maximum": 6
+                                            },
+                                            "example": [
+                                                0,
+                                                6
+                                            ]
+                                        },
+                                        "skills_and_resources": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "nullable": true,
+                                            "example": [
+                                                "first aid",
+                                                "portable generator"
+                                            ]
+                                        },
+                                        "bio": {
+                                            "type": "string",
+                                            "nullable": true,
+                                            "example": "I can help with emergency supplies."
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
             }
         },
-        "/api/user/password": {
+        "/api/auth/password": {
             "patch": {
                 "summary": "Update user password",
                 "description": "Updates the user's password, identified with the session token, with the provided parameters.",
-                "security": [{ "bearerAuth": [] }],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["newPassword", "oldPassword"],
+                                "required": [
+                                    "newPassword",
+                                    "oldPassword"
+                                ],
                                 "properties": {
                                     "newPassword": {
                                         "type": "string",
@@ -251,6 +440,257 @@
                     },
                     "401": {
                         "description": "Unauthorized"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
+        "/api/users": {
+            "get": {
+                "summary": "Search users",
+                "description": "Searches users with optional filters. Parameters that accept multiple values can be repeated.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "7f2c6517-0ed2-4ec7-b5fd-f5d0a2f73613"
+                    },
+                    {
+                        "name": "email",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        "example": "neighbor@iasi.ro"
+                    },
+                    {
+                        "name": "displayName",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "Alex"
+                    },
+                    {
+                        "name": "anyskillres",
+                        "in": "query",
+                        "description": "Set to true to match any listed skill/resource, false to require all.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
+                        },
+                        "example": "true"
+                    },
+                    {
+                        "name": "skillres",
+                        "in": "query",
+                        "description": "Repeat this parameter for each skill/resource.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "first aid"
+                    },
+                    {
+                        "name": "min_trust",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 20
+                    },
+                    {
+                        "name": "max_trust",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 95
+                    },
+                    {
+                        "name": "created_before",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "example": "2026-01-01T00:00:00Z"
+                    },
+                    {
+                        "name": "created_after",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "example": "2025-01-01T00:00:00Z"
+                    },
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "user"
+                    },
+                    {
+                        "name": "verified",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
+                        },
+                        "example": "true"
+                    },
+                    {
+                        "name": "lat",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 47.1585
+                    },
+                    {
+                        "name": "lng",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 27.6014
+                    },
+                    {
+                        "name": "available_days",
+                        "in": "query",
+                        "description": "Repeat this parameter for each day (0=Sunday ... 6=Saturday).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "available_hours",
+                        "in": "query",
+                        "description": "Repeat this parameter for each timerange CSV string (format HH:MM-HH:MM[,HH:MM-HH:MM]).",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "09:00-12:00,13:00-17:00"
+                    },
+                    {
+                        "name": "bio",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "generator"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Users fetched",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "email": {
+                                                "type": "string",
+                                                "format": "email",
+                                                "nullable": true
+                                            },
+                                            "role": {
+                                                "type": "string"
+                                            },
+                                            "skillsAndResources": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "nullable": true
+                                            },
+                                            "trustScore": {
+                                                "type": "number",
+                                                "nullable": true
+                                            },
+                                            "createdAt": {
+                                                "type": "string",
+                                                "format": "date-time"
+                                            },
+                                            "displayName": {
+                                                "type": "string",
+                                                "nullable": true
+                                            },
+                                            "verified": {
+                                                "type": "boolean"
+                                            },
+                                            "radius": {
+                                                "type": "number",
+                                                "nullable": true
+                                            },
+                                            "location": {
+                                                "type": "object",
+                                                "nullable": true,
+                                                "properties": {
+                                                    "lat": {
+                                                        "type": "number"
+                                                    },
+                                                    "lng": {
+                                                        "type": "number"
+                                                    }
+                                                }
+                                            },
+                                            "quietHours": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "start": {
+                                                            "type": "string"
+                                                        },
+                                                        "end": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "quietDays": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "bio": {
+                                                "type": "string",
+                                                "nullable": true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query parameters"
                     },
                     "500": {
                         "description": "Server error"
