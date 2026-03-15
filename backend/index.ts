@@ -1,7 +1,7 @@
 import * as bun from 'bun';
 import * as db from './db';
 import * as auth from './auth';
-import { z } from 'zod';
+import { any, z } from 'zod';
 import swaggerDoc from './swagger.json';
 import type { JwtPayload } from 'jsonwebtoken';
 import { validate as isValidUUID } from 'uuid';
@@ -118,6 +118,7 @@ const searchUsersSchema = z.strictObject({
     id: z.uuid().nullish(),
     email: z.email().nullish(),
     displayName: z.string().nullish(),
+    anyskillres: z.enum(['true', 'false']).nullish(),
     skillres: z.array(z.coerce.string()).nullish(),
     min_trust: z.coerce.number().nullish(),
     max_trust: z.coerce.number().nullish(),
@@ -288,7 +289,7 @@ bun.serve({
                 authorize(req, async (session) => {
                     return caught(async () => {
                         const payload = session as JwtPayload;
-                        const [user] = await db.searchUsers({ id: payload.id, skillsAndResources: null, email: null, min_trust: null, max_trust: null, created_before: null, created_after: null, displayName: null, role: null, verified: null, radius: null, location: null, availableHours: null, availableDays: null, bio: null });
+                        const [user] = await db.searchUsers({ id: payload.id, anySkillRes: null, skillsAndResources: null, email: null, min_trust: null, max_trust: null, created_before: null, created_after: null, displayName: null, role: null, verified: null, radius: null, location: null, availableHours: null, availableDays: null, bio: null });
                         if (!user) {
                             return withCors(NOT_FOUND);
                         }
@@ -304,6 +305,7 @@ bun.serve({
                     const query: SearchUsersQuery = searchUsersSchema.parse({
                         id: url.searchParams.get('id'),
                         email: url.searchParams.get('email'),
+                        anyskillres: url.searchParams.get('anyskillres'),
                         skillres: url.searchParams.getAll('skillres'),
                         min_trust: url.searchParams.get('min_trust'),
                         max_trust: url.searchParams.get('max_trust'),
@@ -351,6 +353,7 @@ bun.serve({
                                 : null,
                         bio: query.bio ?? null,
                         skillsAndResources: query.skillres && query.skillres.length != 0 ? query.skillres : null,
+                        anySkillRes: query.anyskillres !== undefined ? query.anyskillres : null,
                     };
 
                     const users = await db.searchUsers(searchParams);

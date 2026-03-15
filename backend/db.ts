@@ -34,6 +34,7 @@ interface UserSearchParams {
     id: string | null;
     min_trust: string | null;
     max_trust: string | null;
+    anySkillRes: string | null;
     skillsAndResources: string[] | null;
     created_before: string | null;
     created_after: string | null;
@@ -181,8 +182,15 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
         AND (
-            ${userSearch.skillsAndResources}::jsonb IS NULL
-            OR (app.jsonb_to_text_array(skills_and_resources::jsonb) && app.jsonb_to_text_array(${userSearch.skillsAndResources}::jsonb))
+            ${userSearch.anySkillRes}::jsonb IS NULL 
+            OR ${userSearch.skillsAndResources}::jsonb IS NULL OR
+            (skills_and_resources != '[]'::jsonb AND (
+                (${userSearch.anySkillRes}::boolean AND 
+                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                ) OR (NOT ${userSearch.anySkillRes}::boolean AND 
+                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                )
+            ))
         )
         ) OR id = ${userSearch.id})
     LIMIT ${SEARCH_LIMIT}
@@ -266,7 +274,7 @@ export async function updateUserProfile(user: User) {
         WHEN ${quietDays}::jsonb IS NOT NULL THEN app.jsonb_to_integer_array(${quietDays}::jsonb)
         ELSE quiet_days 
       END,
-      
+
       skills_and_resources = CASE
         WHEN ${shouldClearSkillRes} THEN '[]'::jsonb
         WHEN ${skillres}::jsonb IS NOT NULL THEN ${skillres}::jsonb
