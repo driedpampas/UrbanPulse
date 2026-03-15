@@ -72,6 +72,47 @@ async function authorize(
     return await handler(session);
 }
 
+async function adminAuthorize(
+    request: Request,
+    handler: (payload: string | JwtPayload) => Response | Promise<Response>,
+    fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
+): Promise<Response> {
+    const session = auth.verifyToken(request);
+
+    if (session === null) {
+        return await fallback();
+    }
+
+    const payload = session as JwtPayload;
+
+    if (payload.role !== "admin") {
+        return withCors(FORBIDDEN);
+    }
+
+    return await handler(session);
+}
+
+
+async function modAuthorize(
+    request: Request,
+    handler: (payload: string | JwtPayload) => Response | Promise<Response>,
+    fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
+): Promise<Response> {
+    const session = auth.verifyToken(request);
+
+    if (session === null) {
+        return await fallback();
+    }
+
+    const payload = session as JwtPayload;
+
+    if (payload.role !== "mod" && payload.role !== "admin") {
+        return withCors(FORBIDDEN);
+    }
+
+    return await handler(session);
+}
+
 async function validate(request: Request, handler: () => Response | Promise<Response>): Promise<Response> {
     if (!request.headers.has("UPI")) {
         return withCors(UNAUTHORIZED);
@@ -318,6 +359,14 @@ bun.serve({
                         return withCors(Response.json(user, { status: 200 }));
                     });
                 })),
+            DELETE: async (req) =>
+                validate(req, async () => authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        await db.deleteUser(payload.id);
+                        return SUCCESS;
+                    })
+                )),
         },
         '/api/users': {
             GET: async (req) => {
@@ -382,6 +431,71 @@ bun.serve({
 
                     return withCors(Response.json(users, { status: 200 }));
                 }));
+            },
+            DELETE: async (req) => {
+                return validate(req, async () => adminAuthorize(req, async (payload) => caught(async () => {
+                    const url = new URL(req.url);
+
+                    const session = payload as JwtPayload;
+
+                    const query: SearchUsersQuery = searchUsersSchema.parse({
+                        id: url.searchParams.get('id'),
+                        email: url.searchParams.get('email'),
+                        anyskillres: url.searchParams.get('anyskillres'),
+                        skillres: url.searchParams.getAll('skillres'),
+                        min_trust: url.searchParams.get('min_trust'),
+                        max_trust: url.searchParams.get('max_trust'),
+                        created_before: url.searchParams.get('created_before'),
+                        created_after: url.searchParams.get('created_after'),
+                        displayName: url.searchParams.get('displayName'),
+                        role: url.searchParams.get('role'),
+                        verified: url.searchParams.get('verified'),
+                        radius: url.searchParams.get('radius'),
+                        location: url.searchParams.get('lat') || url.searchParams.get('lng')
+                            ? {
+                                lat: url.searchParams.get('lat'),
+                                lng: url.searchParams.get('lng')
+                            }
+                            : null,
+                        availableDays: url.searchParams.getAll('available_days'),
+                        availableHours: url.searchParams.getAll('available_hours'),
+                        bio: url.searchParams.get('bio'),
+                    });
+
+                    const searchParams = {
+                        id: query.id ?? null,
+                        email: query.email ?? null,
+                        min_trust: query.min_trust ?? null,
+                        max_trust: query.max_trust ?? null,
+                        created_before: query.created_before ?? null,
+                        created_after: query.created_after ?? null,
+                        displayName: query.displayName ?? null,
+                        role: query.role ?? null,
+                        verified: query.verified !== undefined ? query.verified : null,
+                        radius: query.radius ?? null,
+                        location: query.location
+                            ? {
+                                lat: query.location.lat ?? null,
+                                lng: query.location.lng ?? null,
+                            }
+                            : null,
+                        availableHours:
+                            query.availableHours && query.availableHours.length > 0
+                                ? query.availableHours.flatMap((csv) => csv.split(','))
+                                : null,
+                        availableDays:
+                            query.availableDays && query.availableDays.length > 0
+                                ? query.availableDays
+                                : null,
+                        bio: query.bio ?? null,
+                        skillsAndResources: query.skillres && query.skillres.length != 0 ? query.skillres : null,
+                        anySkillRes: query.anyskillres !== undefined ? query.anyskillres : null,
+                    };
+
+                    await db.deleteUsers(session.id, searchParams);
+
+                    return SUCCESS;
+                })));
             },
         },
         '/*': {

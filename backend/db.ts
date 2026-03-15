@@ -287,3 +287,68 @@ export async function updateUserProfile(user: User) {
         throw err;
     }
 }
+export async function deleteUser(id: string) {
+    return await sql`
+        DELETE FROM app.users 
+        WHERE id = ${id}
+    `;
+}
+
+export async function deleteUsers(deleterID: string, userSearch: UserSearchParams) {
+    const availableDaysQuery = userSearch.availableDays as any;
+    const results = await sql`
+    DELETE
+    FROM app.users 
+    WHERE id != ${deleterID} AND (
+        (
+        (${userSearch.id}::text IS NULL)
+        AND (${userSearch.email}::text IS NULL OR email ILIKE ${'%' + userSearch.email + '%'})
+        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${'%' + userSearch.displayName + '%'})
+        AND (${userSearch.min_trust}::text IS NULL OR trust_score >= ${userSearch.min_trust}::numeric)
+        AND (${userSearch.max_trust}::text IS NULL OR trust_score <= ${userSearch.max_trust}::numeric)
+        AND (${userSearch.role}::text IS NULL OR role = ${userSearch.role})
+        AND (${userSearch.verified}::text IS NULL OR is_verified_neighbor = ${userSearch.verified}::boolean)
+        AND (
+            ${userSearch.radius}::text IS NULL
+            OR ${userSearch.location?.lat ?? null}::text IS NULL
+            OR ${userSearch.location?.lng ?? null}::text IS NULL
+            OR ST_DWithin(
+                location,
+                ST_SetSRID(
+                    ST_MakePoint(
+                        (${userSearch.location?.lng ?? null})::double precision,
+                        (${userSearch.location?.lat ?? null})::double precision
+                    ),
+                    4326
+                )::geography,
+                (${userSearch.radius})::double precision
+            )
+        )
+        AND (
+            ${userSearch.availableDays}::jsonb IS NULL
+            OR (quiet_days != '{}'::integer[] AND NOT (
+                quiet_days && app.jsonb_to_integer_array(${availableDaysQuery as number[]}::jsonb)
+            ))
+        )
+        AND (
+            ${userSearch.availableHours}::jsonb IS NULL
+            OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours}::jsonb)))
+        )
+        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${'%' + userSearch.bio + '%'})
+        AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
+        AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
+        AND (
+            ${userSearch.anySkillRes}::jsonb IS NULL 
+            OR ${userSearch.skillsAndResources}::jsonb IS NULL OR
+            (skills_and_resources != '[]'::jsonb AND (
+                (${userSearch.anySkillRes}::boolean AND 
+                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                ) OR (NOT ${userSearch.anySkillRes}::boolean AND 
+                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                )
+            ))
+        )
+        ) OR id = ${userSearch.id}))
+    `;
+}
+
