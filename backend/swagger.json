@@ -407,6 +407,27 @@
                         "description": "Server error"
                     }
                 }
+            },
+            "delete": {
+                "summary": "Delete authenticated user",
+                "description": "Deletes the currently authenticated user account.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User successfully deleted"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
             }
         },
         "/api/auth/password": {
@@ -704,6 +725,181 @@
                     },
                     "400": {
                         "description": "Invalid query parameters"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete users (admin)",
+                "description": "Deletes users that match the provided optional filters. This endpoint is restricted to admin users.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "example": "7f2c6517-0ed2-4ec7-b5fd-f5d0a2f73613"
+                    },
+                    {
+                        "name": "email",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        },
+                        "example": "neighbor@iasi.ro"
+                    },
+                    {
+                        "name": "displayName",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "Alex"
+                    },
+                    {
+                        "name": "anyskillres",
+                        "in": "query",
+                        "description": "Set to true to match any listed skill/resource, false to require all.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
+                        },
+                        "example": "true"
+                    },
+                    {
+                        "name": "skillres",
+                        "in": "query",
+                        "description": "Repeat this parameter for each skill/resource.",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "first aid"
+                    },
+                    {
+                        "name": "min_trust",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 20
+                    },
+                    {
+                        "name": "max_trust",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 95
+                    },
+                    {
+                        "name": "created_before",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "example": "2026-01-01T00:00:00Z"
+                    },
+                    {
+                        "name": "created_after",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "example": "2025-01-01T00:00:00Z"
+                    },
+                    {
+                        "name": "role",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "user"
+                    },
+                    {
+                        "name": "verified",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
+                        },
+                        "example": "true"
+                    },
+                    {
+                        "name": "lat",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 47.1585
+                    },
+                    {
+                        "name": "lng",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 27.6014
+                    },
+                    {
+                        "name": "available_days",
+                        "in": "query",
+                        "description": "Repeat this parameter for each day (0=Sunday ... 6=Saturday).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "available_hours",
+                        "in": "query",
+                        "description": "Repeat this parameter for each timerange CSV string (format HH:MM-HH:MM[,HH:MM-HH:MM]).",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "09:00-12:00,13:00-17:00"
+                    },
+                    {
+                        "name": "bio",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "generator"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Users deleted"
+                    },
+                    "400": {
+                        "description": "Invalid query parameters"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
                     },
                     "500": {
                         "description": "Server error"
