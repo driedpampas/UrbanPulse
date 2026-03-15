@@ -27,6 +27,9 @@
     "paths": {
         "/api/auth/register": {
             "post": {
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Register a new neighbor",
                 "description": "Creates a new user account and returns a session token.",
                 "requestBody": {
@@ -110,6 +113,9 @@
         },
         "/api/auth/login": {
             "post": {
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Login an existing neighbor",
                 "description": "Authenticates a user and returns a session token.",
                 "requestBody": {
@@ -184,6 +190,9 @@
         },
         "/api/user": {
             "patch": {
+                "tags": [
+                    "User"
+                ],
                 "summary": "Update existing user",
                 "description": "Updates the existing user, identified with the session token, with the provided parameters.",
                 "security": [
@@ -291,6 +300,9 @@
                 }
             },
             "get": {
+                "tags": [
+                    "User"
+                ],
                 "summary": "Get current user profile",
                 "description": "Returns the profile of the authenticated user.",
                 "security": [
@@ -409,6 +421,9 @@
                 }
             },
             "delete": {
+                "tags": [
+                    "User"
+                ],
                 "summary": "Delete authenticated user",
                 "description": "Deletes the currently authenticated user account.",
                 "security": [
@@ -432,6 +447,9 @@
         },
         "/api/auth/password": {
             "patch": {
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Update user password",
                 "description": "Updates the user's password, identified with the session token, with the provided parameters.",
                 "security": [
@@ -483,6 +501,9 @@
         },
         "/api/users": {
             "get": {
+                "tags": [
+                    "User"
+                ],
                 "summary": "Search users",
                 "description": "Searches users with optional filters. Parameters that accept multiple values can be repeated.",
                 "parameters": [
@@ -732,6 +753,9 @@
                 }
             },
             "delete": {
+                "tags": [
+                    "User"
+                ],
                 "summary": "Delete users (admin)",
                 "description": "Deletes users that match the provided optional filters. This endpoint is restricted to admin users.",
                 "security": [
