@@ -92,6 +92,7 @@ const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
     bio: z.string().optional(),
     radius: z.number().min(0).optional(),
+    skills_and_resources: z.array(z.string()).optional(),
     location: z
         .object({
             lat: z.number().optional(),
@@ -117,6 +118,7 @@ const searchUsersSchema = z.strictObject({
     id: z.uuid().nullish(),
     email: z.email().nullish(),
     displayName: z.string().nullish(),
+    skillres: z.array(z.coerce.string()).nullish(),
     min_trust: z.coerce.number().nullish(),
     max_trust: z.coerce.number().nullish(),
     created_before: z.coerce.date().nullish(),
@@ -276,6 +278,7 @@ bun.serve({
                             location: body.location,
                             quietHours: body.quietHours as Timerange[] | null,
                             quietDays: body.quietDays as number[] | null,
+                            skillsAndResources: body.skills_and_resources as string[] | null,
                         });
 
                         return SUCCESS;
@@ -285,7 +288,7 @@ bun.serve({
                 authorize(req, async (session) => {
                     return caught(async () => {
                         const payload = session as JwtPayload;
-                        const [user] = await db.searchUsers({ id: payload.id, email: null, min_trust: null, max_trust: null, created_before: null, created_after: null, displayName: null, role: null, verified: null, radius: null, location: null, availableHours: null, availableDays: null, bio: null });
+                        const [user] = await db.searchUsers({ id: payload.id, skillsAndResources: null, email: null, min_trust: null, max_trust: null, created_before: null, created_after: null, displayName: null, role: null, verified: null, radius: null, location: null, availableHours: null, availableDays: null, bio: null });
                         if (!user) {
                             return withCors(NOT_FOUND);
                         }
@@ -301,6 +304,7 @@ bun.serve({
                     const query: SearchUsersQuery = searchUsersSchema.parse({
                         id: url.searchParams.get('id'),
                         email: url.searchParams.get('email'),
+                        skillres: url.searchParams.getAll('skillres'),
                         min_trust: url.searchParams.get('min_trust'),
                         max_trust: url.searchParams.get('max_trust'),
                         created_before: url.searchParams.get('created_before'),
@@ -346,6 +350,7 @@ bun.serve({
                                 ? query.availableDays
                                 : null,
                         bio: query.bio ?? null,
+                        skillsAndResources: query.skillres && query.skillres.length != 0 ? query.skillres : null,
                     };
 
                     const users = await db.searchUsers(searchParams);

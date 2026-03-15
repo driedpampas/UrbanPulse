@@ -19,6 +19,7 @@ interface User {
     role?: string;
     passwordHash?: string | null;
     displayName?: string | null;
+    skillsAndResources?: string[] | null;
     radius?: number | null;
     location?: Location | null;
     quietHours?: Timerange[] | null;
@@ -26,13 +27,14 @@ interface User {
     trustScore?: number | null;
     bio?: string | null;
     verified?: boolean;
-    created_at?: Date;
+    createdAt?: Date;
 }
 
 interface UserSearchParams {
     id: string | null;
     min_trust: string | null;
     max_trust: string | null;
+    skillsAndResources: string[] | null;
     created_before: string | null;
     created_after: string | null;
     email: string | null;
@@ -123,6 +125,7 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
         id,
         email,
         role,
+        skills_and_resources,
         created_at,
         trust_score,
         display_name,
@@ -177,6 +180,10 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
         AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${'%' + userSearch.bio + '%'})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
+        AND (
+            ${userSearch.skillsAndResources}::jsonb IS NULL
+            OR (app.jsonb_to_text_array(skills_and_resources::jsonb) && app.jsonb_to_text_array(${userSearch.skillsAndResources}::jsonb))
+        )
         ) OR id = ${userSearch.id})
     LIMIT ${SEARCH_LIMIT}
     `;
@@ -187,8 +194,9 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
             id: rawUser.id,
             email: rawUser.email,
             role: rawUser.role,
+            skillsAndResources: rawUser.skills_and_resources,
             trustScore: rawUser.trust_score,
-            created_at: rawUser.created_at,
+            createdAt: rawUser.created_at,
             displayName: rawUser.display_name,
             verified: rawUser.is_verified_neighbor,
             radius: rawUser.distance_limit_meters,
@@ -225,9 +233,11 @@ export async function updateUserProfile(user: User) {
     const lng = user.location?.lng ?? null;
     const quietHours = user.quietHours ? user.quietHours : null;
     const quietDays = user.quietDays ? user.quietDays : null;
+    const skillres = user.skillsAndResources ? user.skillsAndResources : null;
 
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
+    const shouldClearSkillRes = user.skillsAndResources === null;
 
 
 
@@ -255,6 +265,12 @@ export async function updateUserProfile(user: User) {
         WHEN ${shouldClearQuietDays} THEN '{}'::integer[]
         WHEN ${quietDays}::jsonb IS NOT NULL THEN app.jsonb_to_integer_array(${quietDays}::jsonb)
         ELSE quiet_days 
+      END,
+      
+      skills_and_resources = CASE
+        WHEN ${shouldClearSkillRes} THEN '[]'::jsonb
+        WHEN ${skillres}::jsonb IS NOT NULL THEN ${skillres}::jsonb
+        ELSE skills_and_resources
       END
 
       WHERE id = ${user.id}
