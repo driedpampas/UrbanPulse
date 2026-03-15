@@ -7,6 +7,11 @@
     },
     "components": {
         "securitySchemes": {
+            "upiAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "UPI"
+            },
             "bearerAuth": {
                 "type": "http",
                 "scheme": "bearer",
@@ -14,6 +19,11 @@
             }
         }
     },
+    "security": [
+        {
+            "upiAuth": []
+        }
+    ],
     "paths": {
         "/api/auth/register": {
             "post": {
@@ -178,6 +188,7 @@
                 "description": "Updates the existing user, identified with the session token, with the provided parameters.",
                 "security": [
                     {
+                        "upiAuth": [],
                         "bearerAuth": []
                     }
                 ],
@@ -284,7 +295,8 @@
                 "description": "Returns the profile of the authenticated user.",
                 "security": [
                     {
-                        "bearerAuth": []
+                        "bearerAuth": [],
+                        "upiAuth": []
                     }
                 ],
                 "responses": {
@@ -403,7 +415,8 @@
                 "description": "Updates the user's password, identified with the session token, with the provided parameters.",
                 "security": [
                     {
-                        "bearerAuth": []
+                        "bearerAuth": [],
+                        "upiAuth": []
                     }
                 ],
                 "requestBody": {
