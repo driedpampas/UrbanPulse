@@ -4,8 +4,16 @@ import * as auth from './auth';
 import { any, z } from 'zod';
 import swaggerDoc from './swagger.json';
 import type { JwtPayload } from 'jsonwebtoken';
-import { validate as isValidUUID } from 'uuid';
 import type { Timerange } from './db';
+
+function getAPIToken() {
+    if (!process.env.API_TOKEN) {
+        throw new Error('API_TOKEN environment variable is not set');
+    }
+    return process.env.API_TOKEN;
+}
+
+const API_TOKEN = getAPIToken();
 
 const PORT = 3000;
 
@@ -62,6 +70,20 @@ async function authorize(
     }
 
     return await handler(session);
+}
+
+async function validate(request: Request, handler: () => Response | Promise<Response>): Promise<Response> {
+    if (!request.headers.has("UPI")) {
+        return withCors(UNAUTHORIZED);
+    }
+
+    const token = request.headers.get("UPI") as string;
+
+    if (token !== API_TOKEN) {
+        return withCors(UNAUTHORIZED);
+    }
+
+    return await handler();
 }
 
 async function unauthorize(
@@ -211,7 +233,7 @@ bun.serve({
         },
         '/api/auth/login': {
             POST: async (req) =>
-                caught(async () => {
+                validate(req, async () => caught(async () => {
                     const body: LoginUserBody = await req
                         .json()
                         .then((raw) => loginUserSchema.parse(raw));
@@ -229,11 +251,11 @@ bun.serve({
                     return withCors(
                         Response.json({ token: res.token, user: res.user }, { status: 200 })
                     );
-                }),
+                })),
         },
         '/api/auth/password': {
             PATCH: async (req) =>
-                authorize(req, async (session) =>
+                validate(req, async () => authorize(req, async (session) =>
                     caught(async () => {
                         const payload: JwtPayload = session as JwtPayload;
                         const body: UpdatePassBody = await req
@@ -259,11 +281,11 @@ bun.serve({
 
                         return SUCCESS;
                     })
-                ),
+                )),
         },
         '/api/user': {
             PATCH: async (req) =>
-                authorize(req, async (session) =>
+                validate(req, async () => authorize(req, async (session) =>
                     caught(async () => {
                         const payload: JwtPayload = session as JwtPayload;
                         const body: UpdateUserBody = await req
@@ -284,9 +306,9 @@ bun.serve({
 
                         return SUCCESS;
                     })
-                ),
+                )),
             GET: async (req) =>
-                authorize(req, async (session) => {
+                validate(req, async () => await authorize(req, async (session) => {
                     return caught(async () => {
                         const payload = session as JwtPayload;
                         const [user] = await db.searchUsers({ id: payload.id, anySkillRes: null, skillsAndResources: null, email: null, min_trust: null, max_trust: null, created_before: null, created_after: null, displayName: null, role: null, verified: null, radius: null, location: null, availableHours: null, availableDays: null, bio: null });
@@ -295,11 +317,11 @@ bun.serve({
                         }
                         return withCors(Response.json(user, { status: 200 }));
                     });
-                }),
+                })),
         },
         '/api/users': {
             GET: async (req) => {
-                return caught(async () => {
+                return validate(req, async () => caught(async () => {
                     const url = new URL(req.url);
 
                     const query: SearchUsersQuery = searchUsersSchema.parse({
@@ -359,7 +381,7 @@ bun.serve({
                     const users = await db.searchUsers(searchParams);
 
                     return withCors(Response.json(users, { status: 200 }));
-                });
+                }));
             },
         },
         '/*': {
