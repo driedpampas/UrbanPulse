@@ -23,9 +23,7 @@ function normalizeBaseUrl(value: string): string {
 
 function createTargetUrl(requestUrl: string, backendBaseUrl: string): string {
 	const incomingUrl = new URL(requestUrl);
-	const path = incomingUrl.pathname.startsWith("/api")
-		? incomingUrl.pathname
-		: `/api${incomingUrl.pathname}`;
+	const path = incomingUrl.pathname;
 
 	return `${normalizeBaseUrl(backendBaseUrl)}${path}${incomingUrl.search}`;
 }

@@ -74,7 +74,7 @@ function getAuthHeaders(extraHeaders?: HeadersInit): Headers {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-	const response = await fetch(`${API_BASE_URL}/api${path}`, {
+	const response = await fetch(`${API_BASE_URL}${path}`, {
 		...init,
 		headers: getAuthHeaders(init.headers),
 	});

@@ -7,7 +7,7 @@ const API_BASE_URL = (
 	((import.meta as ImportMeta & { env: { VITE_API_BASE_URL?: string } }).env
 		.VITE_API_BASE_URL ?? "") as string
 ).replace(/\/$/, "");
-const API_PREFIX = "/api";
+//const API_PREFIX = "/api";
 
 interface AuthApiUser {
 	id: string;
@@ -116,7 +116,7 @@ async function postAuth<RequestBody extends Record<string, string>>(
 	path: string,
 	body: RequestBody,
 ): Promise<AuthResponse> {
-	const response = await fetch(`${API_BASE_URL}${API_PREFIX}${path}`, {
+	const response = await fetch(`${API_BASE_URL}${path}`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
