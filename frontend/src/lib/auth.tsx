@@ -125,6 +125,9 @@ async function postAuth<RequestBody extends Record<string, string>>(
 	});
 
 	if (!response.ok) {
+		if (response.status === 409) {
+			throw new AuthApiError("Email already exists", 409);
+		}
 		const payload = await readErrorPayload(response);
 		throw new AuthApiError(
 			payload.error || "Authentication failed",
