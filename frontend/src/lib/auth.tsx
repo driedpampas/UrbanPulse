@@ -3,10 +3,7 @@ import { createContext } from "preact";
 import { useContext, useEffect, useState } from "preact/hooks";
 
 const AUTH_STORAGE_KEY = "urbanpulse.auth.session";
-const API_BASE_URL = (
-	((import.meta as ImportMeta & { env: { VITE_API_BASE_URL?: string } }).env
-		.VITE_API_BASE_URL ?? "") as string
-).replace(/\/$/, "");
+const API_BASE_URL = "/api";
 //const API_PREFIX = "/api";
 
 interface AuthApiUser {

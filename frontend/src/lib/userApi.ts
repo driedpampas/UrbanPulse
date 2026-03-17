@@ -1,10 +1,7 @@
 import { readStoredAuthSession } from "./auth";
 import type { User } from "./types";
 
-const API_BASE_URL = (
-	((import.meta as ImportMeta & { env: { VITE_API_BASE_URL?: string } }).env
-		.VITE_API_BASE_URL ?? "") as string
-).replace(/\/$/, "");
+const API_BASE_URL = "/api";
 
 type BackendUser = {
 	id: string;

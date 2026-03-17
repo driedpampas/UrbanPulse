@@ -1,5 +1,4 @@
 interface Env {
-	BACKEND_API_BASE_URL: string;
 	API_TOKEN: string;
 }
 
@@ -56,12 +55,13 @@ export const onRequest = async ({
 	request,
 	env,
 }: FunctionContext<Env>): Promise<Response> => {
-	if (!env.BACKEND_API_BASE_URL || !env.API_TOKEN) {
+	if (!env.API_TOKEN) {
 		return createErrorResponse("Proxy is not configured on the server", 500);
 	}
 
 	const method = request.method.toUpperCase();
-	const targetUrl = createTargetUrl(request.url, env.BACKEND_API_BASE_URL);
+	const backendBaseUrl = "https://urbanpulse-api.nl.eu.org";
+	const targetUrl = createTargetUrl(request.url, backendBaseUrl);
 
 	const response = await fetch(targetUrl, {
 		method,
