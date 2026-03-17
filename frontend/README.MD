@@ -1,8 +1,11 @@
 # UrbanPulse frontend
 
-To run in dev mode, create a `.env` file, and fill these in:
+## Local frontend env
+
+To run in dev mode, create a `.env` file:
 
 ```txt
-VITE_API_BASE_URL=http://localhost:3000
+# Optional: keep empty when using same-origin /api proxy.
+VITE_API_BASE_URL=
 VITE_MAPBOX_TOKEN=pk...
 ```
