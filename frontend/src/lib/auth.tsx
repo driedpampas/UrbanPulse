@@ -1,10 +1,9 @@
 import type { ComponentChildren } from "preact";
 import { createContext } from "preact";
 import { useContext, useEffect, useState } from "preact/hooks";
+import { API_BASE_URL } from "./api";
 
 const AUTH_STORAGE_KEY = "urbanpulse.auth.session";
-const API_BASE_URL = "/api";
-//const API_PREFIX = "/api";
 
 interface AuthApiUser {
 	id: string;

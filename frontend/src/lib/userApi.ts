@@ -1,7 +1,6 @@
 import { readStoredAuthSession } from "./auth";
+import { API_BASE_URL } from "./api";
 import type { User } from "./types";
-
-const API_BASE_URL = "/api";
 
 type BackendUser = {
 	id: string;

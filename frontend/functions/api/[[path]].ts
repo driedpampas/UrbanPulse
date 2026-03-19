@@ -60,7 +60,7 @@ export const onRequest = async ({
 	}
 
 	const method = request.method.toUpperCase();
-	const backendBaseUrl = "https://urbanpulse-api.nl.eu.org";
+	const backendBaseUrl = "https://urbanpulse-api.syu.nl.eu.org";
 	const targetUrl = createTargetUrl(request.url, backendBaseUrl);
 
 	const response = await fetch(targetUrl, {
