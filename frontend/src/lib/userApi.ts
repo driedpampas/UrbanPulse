@@ -41,8 +41,43 @@ function toAvatarUrl(seed: string) {
 	return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
 }
 
+function stripSeconds(time: string): string {
+	return time.replace(/:00$/, "");
+}
+
+function mergeQuietHours(
+	ranges: Array<{ start?: string | null; end?: string | null }> | null | undefined,
+): { start?: string; end?: string } {
+	if (!ranges || ranges.length === 0) {
+		return {};
+	}
+
+	if (ranges.length === 1) {
+		return {
+			start: ranges[0].start ? stripSeconds(ranges[0].start) : undefined,
+			end: ranges[0].end ? stripSeconds(ranges[0].end) : undefined,
+		};
+	}
+
+	const morning = ranges.find((r) => r.start?.startsWith("00:00"));
+	const evening = ranges.find((r) => r.end?.startsWith("24:00"));
+
+	if (morning && evening) {
+		return {
+			start: evening.start ? stripSeconds(evening.start) : undefined,
+			end: morning.end ? stripSeconds(morning.end) : undefined,
+		};
+	}
+
+	const first = ranges[0];
+	return {
+		start: first.start ? stripSeconds(first.start) : undefined,
+		end: first.end ? stripSeconds(first.end) : undefined,
+	};
+}
+
 function mapBackendUser(user: BackendUser): User {
-	const firstQuietRange = user.quietHours?.[0];
+	const quiet = mergeQuietHours(user.quietHours);
 
 	return {
 		id: user.id,
@@ -54,8 +89,8 @@ function mapBackendUser(user: BackendUser): User {
 		verified: Boolean(user.verified),
 		lat: user.location?.lat ?? 0,
 		lng: user.location?.lng ?? 0,
-		quietHoursStart: firstQuietRange?.start || undefined,
-		quietHoursEnd: firstQuietRange?.end || undefined,
+		quietHoursStart: quiet.start,
+		quietHoursEnd: quiet.end,
 		distanceLimitKm: Math.max(1, Math.round((user.radius || 1000) / 1000)),
 	};
 }
