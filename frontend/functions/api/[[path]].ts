@@ -7,6 +7,8 @@ interface FunctionContext<TEnv> {
 	env: TEnv;
 }
 
+const ALLOWED_ORIGIN = "https://urbanpulse.syu.nl.eu.org";
+
 const FORWARDED_REQUEST_HEADERS = [
 	"accept",
 	"accept-language",
@@ -38,6 +40,7 @@ function buildForwardedHeaders(request: Request, env: Env): Headers {
 	}
 
 	headers.set("UPI", env.API_TOKEN);
+	headers.set("Origin", ALLOWED_ORIGIN);
 
 	return headers;
 }

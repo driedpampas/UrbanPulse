@@ -17,9 +17,11 @@ const API_TOKEN = getAPIToken();
 
 const PORT = 3000;
 
+const ALLOWED_ORIGIN = "https://urbanpulse.syu.nl.eu.org";
+
 const corsHeaders = {
-	"Access-Control-Allow-Origin": "https://urbanpulse.syu.nl.eu.org",
-	"Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS, PATCH",
+	"Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+	"Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS, PATCH, DELETE",
 	"Access-Control-Allow-Headers": "Content-Type, Authorization",
 	"Access-Control-Max-Age": "86400",
 };
@@ -116,6 +118,11 @@ async function validate(
 	request: Request,
 	handler: () => Response | Promise<Response>,
 ): Promise<Response> {
+	const origin = request.headers.get("Origin");
+	if (origin !== null && origin !== ALLOWED_ORIGIN) {
+		return withCors(FORBIDDEN);
+	}
+
 	if (!request.headers.has("UPI")) {
 		return withCors(UNAUTHORIZED);
 	}

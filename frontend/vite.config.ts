@@ -40,6 +40,7 @@ function apiProxyPlugin(): Plugin {
                     }
 
                     headers.set('UPI', apiToken);
+                    headers.set('Origin', 'https://urbanpulse.syu.nl.eu.org');
 
                     const chunks: Uint8Array[] = [];
                     for await (const chunk of req) {
