@@ -34,6 +34,7 @@ let currentUser: User = {
     quietHoursStart: '22:00',
     quietHoursEnd: '07:00',
     distanceLimit: 2,
+    quietDays: [0],
 };
 
 function syncCurrentUserWithSession() {
@@ -63,6 +64,7 @@ const mockUsers: User[] = [
         lat: 40.714,
         lng: -74.003,
         distanceLimit: 1,
+        quietDays: [0],
     },
     {
         id: 'u3',
@@ -75,6 +77,7 @@ const mockUsers: User[] = [
         lat: 40.711,
         lng: -74.009,
         distanceLimit: 3,
+        quietDays: [1],
     },
     {
         id: 'u4',
@@ -87,6 +90,7 @@ const mockUsers: User[] = [
         lat: 40.715,
         lng: -74.001,
         distanceLimit: 5,
+        quietDays: [2],
     },
     {
         id: 'u5',
@@ -99,6 +103,7 @@ const mockUsers: User[] = [
         lat: 40.71,
         lng: -74.008,
         distanceLimit: 2,
+        quietDays: [3],
     },
     {
         id: 'u6',
@@ -111,6 +116,7 @@ const mockUsers: User[] = [
         lat: 40.716,
         lng: -74.004,
         distanceLimit: 1,
+        quietDays: [4],
     },
 ];
 
