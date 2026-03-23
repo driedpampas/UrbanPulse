@@ -178,7 +178,7 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 	}
 
 	if (typeof updates.distanceLimit === "number") {
-		patchBody.radius = Math.max(0, Math.round(updates.distanceLimit * 1000));
+		patchBody.radius = Math.max(1, Math.round(updates.distanceLimit));
 	}
 
 	if (typeof updates.lat === "number" && typeof updates.lng === "number") {
