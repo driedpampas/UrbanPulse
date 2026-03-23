@@ -48,8 +48,8 @@
 /* Glass card utility */
 @utility glass {
     background: var(--color-glass);
-    backdrop-filter: blur(64px);
-    -webkit-backdrop-filter: blur(64px);
+    backdrop-filter: blur(256px);
+    -webkit-backdrop-filter: blur(256px);
     border: 1px solid var(--color-glass-border);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
