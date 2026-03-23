@@ -2,6 +2,7 @@ import { CalendarDays, MapPin, Moon, Plus, Save, Trash2, X } from "lucide-preact
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "wouter";
 import { AppLayout } from "../components/Layout/AppLayout";
+import { RoleBadge } from "../components/Profile/RoleBadge";
 import { TrustBadge } from "../components/Profile/TrustBadge";
 import { useAuth } from "../lib/auth";
 import { deleteAccount, fetchCurrentUser, updateProfile } from "../lib/userApi";
@@ -138,7 +139,10 @@ export function Profile() {
 							) : (
 								<h2 class="text-lg font-bold">{user.name}</h2>
 							)}
-							<TrustBadge score={user.trustScore} verified={user.verified} />
+							<div class="mt-1 flex flex-wrap items-center gap-2">
+								<TrustBadge score={user.trustScore} verified={user.verified} />
+								{user.role && <RoleBadge role={user.role} />}
+							</div>
 						</div>
 					</div>
 

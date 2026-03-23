@@ -93,6 +93,7 @@ function mapBackendUser(user: BackendUser): User {
 
 	return {
 		id: user.id,
+		role: user.role,
 		name: user.displayName || fallbackDisplayName(user.id),
 		avatar: toAvatarUrl(user.displayName || user.id),
 		bio: user.bio || "No bio yet.",
