@@ -17,6 +17,16 @@ const WEEKDAYS: Array<{ value: number; short: string; full: string }> = [
 	{ value: 6, short: "Sat", full: "Saturday" },
 ];
 
+function normalizeQuietDays(days: Array<number | string> | undefined): number[] {
+	return Array.from(
+		new Set(
+			(days || [])
+				.map((day) => Number(day))
+				.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+		),
+	).sort((a, b) => a - b);
+}
+
 export function Profile() {
 	const [, setLocation] = useLocation();
 	const { logout, updateLocalUser } = useAuth();
@@ -67,7 +77,9 @@ export function Profile() {
 		if (day < 0 || day > 6) return;
 
 		setDraft((d) => {
-			const current = (d.quietDays || []).filter((value) => value >= 0 && value <= 6);
+			const current = normalizeQuietDays(
+				d.quietDays === undefined ? user?.quietDays : d.quietDays,
+			);
 			const next = current.includes(day)
 				? current.filter((value) => value !== day)
 				: [...new Set([...current, day])];
@@ -78,6 +90,10 @@ export function Profile() {
 			};
 		});
 	};
+
+	const selectedQuietDays = normalizeQuietDays(
+		draft.quietDays === undefined ? user?.quietDays : draft.quietDays,
+	);
 
 	if (!user) {
 		return (
@@ -284,7 +300,7 @@ export function Profile() {
 							{editing ? (
 								<div class="flex flex-wrap gap-2">
 									{WEEKDAYS.map((day) => {
-										const selected = (draft.quietDays || []).includes(day.value);
+										const selected = selectedQuietDays.includes(day.value);
 										return (
 											<button
 												key={day.value}
@@ -352,7 +368,10 @@ export function Profile() {
 					) : (
 						<button
 							type="button"
-							onClick={() => setEditing(true)}
+							onClick={() => {
+								setDraft(user);
+								setEditing(true);
+							}}
 							class="flex-1 glass py-3 rounded-2xl font-semibold text-sm hover:bg-primary/5 transition-colors"
 						>
 							Edit Profile

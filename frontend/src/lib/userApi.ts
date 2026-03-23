@@ -19,7 +19,7 @@ type BackendUser = {
 		start?: string;
 		end?: string;
 	}> | null;
-	quietDays?: number[] | null;
+	quietDays?: Array<number | string> | null;
 	bio?: string | null;
 };
 
@@ -76,6 +76,18 @@ function mergeQuietHours(
 	};
 }
 
+function normalizeQuietDays(
+	quietDays: Array<number | string> | null | undefined,
+): number[] {
+	return Array.from(
+		new Set(
+			(quietDays || [])
+				.map((day) => Number(day))
+				.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+		),
+	).sort((a, b) => a - b);
+}
+
 function mapBackendUser(user: BackendUser): User {
 	const quiet = mergeQuietHours(user.quietHours);
 
@@ -92,7 +104,7 @@ function mapBackendUser(user: BackendUser): User {
 		quietHoursStart: quiet.start,
 		quietHoursEnd: quiet.end,
 		distanceLimit: Math.max(user.radius ?? 1, 1),
-		quietDays: user.quietDays || [],
+		quietDays: normalizeQuietDays(user.quietDays),
 	};
 }
 
@@ -187,9 +199,7 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 	}
 
 	if (updates.quietDays !== undefined) {
-		patchBody.quietDays = Array.from(
-			new Set((updates.quietDays || []).filter((day) => day >= 0 && day <= 6)),
-		).sort((a, b) => a - b);
+		patchBody.quietDays = normalizeQuietDays(updates.quietDays);
 	}
 
 	if (updates.skills) {
