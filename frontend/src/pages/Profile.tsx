@@ -1,4 +1,4 @@
-import { MapPin, Moon, Plus, Save, Trash2, X } from "lucide-preact";
+import { CalendarDays, MapPin, Moon, Plus, Save, Trash2, X } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { useLocation } from "wouter";
 import { AppLayout } from "../components/Layout/AppLayout";
@@ -6,6 +6,16 @@ import { TrustBadge } from "../components/Profile/TrustBadge";
 import { useAuth } from "../lib/auth";
 import { deleteAccount, fetchCurrentUser, updateProfile } from "../lib/userApi";
 import type { User } from "../lib/types";
+
+const WEEKDAYS: Array<{ value: number; short: string; full: string }> = [
+	{ value: 0, short: "Sun", full: "Sunday" },
+	{ value: 1, short: "Mon", full: "Monday" },
+	{ value: 2, short: "Tue", full: "Tuesday" },
+	{ value: 3, short: "Wed", full: "Wednesday" },
+	{ value: 4, short: "Thu", full: "Thursday" },
+	{ value: 5, short: "Fri", full: "Friday" },
+	{ value: 6, short: "Sat", full: "Saturday" },
+];
 
 export function Profile() {
 	const [, setLocation] = useLocation();
@@ -51,6 +61,22 @@ export function Profile() {
 			...d,
 			skills: (d.skills || []).filter((s) => s !== skill),
 		}));
+	};
+
+	const toggleQuietDay = (day: number) => {
+		if (day < 0 || day > 6) return;
+
+		setDraft((d) => {
+			const current = (d.quietDays || []).filter((value) => value >= 0 && value <= 6);
+			const next = current.includes(day)
+				? current.filter((value) => value !== day)
+				: [...new Set([...current, day])];
+
+			return {
+				...d,
+				quietDays: next.sort((a, b) => a - b),
+			};
+		});
 	};
 
 	if (!user) {
@@ -234,6 +260,68 @@ export function Profile() {
 								<span class="text-sm text-text-secondary">
 									{user.quietHoursStart || "—"} – {user.quietHoursEnd || "—"}
 								</span>
+							)}
+						</div>
+						<div class="space-y-2">
+							<div class="flex items-center justify-between gap-3">
+								<div class="flex items-center gap-2 text-sm">
+									<CalendarDays size={14} class="text-text-secondary" /> Quiet Days
+								</div>
+								{!editing &&
+									(user.quietDays?.length ? (
+										<span class="text-sm text-text-secondary">
+											{user.quietDays
+												.filter((day) => day >= 0 && day <= 6)
+												.sort((a, b) => a - b)
+												.map((day) => WEEKDAYS[day].short)
+												.join(", ")}
+										</span>
+									) : (
+										<span class="text-sm text-text-secondary">—</span>
+									))}
+							</div>
+
+							{editing ? (
+								<div class="flex flex-wrap gap-2">
+									{WEEKDAYS.map((day) => {
+										const selected = (draft.quietDays || []).includes(day.value);
+										return (
+											<button
+												key={day.value}
+												type="button"
+												onClick={() => toggleQuietDay(day.value)}
+												aria-pressed={selected}
+												class={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${selected
+													? "bg-primary/15 text-primary border border-primary/30"
+													: "border border-border text-text-secondary hover:border-primary/30 hover:text-primary"
+													}`}
+											>
+												{day.short}
+											</button>
+										);
+									})}
+								</div>
+							) : user.quietDays?.length ? (
+								<div class="flex flex-wrap gap-1.5">
+									{WEEKDAYS.filter((day) => user.quietDays.includes(day.value)).map(
+										(day) => (
+											<span
+												key={day.value}
+												class="rounded-full bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium"
+											>
+												{day.short}
+											</span>
+										),
+									)}
+								</div>
+							) : (
+								<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-text-secondary">
+									{WEEKDAYS.map((day) => (
+										<span key={day.value}>
+											{day.short} —
+										</span>
+									))}
+								</div>
 							)}
 						</div>
 					</div>

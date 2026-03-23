@@ -153,6 +153,7 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 		radius?: number;
 		location?: { lat: number; lng: number };
 		quietHours?: Array<{ start: string; end: string }> | null;
+		quietDays?: number[] | null;
 		skills_and_resources?: string[] | null;
 	} = {};
 
@@ -183,6 +184,12 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 		} else {
 			patchBody.quietHours = null;
 		}
+	}
+
+	if (updates.quietDays !== undefined) {
+		patchBody.quietDays = Array.from(
+			new Set((updates.quietDays || []).filter((day) => day >= 0 && day <= 6)),
+		).sort((a, b) => a - b);
 	}
 
 	if (updates.skills) {
