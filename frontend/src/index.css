@@ -16,7 +16,7 @@
     --color-text-secondary: #6b7280;
     --color-text-inverse: #f9fafb;
     --color-border: #e5e7eb;
-    --color-glass: rgba(255, 255, 255, 0.66);
+    --color-glass: rgba(255, 255, 255, 0.80);
     --color-glass-border: rgba(255, 255, 255, 0.28);
     --glass-blur: 64px;
     --font-sans: "Inter", system-ui, -apple-system, sans-serif;
