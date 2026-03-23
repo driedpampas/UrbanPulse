@@ -183,11 +183,11 @@ export function Profile() {
 							{editing ? (
 								<input
 									type="number"
-									value={draft.distanceLimitKm}
+									value={draft.distanceLimit}
 									onInput={(e) =>
 										setDraft((d) => ({
 											...d,
-											distanceLimitKm: Number(
+											distanceLimit: Number(
 												(e.target as HTMLInputElement).value,
 											),
 										}))
@@ -196,7 +196,7 @@ export function Profile() {
 								/>
 							) : (
 								<span class="text-sm text-text-secondary">
-									{user.distanceLimitKm} km
+									{user.distanceLimit} m
 								</span>
 							)}
 						</div>

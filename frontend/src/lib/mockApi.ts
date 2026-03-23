@@ -33,7 +33,7 @@ let currentUser: User = {
     lng: -74.006,
     quietHoursStart: '22:00',
     quietHoursEnd: '07:00',
-    distanceLimitKm: 2,
+    distanceLimit: 2,
 };
 
 function syncCurrentUserWithSession() {
@@ -62,7 +62,7 @@ const mockUsers: User[] = [
         verified: true,
         lat: 40.714,
         lng: -74.003,
-        distanceLimitKm: 1,
+        distanceLimit: 1,
     },
     {
         id: 'u3',
@@ -74,7 +74,7 @@ const mockUsers: User[] = [
         verified: false,
         lat: 40.711,
         lng: -74.009,
-        distanceLimitKm: 3,
+        distanceLimit: 3,
     },
     {
         id: 'u4',
@@ -86,7 +86,7 @@ const mockUsers: User[] = [
         verified: true,
         lat: 40.715,
         lng: -74.001,
-        distanceLimitKm: 5,
+        distanceLimit: 5,
     },
     {
         id: 'u5',
@@ -98,7 +98,7 @@ const mockUsers: User[] = [
         verified: false,
         lat: 40.71,
         lng: -74.008,
-        distanceLimitKm: 2,
+        distanceLimit: 2,
     },
     {
         id: 'u6',
@@ -110,7 +110,7 @@ const mockUsers: User[] = [
         verified: true,
         lat: 40.716,
         lng: -74.004,
-        distanceLimitKm: 1,
+        distanceLimit: 1,
     },
 ];
 
@@ -454,12 +454,12 @@ export async function fetchWeather(): Promise<WeatherData> {
     const isSevere = Math.random() > 0.5;
     return isSevere
         ? {
-              temp: 35,
-              description: 'Thunderstorm Warning',
-              icon: '⛈️',
-              severe: true,
-              warning: 'Severe thunderstorm warning issued until 8 PM. Seek shelter immediately.',
-          }
+            temp: 35,
+            description: 'Thunderstorm Warning',
+            icon: '⛈️',
+            severe: true,
+            warning: 'Severe thunderstorm warning issued until 8 PM. Seek shelter immediately.',
+        }
         : { temp: 22, description: 'Partly Cloudy', icon: '⛅', severe: false };
 }
 

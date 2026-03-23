@@ -10,7 +10,8 @@ export interface User {
     lng: number;
     quietHoursStart?: string;
     quietHoursEnd?: string;
-    distanceLimitKm: number;
+    distanceLimit: number;
+    quietDays: number[];
 }
 
 export interface Pulse {

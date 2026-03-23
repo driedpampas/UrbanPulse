@@ -91,7 +91,8 @@ function mapBackendUser(user: BackendUser): User {
 		lng: user.location?.lng ?? 0,
 		quietHoursStart: quiet.start,
 		quietHoursEnd: quiet.end,
-		distanceLimitKm: Math.max(1, Math.round((user.radius || 1000) / 1000)),
+		distanceLimit: Math.max(user.radius ?? 1, 1),
+		quietDays: user.quietDays || [],
 	};
 }
 
@@ -163,8 +164,8 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 		patchBody.bio = updates.bio;
 	}
 
-	if (typeof updates.distanceLimitKm === "number") {
-		patchBody.radius = Math.max(0, Math.round(updates.distanceLimitKm * 1000));
+	if (typeof updates.distanceLimit === "number") {
+		patchBody.radius = Math.max(0, Math.round(updates.distanceLimit * 1000));
 	}
 
 	if (typeof updates.lat === "number" && typeof updates.lng === "number") {
