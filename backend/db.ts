@@ -12,7 +12,6 @@ export interface Timerange {
     end: string;
 }
 
-
 interface User {
     id: string;
     email?: string | null;
@@ -50,6 +49,37 @@ interface UserSearchParams {
     availableDays: string[] | null;
     bio: string | null;
     verified: string | null;
+}
+
+interface Pulse {
+    id: string;
+    authorId: string;
+    content: string;
+    location: Location;
+    type: string;
+    urgencyLevel: number;
+    confirmationCount: number;
+    verified: boolean;
+    createdAt: Date;
+}
+
+interface PulseCreateParams {
+    authorId: string;
+    content: string;
+    location: Location;
+    type: string;
+    urgencyLevel: number;
+}
+
+export async function insertPulse(params: PulseCreateParams): Promise<String> {
+    const lat = params.location.lat!;
+    const lng = params.location.lng!;
+
+    return await sql`
+    INSERT INTO app.pulses (author_id, content, location, pulse_type, urgency_level)
+    VALUES (${params.authorId}, ${params.content}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${params.type}, ${params.urgencyLevel})
+    RETURNING id
+    `;
 }
 
 export async function insertUser(email: string, hashedPass: string, displayname: string) {
@@ -287,6 +317,7 @@ export async function updateUserProfile(user: User) {
         throw err;
     }
 }
+
 export async function deleteUser(id: string) {
     return await sql`
         DELETE FROM app.users 

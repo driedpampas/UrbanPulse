@@ -119,9 +119,9 @@ async function validate(
 	handler: () => Response | Promise<Response>,
 ): Promise<Response> {
 	const origin = request.headers.get("Origin");
-	if (origin !== null && origin !== ALLOWED_ORIGIN) {
-		return withCors(FORBIDDEN);
-	}
+	// if (origin !== null && origin !== ALLOWED_ORIGIN) {
+	// 	return withCors(FORBIDDEN);
+	// }
 
 	if (!request.headers.has("UPI")) {
 		return withCors(UNAUTHORIZED);
@@ -158,6 +158,18 @@ const registerUserSchema = z.strictObject({
 const loginUserSchema = z.strictObject({
 	email: z.email(),
 	password: z.string(),
+});
+
+const createPulseSchema = z.strictObject({
+	type: z.enum(["Emergency", "Skill", "Item"]),
+	urgencyLevel: z.number().min(1).max(5),
+	content: z.string().nonempty(),
+	location: z.object(
+		{
+			lat: z.number(),
+			lng: z.number(),
+		}
+	)
 });
 
 const updateUserSchema = z.strictObject({
@@ -228,6 +240,7 @@ type LoginUserBody = z.infer<typeof loginUserSchema>;
 type UpdateUserBody = z.infer<typeof updateUserSchema>;
 type UpdatePassBody = z.infer<typeof updatePassSchema>;
 type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
+type CreatePulseBody = z.infer<typeof createPulseSchema>;
 
 bun.serve({
 	port: PORT,
@@ -452,9 +465,9 @@ bun.serve({
 							location:
 								url.searchParams.get("lat") || url.searchParams.get("lng")
 									? {
-											lat: url.searchParams.get("lat"),
-											lng: url.searchParams.get("lng"),
-										}
+										lat: url.searchParams.get("lat"),
+										lng: url.searchParams.get("lng"),
+									}
 									: null,
 							availableDays: url.searchParams.getAll("available_days"),
 							availableHours: url.searchParams.getAll("available_hours"),
@@ -474,9 +487,9 @@ bun.serve({
 							radius: query.radius ?? null,
 							location: query.location
 								? {
-										lat: query.location.lat ?? null,
-										lng: query.location.lng ?? null,
-									}
+									lat: query.location.lat ?? null,
+									lng: query.location.lng ?? null,
+								}
 								: null,
 							availableHours:
 								query.availableHours && query.availableHours.length > 0
@@ -525,9 +538,9 @@ bun.serve({
 								location:
 									url.searchParams.get("lat") || url.searchParams.get("lng")
 										? {
-												lat: url.searchParams.get("lat"),
-												lng: url.searchParams.get("lng"),
-											}
+											lat: url.searchParams.get("lat"),
+											lng: url.searchParams.get("lng"),
+										}
 										: null,
 								availableDays: url.searchParams.getAll("available_days"),
 								availableHours: url.searchParams.getAll("available_hours"),
@@ -547,9 +560,9 @@ bun.serve({
 								radius: query.radius ?? null,
 								location: query.location
 									? {
-											lat: query.location.lat ?? null,
-											lng: query.location.lng ?? null,
-										}
+										lat: query.location.lat ?? null,
+										lng: query.location.lng ?? null,
+									}
 									: null,
 								availableHours:
 									query.availableHours && query.availableHours.length > 0
@@ -575,6 +588,31 @@ bun.serve({
 					),
 				);
 			},
+		},
+		"/api/pulse": {
+			POST: async (req) =>
+				validate(req, async () =>
+					authorize(req, async (session) =>
+						await caught(async () => {
+							const body: CreatePulseBody = await req
+								.json()
+								.then((raw) => createPulseSchema.parse(raw));
+
+							const payload = session as JwtPayload;
+
+							const id = await db.insertPulse({
+								authorId: payload.id,
+								type: body.type,
+								urgencyLevel: body.urgencyLevel,
+								content: body.content,
+								location: body.location,
+							});
+
+							return withCors(Response.json({ id }, { status: 200 }));
+						}
+						)
+					)
+				)
 		},
 		"/*": {
 			OPTIONS: withCors(OPTIONS_RESPONSE),
