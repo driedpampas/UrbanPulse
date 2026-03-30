@@ -499,6 +499,102 @@
                 }
             }
         },
+        "/api/pulse": {
+            "post": {
+                "tags": [
+                    "Pulse"
+                ],
+                "summary": "Create a new pulse",
+                "description": "Creates a new pulse with the provided content and location. The author is the current logged in user",
+                "security": [
+                    {
+                        "upiAuth": [],
+                        "bearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "type",
+                                    "urgencyLevel",
+                                    "content",
+                                    "location"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "Emergency",
+                                            "Skill",
+                                            "Item"
+                                        ]
+                                    },
+                                    "urgencyLevel": {
+                                        "type": "number",
+                                        "description": "A number from 1 to 5 indicating the urgency level (1=least urgent, 5=most urgent)",
+                                        "example": 7,
+                                        "minimum": 1,
+                                        "maximum": 5
+                                    },
+                                    "content": {
+                                        "type": "string",
+                                        "description": "The content of the pulse, e.g. 'I need help with evacuation' or 'I can provide shelter for 2 people'",
+                                        "example": "I need help with evacuation"
+                                    },
+                                    "location": {
+                                        "type": "object",
+                                        "properties": {
+                                            "lat": {
+                                                "type": "number",
+                                                "example": 47.1585
+                                            },
+                                            "lng": {
+                                                "type": "number",
+                                                "example": 27.6014
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successfully created pulse",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "description": "Pulse ID"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "400": {
+                        "description": "Invalid body"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
