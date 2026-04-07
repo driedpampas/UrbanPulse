@@ -27,9 +27,7 @@
     "paths": {
         "/api/auth/register": {
             "post": {
-                "tags": [
-                    "Authentication"
-                ],
+                "tags": ["Authentication"],
                 "summary": "Register a new neighbor",
                 "description": "Creates a new user account and returns a session token.",
                 "requestBody": {
@@ -38,11 +36,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "email",
-                                    "password",
-                                    "displayName"
-                                ],
+                                "required": ["email", "password", "displayName"],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -113,9 +107,7 @@
         },
         "/api/auth/login": {
             "post": {
-                "tags": [
-                    "Authentication"
-                ],
+                "tags": ["Authentication"],
                 "summary": "Login an existing neighbor",
                 "description": "Authenticates a user and returns a session token.",
                 "requestBody": {
@@ -124,10 +116,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "email",
-                                    "password"
-                                ],
+                                "required": ["email", "password"],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -190,9 +179,7 @@
         },
         "/api/user": {
             "patch": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Update existing user",
                 "description": "Updates the existing user, identified with the session token, with the provided parameters.",
                 "security": [
@@ -252,10 +239,7 @@
                                     },
                                     "quietDays": {
                                         "type": "array",
-                                        "example": [
-                                            0,
-                                            6
-                                        ],
+                                        "example": [0, 6],
                                         "items": {
                                             "type": "integer",
                                             "minimum": 0,
@@ -300,9 +284,7 @@
                 }
             },
             "get": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Get current user profile",
                 "description": "Returns the profile of the authenticated user.",
                 "security": [
@@ -383,10 +365,7 @@
                                                 "minimum": 0,
                                                 "maximum": 6
                                             },
-                                            "example": [
-                                                0,
-                                                6
-                                            ]
+                                            "example": [0, 6]
                                         },
                                         "skills_and_resources": {
                                             "type": "array",
@@ -394,10 +373,7 @@
                                                 "type": "string"
                                             },
                                             "nullable": true,
-                                            "example": [
-                                                "first aid",
-                                                "portable generator"
-                                            ]
+                                            "example": ["first aid", "portable generator"]
                                         },
                                         "bio": {
                                             "type": "string",
@@ -421,9 +397,7 @@
                 }
             },
             "delete": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Delete authenticated user",
                 "description": "Deletes the currently authenticated user account.",
                 "security": [
@@ -447,9 +421,7 @@
         },
         "/api/auth/password": {
             "patch": {
-                "tags": [
-                    "Authentication"
-                ],
+                "tags": ["Authentication"],
                 "summary": "Update user password",
                 "description": "Updates the user's password, identified with the session token, with the provided parameters.",
                 "security": [
@@ -464,10 +436,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "newPassword",
-                                    "oldPassword"
-                                ],
+                                "required": ["newPassword", "oldPassword"],
                                 "properties": {
                                     "newPassword": {
                                         "type": "string",
@@ -501,9 +470,7 @@
         },
         "/api/pulse": {
             "post": {
-                "tags": [
-                    "Pulse"
-                ],
+                "tags": ["Pulse"],
                 "summary": "Create a new pulse",
                 "description": "Creates a new pulse with the provided content and location. The author is the current logged in user",
                 "security": [
@@ -518,20 +485,11 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "type",
-                                    "urgencyLevel",
-                                    "content",
-                                    "location"
-                                ],
+                                "required": ["type", "urgencyLevel", "content", "location"],
                                 "properties": {
                                     "type": {
                                         "type": "string",
-                                        "enum": [
-                                            "Emergency",
-                                            "Skill",
-                                            "Item"
-                                        ]
+                                        "enum": ["Emergency", "Skill", "Item"]
                                     },
                                     "urgencyLevel": {
                                         "type": "number",
@@ -597,9 +555,7 @@
         },
         "/api/users": {
             "get": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Search users",
                 "description": "Searches users with optional filters. Parameters that accept multiple values can be repeated.",
                 "parameters": [
@@ -635,10 +591,7 @@
                         "description": "Set to true to match any listed skill/resource, false to require all.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },
@@ -698,10 +651,7 @@
                         "in": "query",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },
@@ -849,9 +799,7 @@
                 }
             },
             "delete": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Delete users (admin)",
                 "description": "Deletes users that match the provided optional filters. This endpoint is restricted to admin users.",
                 "security": [
@@ -893,10 +841,7 @@
                         "description": "Set to true to match any listed skill/resource, false to require all.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },
@@ -956,10 +901,7 @@
                         "in": "query",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },

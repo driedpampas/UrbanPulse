@@ -29,7 +29,7 @@ interface User {
     createdAt?: Date;
 }
 
-interface UserSearchParams {
+export interface UserSearchParams {
     id: string | null;
     min_trust: string | null;
     max_trust: string | null;
@@ -71,7 +71,7 @@ interface PulseCreateParams {
     urgencyLevel: number;
 }
 
-export async function insertPulse(params: PulseCreateParams): Promise<String> {
+export async function insertPulse(params: PulseCreateParams): Promise<string> {
     const lat = params.location.lat!;
     const lng = params.location.lng!;
 
@@ -227,7 +227,6 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
     `;
 
     return results.map((rawUser: any) => {
-
         return {
             id: rawUser.id,
             email: rawUser.email,
@@ -276,8 +275,6 @@ export async function updateUserProfile(user: User) {
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
     const shouldClearSkillRes = user.skillsAndResources === null;
-
-
 
     try {
         await sql`
@@ -382,4 +379,3 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
         ) OR id = ${userSearch.id}))
     `;
 }
-

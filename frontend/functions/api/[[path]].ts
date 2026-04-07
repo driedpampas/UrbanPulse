@@ -1,7 +1,3 @@
-interface Env {
-	API_TOKEN: string;
-}
-
 interface FunctionContext<TEnv> {
 	request: Request;
 	env: TEnv;
@@ -29,7 +25,7 @@ function createTargetUrl(requestUrl: string, backendBaseUrl: string): string {
 	return `${normalizeBaseUrl(backendBaseUrl)}${path}${incomingUrl.search}`;
 }
 
-function buildForwardedHeaders(request: Request, env: Env): Headers {
+function buildForwardedHeaders(request: Request): Headers {
 	const headers = new Headers();
 
 	for (const name of FORWARDED_REQUEST_HEADERS) {
@@ -39,36 +35,21 @@ function buildForwardedHeaders(request: Request, env: Env): Headers {
 		}
 	}
 
-	headers.set("UPI", env.API_TOKEN);
 	headers.set("Origin", ALLOWED_ORIGIN);
 
 	return headers;
 }
 
-function createErrorResponse(message: string, status: number) {
-	return new Response(JSON.stringify({ error: message }), {
-		status,
-		headers: {
-			"Content-Type": "application/json",
-		},
-	});
-}
-
 export const onRequest = async ({
 	request,
-	env,
-}: FunctionContext<Env>): Promise<Response> => {
-	if (!env.API_TOKEN) {
-		return createErrorResponse("Proxy is not configured on the server", 500);
-	}
-
+}: FunctionContext<Record<string, never>>): Promise<Response> => {
 	const method = request.method.toUpperCase();
 	const backendBaseUrl = "https://urbanpulse-api.syu.nl.eu.org";
 	const targetUrl = createTargetUrl(request.url, backendBaseUrl);
 
 	const response = await fetch(targetUrl, {
 		method,
-		headers: buildForwardedHeaders(request, env),
+		headers: buildForwardedHeaders(request),
 		body: method === "GET" || method === "HEAD" ? undefined : request.body,
 		redirect: "follow",
 	});

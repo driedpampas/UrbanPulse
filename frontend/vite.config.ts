@@ -11,13 +11,6 @@ function apiProxyPlugin(): Plugin {
                     return next();
                 }
 
-                const apiToken = process.env.API_TOKEN;
-                if (!apiToken) {
-                    res.writeHead(500, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'API_TOKEN not set in environment' }));
-                    return;
-                }
-
                 const backendUrl = 'https://urbanpulse-api.syu.nl.eu.org';
                 const targetUrl = `${backendUrl}${req.url}`;
 
@@ -39,7 +32,6 @@ function apiProxyPlugin(): Plugin {
                         }
                     }
 
-                    headers.set('UPI', apiToken);
                     headers.set('Origin', 'https://urbanpulse.syu.nl.eu.org');
 
                     const chunks: Uint8Array[] = [];

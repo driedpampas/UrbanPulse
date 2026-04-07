@@ -5,6 +5,7 @@
 To run in dev mode, create a `.env` file:
 
 ```txt
-# API calls are fixed to the same-origin /api proxy entrypoint.
 VITE_MAPBOX_TOKEN=pk...
 ```
+
+No backend proxy secret is required; the client sends its own bearer auth token.
