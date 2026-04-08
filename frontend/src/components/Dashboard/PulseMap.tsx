@@ -12,6 +12,12 @@ import {
 } from "../../lib/pulseApi";
 import type { Pulse } from "../../lib/types";
 import type { PulseSocketEvent } from "../../lib/pulseApi";
+import {
+	DEFAULT_PULSE_CENTER,
+	distanceInMeters,
+	isUsableCoordinates,
+} from "../../lib/utils";
+import { fetchCurrentUser } from "../../lib/userApi";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || "";
 const MAPBOX_STYLE_ID = "mapbox/light-v11";
@@ -71,7 +77,13 @@ async function verifyMapboxToken(token: string) {
 	);
 }
 
-export function PulseMap({ expanded = false }: { expanded?: boolean }) {
+export function PulseMap({
+	expanded = false,
+	radiusFilter,
+}: {
+	expanded?: boolean;
+	radiusFilter: number;
+}) {
 	const mapContainer = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<MapboxMap | null>(null);
 	const mapboxGlRef = useRef<MapboxGL | null>(null);
@@ -81,6 +93,31 @@ export function PulseMap({ expanded = false }: { expanded?: boolean }) {
 	const [pulseError, setPulseError] = useState<string | null>(null);
 	const [loadingPulses, setLoadingPulses] = useState(true);
 	const [pulses, setPulses] = useState<Pulse[]>([]);
+	const [mapCenter, setMapCenter] = useState(DEFAULT_PULSE_CENTER);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		fetchCurrentUser()
+			.then((user) => {
+				if (cancelled) {
+					return;
+				}
+
+				if (isUsableCoordinates(user.lat, user.lng)) {
+					setMapCenter({ lat: user.lat, lng: user.lng });
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setMapCenter(DEFAULT_PULSE_CENTER);
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -142,6 +179,27 @@ export function PulseMap({ expanded = false }: { expanded?: boolean }) {
 		mapboxGlRef.current = null;
 		setMapLoaded(false);
 	}, [mapError]);
+
+	useEffect(() => {
+		const activeMap = mapRef.current;
+
+		if (!mapLoaded || !activeMap) {
+			return;
+		}
+
+		activeMap.setCenter([mapCenter.lng, mapCenter.lat]);
+	}, [mapLoaded, mapCenter]);
+
+	const visiblePulses = pulses.filter((pulse) => {
+		const pulseDistance = distanceInMeters(
+			mapCenter.lat,
+			mapCenter.lng,
+			pulse.lat,
+			pulse.lng,
+		);
+
+		return pulseDistance <= radiusFilter;
+	});
 
 	useEffect(() => {
 		if (!mapContainer.current) {
@@ -247,7 +305,7 @@ export function PulseMap({ expanded = false }: { expanded?: boolean }) {
 		});
 		markersRef.current = [];
 
-		markersRef.current = pulses.map((pulse) => {
+		markersRef.current = visiblePulses.map((pulse) => {
 			const markerElement = document.createElement("div");
 			markerElement.style.width = pulse.type === "emergency" ? "16px" : "14px";
 			markerElement.style.height = pulse.type === "emergency" ? "16px" : "14px";
@@ -274,14 +332,14 @@ export function PulseMap({ expanded = false }: { expanded?: boolean }) {
 			});
 			markersRef.current = [];
 		};
-	}, [mapLoaded, pulses]);
+	}, [mapLoaded, visiblePulses]);
 
 	if (mapError) {
 		return (
 			<MapOfflineFallback
 				expanded={expanded}
 				reason={mapError}
-				pulses={pulses}
+				pulses={visiblePulses}
 				loading={loadingPulses}
 				pulseError={pulseError}
 			/>
@@ -299,9 +357,9 @@ export function PulseMap({ expanded = false }: { expanded?: boolean }) {
 					Live pulse feed unavailable. {pulseError}
 				</div>
 			)}
-			{!loadingPulses && pulses.length === 0 && !pulseError && (
+			{!loadingPulses && visiblePulses.length === 0 && !pulseError && (
 				<div class="absolute left-4 top-4 z-10 rounded-2xl border border-border bg-white/90 px-3 py-2 text-xs text-text-secondary shadow-lg backdrop-blur-sm">
-					No live pulses yet.
+					No pulses within {radiusFilter}m.
 				</div>
 			)}
 			{!mapLoaded && (

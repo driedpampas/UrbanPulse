@@ -20,6 +20,12 @@ import {
 import { useAuth } from "../../lib/auth";
 import type { Pulse } from "../../lib/types";
 import type { PulseSocketEvent } from "../../lib/pulseApi";
+import {
+	DEFAULT_PULSE_CENTER,
+	distanceInMeters,
+	isUsableCoordinates,
+} from "../../lib/utils";
+import { fetchCurrentUser } from "../../lib/userApi";
 
 const typeConfig: Record<
 	string,
@@ -81,7 +87,32 @@ export function LiveFeed(_props: Props) {
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [newPulseFlash, setNewPulseFlash] = useState<string | null>(null);
+	const [feedCenter, setFeedCenter] = useState(DEFAULT_PULSE_CENTER);
 	const clearFlashTimeoutRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		fetchCurrentUser()
+			.then((user) => {
+				if (cancelled) {
+					return;
+				}
+
+				if (isUsableCoordinates(user.lat, user.lng)) {
+					setFeedCenter({ lat: user.lat, lng: user.lng });
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setFeedCenter(DEFAULT_PULSE_CENTER);
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -152,6 +183,17 @@ export function LiveFeed(_props: Props) {
 		};
 	}, [handleWS]);
 
+	const visiblePulses = pulses.filter((pulse) => {
+		const pulseDistance = distanceInMeters(
+			feedCenter.lat,
+			feedCenter.lng,
+			pulse.lat,
+			pulse.lng,
+		);
+
+		return pulseDistance <= _props.radiusFilter;
+	});
+
 	const handleDeletePulse = async (pulseId: string) => {
 		if (
 			typeof window !== "undefined" &&
@@ -216,9 +258,22 @@ export function LiveFeed(_props: Props) {
 		);
 	}
 
+	if (visiblePulses.length === 0) {
+		return (
+			<div class="px-4 mt-3">
+				<div class="glass rounded-2xl p-5 text-center text-sm text-text-secondary space-y-1">
+					<p>No pulses within {_props.radiusFilter}m.</p>
+					<p class="text-xs">
+						Try widening the radius to see more nearby activity.
+					</p>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div class="px-4 space-y-3 mt-3">
-			{pulses.map((pulse, i) => {
+			{visiblePulses.map((pulse, i) => {
 				const cfg = typeConfig[pulse.type] || typeConfig.update;
 				const Icon = cfg.icon;
 				const isNew = pulse.id === newPulseFlash;
