@@ -394,7 +394,7 @@ export async function findDirectChatId(userAId: string, userBId: string): Promis
         SELECT cp.thread_id AS "chatId"
         FROM app.chat_participants AS cp
         JOIN app.chat_threads AS ct ON ct.id = cp.thread_id
-        WHERE cp.user_id IN (${userAId}::uuid, ${userBId}::uuid)
+        WHERE cp.user_id IN [${userAId}::uuid, ${userBId}::uuid]
         GROUP BY cp.thread_id
         HAVING COUNT(*) = 2
            AND COUNT(*) FILTER (WHERE cp.user_id = ${userAId}::uuid) = 1
