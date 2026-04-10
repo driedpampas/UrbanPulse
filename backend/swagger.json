@@ -512,6 +512,16 @@
                             "type": "number"
                         },
                         "example": 500
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "The number of pulses to skip (for pagination).",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "example": 0
                     }
                 ],
                 "responses": {

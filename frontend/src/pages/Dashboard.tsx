@@ -35,56 +35,57 @@ export function Dashboard() {
 	`;
 
     return (
-        <AppLayout
-            title="UrbanPulse"
-            headerRight={
-                <>
-                    <button
-                        type="button"
-                        id="toggle-filters-btn"
-                        class="btn-icon"
-                        onClick={() => setShowFilters((v) => !v)}
-                        aria-label="Filters"
-                        style={`color:${showFilters ? 'var(--accent)' : 'var(--text-secondary)'};background:${showFilters ? 'var(--accent-subtle)' : 'transparent'};`}
-                    >
-                        <SlidersHorizontal size={15} />
-                    </button>
-                    <button
-                        type="button"
-                        id="post-pulse-btn"
-                        class="btn-primary"
-                        onClick={() => setShowPostForm(true)}
-                        aria-label="Post pulse"
-                    >
-                        <Plus size={14} strokeWidth={2.4} />
-                        New Pulse
-                    </button>
-                </>
-            }
-        >
+        <AppLayout title="UrbanPulse" headerRight={null}>
             <div style={`display:flex;flex-direction:column;${view === 'map' ? 'flex:1;' : ''}`}>
                 {/* Toolbar row */}
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 0;gap:10px;">
-                    {/* View toggle */}
-                    <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
-                        <button
-                            type="button"
-                            id="view-feed-btn"
-                            style={tabStyle(view === 'feed')}
-                            onClick={() => setView('feed')}
-                        >
-                            <List size={13} />
-                            Feed
-                        </button>
-                        <button
-                            type="button"
-                            id="view-map-btn"
-                            style={tabStyle(view === 'map')}
-                            onClick={() => setView('map')}
-                        >
-                            <MapIcon size={13} />
-                            Map
-                        </button>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 0;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        {/* View toggle */}
+                        <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
+                            <button
+                                type="button"
+                                id="view-feed-btn"
+                                style={tabStyle(view === 'feed')}
+                                onClick={() => setView('feed')}
+                            >
+                                <List size={13} />
+                                Feed
+                            </button>
+                            <button
+                                type="button"
+                                id="view-map-btn"
+                                style={tabStyle(view === 'map')}
+                                onClick={() => setView('map')}
+                            >
+                                <MapIcon size={13} />
+                                Map
+                            </button>
+                        </div>
+
+                        {/* Actions */}
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <button
+                                type="button"
+                                id="toggle-filters-btn"
+                                class="btn-icon"
+                                onClick={() => setShowFilters((v) => !v)}
+                                aria-label="Filters"
+                                style={`color:${showFilters ? 'var(--accent)' : 'var(--text-secondary)'};background:${showFilters ? 'var(--accent-subtle)' : 'transparent'};width:34px;height:34px;`}
+                            >
+                                <SlidersHorizontal size={15} />
+                            </button>
+                            <button
+                                type="button"
+                                id="post-pulse-btn"
+                                class="btn-primary"
+                                onClick={() => setShowPostForm(true)}
+                                aria-label="Post pulse"
+                                style="padding:0 12px;height:34px;font-size:12px;gap:6px;"
+                            >
+                                <Plus size={14} strokeWidth={2.4} />
+                                New Pulse
+                            </button>
+                        </div>
                     </div>
 
                     {!showFilters && (
@@ -93,7 +94,7 @@ export function Dashboard() {
                                 {radius}m radius
                             </span>
                             <span style="font-size:9px;color:var(--text-tertiary);opacity:0.7;font-weight:600;letter-spacing:0.02em;">
-                                THE FIRST {limit}
+                                {limit} PER BATCH
                             </span>
                         </div>
                     )}
@@ -143,7 +144,7 @@ export function Dashboard() {
                                     Pulse capacity
                                 </label>
                                 <span style="font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;">
-                                    THE FIRST {limit}
+                                    {limit} PER BATCH
                                 </span>
                             </div>
                             <input

@@ -62,6 +62,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [newId, setNewId] = useState<string | null>(null);
     const [feedCenter, setFeedCenter] = useState(DEFAULT_PULSE_CENTER);
+    const [hasMore, setHasMore] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const observerTarget = useRef<HTMLDivElement>(null);
     const clearRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -73,7 +76,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     setFeedCenter({ lat: u.lat, lng: u.lng });
                     return;
                 }
-            } catch (e) {
+            } catch {
                 // Profile might not exist or fetch failed
             }
 
@@ -91,13 +94,19 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         };
     }, []);
 
+    // Initial load and reset
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
         setLoadError(null);
-        fetchPulses(feedCenter.lat, feedCenter.lng, radiusFilter, pulseLimit)
+        setHasMore(true);
+
+        fetchPulses(feedCenter.lat, feedCenter.lng, radiusFilter, pulseLimit, 0)
             .then((d) => {
-                if (!cancelled) setPulses(d);
+                if (!cancelled) {
+                    setPulses(d);
+                    if (d.length < pulseLimit) setHasMore(false);
+                }
             })
             .catch((e: unknown) => {
                 if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load.');
@@ -109,6 +118,56 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             cancelled = true;
         };
     }, [radiusFilter, feedCenter, pulseLimit]);
+
+    // Intersection observer for infinite scroll
+    useEffect(() => {
+        if (!hasMore || loading || loadingMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0]?.isIntersecting) {
+                    loadMore();
+                }
+            },
+            { threshold: 1.0 }
+        );
+
+        const target = observerTarget.current;
+        if (target) observer.observe(target);
+
+        return () => {
+            if (target) observer.unobserve(target);
+        };
+    }, [hasMore, loading, loadingMore, pulses.length]);
+
+    const loadMore = async () => {
+        if (loadingMore || !hasMore) return;
+
+        setLoadingMore(true);
+        const newOffset = pulses.length;
+        try {
+            const nextPulses = await fetchPulses(
+                feedCenter.lat,
+                feedCenter.lng,
+                radiusFilter,
+                pulseLimit,
+                newOffset
+            );
+
+            if (nextPulses.length === 0) {
+                setHasMore(false);
+            } else {
+                setPulses((prev) => mergePulses(prev, nextPulses));
+                if (nextPulses.length < pulseLimit) {
+                    setHasMore(false);
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load more pulses:', e);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const handleWS = useCallback(
         (event: PulseSocketEvent) => {
@@ -319,6 +378,27 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     </article>
                 );
             })}
+
+            {/* Pagination / Loading Area */}
+            <div
+                ref={observerTarget}
+                style="padding:20px;display:flex;justify-content:center;align-items:center;min-height:60px;"
+            >
+                {loadingMore && (
+                    <div style="display:flex;align-items:center;gap:8px;color:var(--text-tertiary);font-size:12px;font-weight:600;">
+                        <span
+                            class="spinner"
+                            style="width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"
+                        />
+                        Loading more pulses...
+                    </div>
+                )}
+                {!hasMore && pulses.length > 0 && (
+                    <div style="color:var(--text-tertiary);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;">
+                        No more pulses to display
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

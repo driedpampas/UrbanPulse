@@ -244,9 +244,7 @@ export function Auth() {
                                     autoComplete={
                                         mode === 'login' ? 'current-password' : 'new-password'
                                     }
-                                    style={
-                                        fieldStyle(Boolean(errors.password)) + 'padding-right:38px;'
-                                    }
+                                    style={`${fieldStyle(Boolean(errors.password))}padding-right:38px;`}
                                     onFocus={(e) => {
                                         (e.target as HTMLElement).style.borderColor =
                                             'var(--border-focus)';

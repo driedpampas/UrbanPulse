@@ -103,7 +103,7 @@ export function PulseMap({
                     setMapCenter({ lat: user.lat, lng: user.lng });
                     return;
                 }
-            } catch (e) {
+            } catch {
                 // Ignore
             }
 

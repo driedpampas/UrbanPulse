@@ -536,6 +536,7 @@ bun.serve({
                     caught(async () => {
                         const url = new URL(req.url);
                         const requestedLimit = Number(url.searchParams.get('limit') ?? '50');
+                        const offset = Number(url.searchParams.get('offset') ?? '0');
                         const lat = url.searchParams.get('lat')
                             ? Number(url.searchParams.get('lat'))
                             : null;
@@ -550,7 +551,8 @@ bun.serve({
                             Number.isFinite(requestedLimit) ? requestedLimit : 50,
                             lat,
                             lng,
-                            radius
+                            radius,
+                            Number.isFinite(offset) ? offset : 0
                         );
 
                         return withCors(Response.json(pulses, { status: 200 }));

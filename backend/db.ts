@@ -135,9 +135,11 @@ export async function selectPulses(
     limit = 50,
     lat?: number | null,
     lng?: number | null,
-    radius?: number | null
+    radius?: number | null,
+    offset = 0
 ): Promise<PulseFeedItem[]> {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
 
     const pulses = (await sql`
     SELECT
@@ -166,6 +168,7 @@ export async function selectPulses(
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}
+    OFFSET ${safeOffset}
     `) as PulseRow[];
 
     return pulses.map((pulse) => mapPulseRow(pulse));

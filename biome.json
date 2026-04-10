@@ -23,7 +23,13 @@
     "linter": {
         "enabled": true,
         "rules": {
-            "recommended": true
+            "recommended": true,
+            "a11y": {
+                "noLabelWithoutControl": "off"
+            },
+            "complexity": {
+                "noImportantStyles": "off"
+            }
         }
     },
     "css": {
@@ -35,11 +41,11 @@
         "includes": [
             "**",
             "!**/dist",
-            "!**/node_modules",
-            "!**/.local",
-            "!**/.old",
-            "!**/.tmp",
-            "!*.html"
+            "!**/node_modules/",
+            "!**/.local/",
+            "!**/.old/",
+            "!**/.tmp/",
+            "!**/*.html"
         ]
     }
 }
