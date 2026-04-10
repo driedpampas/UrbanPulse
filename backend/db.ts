@@ -145,9 +145,14 @@ type MessageRow = {
     timestamp: number | string | Date;
 };
 
-type ChatRow = {
+type ChatParticipantRow = {
     thread_id: string;
     user_id: string;
+    created_at: number | string | Date;
+};
+
+type ChatThreadRow = {
+    id: string;
     is_group: boolean;
     timestamp: number | string | Date;
 };
@@ -272,25 +277,26 @@ export async function selectChats(userId: string): Promise<{ chatId: string }[]>
 export async function selectChatSummaries(userId: string): Promise<ChatSummary[]> {
     const chats = (await sql`
         SELECT
-            cp.thread_id AS id,
-            BOOL_OR(cp.is_group) AS is_group,
-            ROUND(EXTRACT(EPOCH FROM MIN(cp.created_at)) * 1000)::bigint AS "timestamp",
+            ct.id,
+            ct.is_group,
+            ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
             jsonb_agg(
                 jsonb_build_object(
                     'userId', cp.user_id::text,
                     'displayName', NULLIF(users.display_name, '')
                 )
-                ORDER BY cp.created_at
+                ORDER BY cp.joined_at
             ) AS participants
-        FROM app.chat_participants AS cp
+        FROM app.chat_threads AS ct
+        JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
         LEFT JOIN app.users AS users ON users.id = cp.user_id
-        WHERE cp.thread_id IN (
+        WHERE ct.id IN (
             SELECT thread_id
             FROM app.chat_participants
             WHERE user_id = ${userId}
         )
-        GROUP BY cp.thread_id
-        ORDER BY "timestamp" DESC, cp.thread_id DESC
+        GROUP BY ct.id, ct.is_group, ct.created_at
+        ORDER BY "timestamp" DESC, ct.id DESC
     `) as ChatSummaryRow[];
 
     return chats.map((chat) => ({
@@ -344,13 +350,14 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
 
         SET LOCAL app.current_user_id = ${currentUser};
 
-        SELECT thread_id, user_id, is_group,
-        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-        FROM app.chat_participants
-        WHERE thread_id = ${chatId};
+        SELECT cp.thread_id, cp.user_id, ct.is_group,
+        ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp"
+        FROM app.chat_threads AS ct
+        JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
+        WHERE ct.id = ${chatId};
 
         COMMIT;
-    `) as ChatRow[];
+    `) as Array<ChatParticipantRow & ChatThreadRow>;
 
     if (chatRows.length === 0) {
         return null;
@@ -386,12 +393,13 @@ export async function findDirectChatId(userAId: string, userBId: string): Promis
     const [row] = (await sql`
         SELECT cp.thread_id AS "chatId"
         FROM app.chat_participants AS cp
+        JOIN app.chat_threads AS ct ON ct.id = cp.thread_id
         WHERE cp.user_id IN (${userAId}::uuid, ${userBId}::uuid)
         GROUP BY cp.thread_id
         HAVING COUNT(*) = 2
            AND COUNT(*) FILTER (WHERE cp.user_id = ${userAId}::uuid) = 1
            AND COUNT(*) FILTER (WHERE cp.user_id = ${userBId}::uuid) = 1
-           AND BOOL_AND(cp.is_group = false)
+           AND BOOL_AND(ct.is_group = false)
            AND (
                 SELECT COUNT(*)
                 FROM app.chat_participants AS all_cp
@@ -415,8 +423,11 @@ export async function insertChat(
 
         SET LOCAL app.current_user_id = ${currentUser};
 
-        INSERT INTO app.chat_participants (thread_id, user_id, is_group)
-        SELECT ${threadId}::uuid, users.user_id::uuid, ${isGroup}
+        INSERT INTO app.chat_threads (id, is_group)
+        VALUES (${threadId}::uuid, ${isGroup});
+
+        INSERT INTO app.chat_participants (thread_id, user_id)
+        SELECT ${threadId}::uuid, users.user_id::uuid
         FROM unnest(${participantIds}::text[]) AS users(user_id);
 
         COMMIT;
