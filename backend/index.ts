@@ -127,13 +127,13 @@ async function unauthorize(
 }
 
 const registerUserSchema = z.strictObject({
-    email: z.email(),
+    email: z.string().email(),
     displayName: z.string().nonempty(),
     password: z.string().min(8),
 });
 
 const loginUserSchema = z.strictObject({
-    email: z.email(),
+    email: z.string().email(),
     password: z.string(),
 });
 
@@ -223,7 +223,7 @@ const updatePassSchema = z
 
 const searchUsersSchema = z.strictObject({
     id: z.uuid().nullish(),
-    email: z.email().nullish(),
+    email: z.string().email().nullish(),
     displayName: z.string().nullish(),
     anyskillres: z.enum(['true', 'false']).nullish(),
     skillres: z.array(z.coerce.string()).nullish(),
@@ -299,8 +299,6 @@ function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
     };
 }
 
-    void handleSocketMessage(ws, message);
-}
 
 async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: string) {
     let parsedMessage: unknown;
@@ -1086,6 +1084,7 @@ bun.serve({
         publishToSelf: true,
         open(ws) {
             ws.subscribe(PULSE_FEED_TOPIC);
+        },
         message(ws, message) {
             if (typeof message !== 'string') return;
             void handleSocketMessage(ws, message);
