@@ -76,9 +76,11 @@ async function verifyMapboxToken(token: string) {
 export function PulseMap({
     expanded = false,
     radiusFilter,
+    pulseLimit = 50,
 }: {
     expanded?: boolean;
     radiusFilter: number;
+    pulseLimit?: number;
 }) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<MapboxMap | null>(null);
@@ -125,7 +127,7 @@ export function PulseMap({
         setLoadingPulses(true);
         setPulseError(null);
 
-        fetchPulses(mapCenter.lat, mapCenter.lng, radiusFilter)
+        fetchPulses(mapCenter.lat, mapCenter.lng, radiusFilter, pulseLimit)
             .then((data) => {
                 if (!cancelled) {
                     setPulses(data);
@@ -147,7 +149,7 @@ export function PulseMap({
         return () => {
             cancelled = true;
         };
-    }, [radiusFilter, mapCenter]);
+    }, [radiusFilter, mapCenter, pulseLimit]);
 
     useEffect(() => {
         const handleWS = (event: PulseSocketEvent) => {

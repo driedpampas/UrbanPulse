@@ -18,6 +18,7 @@ export function Dashboard() {
         setRadius(val);
         localStorage.setItem('up_radius_filter', val.toString());
     };
+    const [limit, setLimit] = useState(50);
     const [showFilters, setShowFilters] = useState(false);
 
     /* Segmented control tab */
@@ -87,9 +88,14 @@ export function Dashboard() {
                     </div>
 
                     {!showFilters && (
-                        <span style="font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
-                            {radius}m radius
-                        </span>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
+                            <span style="font-size:11px;color:var(--text-tertiary);line-height:1;">
+                                {radius}m radius
+                            </span>
+                            <span style="font-size:9px;color:var(--text-tertiary);opacity:0.7;font-weight:600;letter-spacing:0.02em;">
+                                THE FIRST {limit}
+                            </span>
+                        </div>
                     )}
                 </div>
 
@@ -97,33 +103,62 @@ export function Dashboard() {
                 {showFilters && (
                     <div
                         class="animate-slide-up"
-                        style="margin-top:10px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);"
+                        style="margin-top:10px;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);display:flex;flex-direction:column;gap:14px;"
                     >
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                            <label
-                                style="font-size:12px;font-weight:600;color:var(--text-secondary);"
-                                for="radius-input"
-                            >
-                                Radius filter
-                            </label>
-                            <span style="font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;">
-                                {radius} m
-                            </span>
+                        {/* Radius slider */}
+                        <div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <label
+                                    style="font-size:12px;font-weight:600;color:var(--text-secondary);"
+                                    for="radius-input"
+                                >
+                                    Radius filter
+                                </label>
+                                <span style="font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;">
+                                    {radius} m
+                                </span>
+                            </div>
+                            <input
+                                id="radius-input"
+                                type="range"
+                                min={100}
+                                max={5000}
+                                step={100}
+                                value={radius}
+                                onInput={(e) =>
+                                    updateRadius(Number((e.target as HTMLInputElement).value))
+                                }
+                                style="width:100%;accent-color:var(--accent);cursor:pointer;"
+                                aria-label={`Radius: ${radius} meters`}
+                            />
                         </div>
-                        <input
-                            id="radius-input"
-                            type="range"
-                            min={100}
-                            max={2000}
-                            step={100}
-                            value={radius}
-                            onInput={(e) => updateRadius(Number((e.target as HTMLInputElement).value))}
-                            style="width:100%;accent-color:var(--accent);"
-                            aria-label={`Radius: ${radius} meters`}
-                        />
-                        <div style="display:flex;justify-content:space-between;margin-top:4px;">
-                            <span style="font-size:10px;color:var(--text-tertiary);">100m</span>
-                            <span style="font-size:10px;color:var(--text-tertiary);">2km</span>
+
+                        {/* Limit slider */}
+                        <div style="padding-top:12px;border-top:1px solid var(--border);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <label
+                                    style="font-size:12px;font-weight:600;color:var(--text-secondary);"
+                                    for="limit-input"
+                                >
+                                    Pulse capacity
+                                </label>
+                                <span style="font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;">
+                                    THE FIRST {limit}
+                                </span>
+                            </div>
+                            <input
+                                id="limit-input"
+                                type="range"
+                                min={10}
+                                max={100}
+                                step={10}
+                                value={limit}
+                                onInput={(e) =>
+                                    setLimit(Number((e.target as HTMLInputElement).value))
+                                }
+                                style="width:100%;accent-color:var(--accent);cursor:pointer;"
+                                aria-label={`Limit: ${limit} pulses`}
+                            />
                         </div>
                     </div>
                 )}
@@ -133,10 +168,10 @@ export function Dashboard() {
 
                 {/* Main view */}
                 {view === 'feed' ? (
-                    <LiveFeed radiusFilter={radius} />
+                    <LiveFeed radiusFilter={radius} pulseLimit={limit} />
                 ) : (
                     <div style="margin-top:12px;flex:1;display:flex;flex-direction:column;min-height:55dvh;">
-                        <PulseMap expanded radiusFilter={radius} />
+                        <PulseMap expanded radiusFilter={radius} pulseLimit={limit} />
                     </div>
                 )}
             </div>

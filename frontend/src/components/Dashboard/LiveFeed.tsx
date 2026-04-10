@@ -47,9 +47,10 @@ function timeAgo(ts: number): string {
 
 interface Props {
     radiusFilter: number;
+    pulseLimit?: number;
 }
 
-export function LiveFeed({ radiusFilter }: Props) {
+export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const { session } = useAuth();
     const [pulses, setPulses] = useState<Pulse[]>([]);
     const [loading, setLoading] = useState(true);
@@ -89,7 +90,7 @@ export function LiveFeed({ radiusFilter }: Props) {
         let cancelled = false;
         setLoading(true);
         setLoadError(null);
-        fetchPulses(feedCenter.lat, feedCenter.lng, radiusFilter)
+        fetchPulses(feedCenter.lat, feedCenter.lng, radiusFilter, pulseLimit)
             .then((d) => {
                 if (!cancelled) setPulses(d);
             })
@@ -102,7 +103,7 @@ export function LiveFeed({ radiusFilter }: Props) {
         return () => {
             cancelled = true;
         };
-    }, [radiusFilter, feedCenter]);
+    }, [radiusFilter, feedCenter, pulseLimit]);
 
     const handleWS = useCallback(
         (event: PulseSocketEvent) => {
