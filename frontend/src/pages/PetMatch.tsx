@@ -5,10 +5,10 @@ import { fetchPetMatches } from '../lib/mockApi';
 import type { PetMatch as PetMatchType } from '../lib/types';
 
 function timeAgo(ts: number) {
-    const diff = Date.now() - ts;
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return `${Math.floor(diff / 86400000)}d ago`;
+    const d = Date.now() - ts;
+    if (d < 3600000) return `${Math.floor(d / 60000)}m ago`;
+    if (d < 86400000) return `${Math.floor(d / 3600000)}h ago`;
+    return `${Math.floor(d / 86400000)}d ago`;
 }
 
 export function PetMatch() {
@@ -16,104 +16,89 @@ export function PetMatch() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchPetMatches().then((data) => {
-            setPets(data);
-            setLoading(false);
-        });
+        fetchPetMatches().then((data) => { setPets(data); setLoading(false); });
     }, []);
 
-    const matches = pets.filter(
-        (p) => p.reportType === 'found' && p.matchConfidence && p.matchedWith
-    );
+    const matches = pets.filter((p) => p.reportType === 'found' && p.matchConfidence && p.matchedWith);
 
     return (
-        <AppLayout title="AI Guardian">
-            <div class="p-4 space-y-4">
+        <AppLayout title="Pet Guardian">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:20px;">
+
+                {/* AI Matches section */}
                 {matches.length > 0 && (
-                    <div>
-                        <h2 class="text-sm font-bold flex items-center gap-1.5 mb-3">
-                            <Sparkles size={16} class="text-accent" /> Potential Matches
+                    <section>
+                        <h2 style="font-size:12px;font-weight:700;color:var(--text-secondary);letter-spacing:0.05em;margin:0 0 10px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                            <Sparkles size={13} style="color:var(--warning);" />
+                            AI Matches
                         </h2>
-                        <div class="space-y-3">
+                        <div style="display:flex;flex-direction:column;gap:8px;">
                             {matches.map((foundPet, i) => {
                                 const lostPet = pets.find((p) => p.id === foundPet.matchedWith);
                                 if (!lostPet) return null;
+                                const conf = foundPet.matchConfidence ?? 0;
                                 return (
                                     <div
                                         key={foundPet.id}
-                                        class="glass rounded-2xl p-4 animate-fade-up border-l-4 border-l-accent"
-                                        style={{ animationDelay: `${i * 80}ms` }}
+                                        class="card animate-slide-up"
+                                        style={`padding:16px;animation-delay:${i * 60}ms;border-left:3px solid var(--warning);`}
                                     >
-                                        <div class="flex items-center justify-between mb-3">
-                                            <span class="text-xs font-bold text-accent flex items-center gap-1">
-                                                <Sparkles size={12} /> {foundPet.matchConfidence}%
-                                                Match
+                                        {/* Confidence header */}
+                                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--warning);">
+                                                <Sparkles size={11} />
+                                                {conf}% match
                                             </span>
-                                            <span class="text-[10px] text-text-secondary">
-                                                {foundPet.species} • {foundPet.breed}
+                                            <span style="font-size:11px;color:var(--text-tertiary);">
+                                                {foundPet.species} · {foundPet.breed}
                                             </span>
                                         </div>
-                                        <div class="w-full bg-surface-dim rounded-full h-1.5 mb-3">
-                                            <div
-                                                class="bg-linear-to-r from-accent to-secondary h-1.5 rounded-full transition-all duration-1000"
-                                                style={{ width: `${foundPet.matchConfidence}%` }}
-                                            />
+
+                                        {/* Progress bar */}
+                                        <div style="height:4px;border-radius:2px;background:var(--bg-muted);margin-bottom:12px;overflow:hidden;">
+                                            <div style={`height:100%;border-radius:2px;background:var(--warning);width:${conf}%;transition:width 1s ease;`} />
                                         </div>
 
-                                        <div class="grid grid-cols-[1fr_auto_1fr] gap-2 items-start">
-                                            <div class="bg-danger/5 rounded-xl p-3">
-                                                <span class="text-[10px] font-bold text-danger">
-                                                    LOST
+                                        {/* Lost / Found comparison */}
+                                        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;">
+                                            <div style="padding:10px;border-radius:8px;background:var(--type-emergency-bg);border:1px solid var(--type-emergency-border);">
+                                                <span style="font-size:10px;font-weight:800;color:var(--type-emergency-text);letter-spacing:0.06em;">LOST</span>
+                                                <p style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px;">{lostPet.breed}</p>
+                                                <p style="font-size:11px;color:var(--text-secondary);margin:0 0 2px;">{lostPet.color}</p>
+                                                <p style="font-size:10px;color:var(--text-tertiary);margin:0 0 6px;font-style:italic;">"{lostPet.markings}"</p>
+                                                <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-tertiary);">
+                                                    <MapPin size={9} />{lostPet.location}
                                                 </span>
-                                                <p class="text-xs font-semibold mt-1">
-                                                    {lostPet.breed}
-                                                </p>
-                                                <p class="text-[10px] text-text-secondary mt-0.5">
-                                                    {lostPet.color}
-                                                </p>
-                                                <p class="text-[10px] text-text-secondary mt-1 italic">
-                                                    "{lostPet.markings}"
-                                                </p>
-                                                <p class="text-[10px] text-text-secondary mt-1.5 flex items-center gap-0.5">
-                                                    <MapPin size={8} />
-                                                    {lostPet.location}
-                                                </p>
                                             </div>
 
-                                            <div class="flex items-center justify-center pt-6">
-                                                <ArrowRight size={16} class="text-accent" />
+                                            <div style="display:flex;align-items:center;justify-content:center;padding-top:20px;">
+                                                <ArrowRight size={14} style="color:var(--text-tertiary);" />
                                             </div>
 
-                                            <div class="bg-secondary/5 rounded-xl p-3">
-                                                <span class="text-[10px] font-bold text-secondary">
-                                                    FOUND
+                                            <div style="padding:10px;border-radius:8px;background:var(--type-item-bg);border:1px solid var(--type-item-border);">
+                                                <span style="font-size:10px;font-weight:800;color:var(--type-item-text);letter-spacing:0.06em;">FOUND</span>
+                                                <p style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px;">{foundPet.breed}</p>
+                                                <p style="font-size:11px;color:var(--text-secondary);margin:0 0 2px;">{foundPet.color}</p>
+                                                <p style="font-size:10px;color:var(--text-tertiary);margin:0 0 6px;font-style:italic;">"{foundPet.markings}"</p>
+                                                <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-tertiary);">
+                                                    <MapPin size={9} />{foundPet.location}
                                                 </span>
-                                                <p class="text-xs font-semibold mt-1">
-                                                    {foundPet.breed}
-                                                </p>
-                                                <p class="text-[10px] text-text-secondary mt-0.5">
-                                                    {foundPet.color}
-                                                </p>
-                                                <p class="text-[10px] text-text-secondary mt-1 italic">
-                                                    "{foundPet.markings}"
-                                                </p>
-                                                <p class="text-[10px] text-text-secondary mt-1.5 flex items-center gap-0.5">
-                                                    <MapPin size={8} />
-                                                    {foundPet.location}
-                                                </p>
                                             </div>
                                         </div>
 
-                                        <div class="mt-3 flex gap-2">
+                                        {/* Actions */}
+                                        <div style="display:flex;gap:8px;margin-top:12px;">
                                             <button
                                                 type="button"
-                                                class="flex-1 bg-linear-to-r from-primary to-primary-dark text-white text-xs py-2.5 rounded-xl font-semibold shadow-lg"
+                                                class="btn-primary"
+                                                style="flex:1;height:36px;font-size:12px;background:var(--accent);"
                                             >
                                                 Contact Finder
                                             </button>
                                             <button
                                                 type="button"
-                                                class="px-4 text-xs border border-border rounded-xl hover:bg-surface-dim"
+                                                class="btn-ghost"
+                                                style="height:36px;padding:0 14px;font-size:12px;"
                                             >
                                                 Not a match
                                             </button>
@@ -122,58 +107,63 @@ export function PetMatch() {
                                 );
                             })}
                         </div>
-                    </div>
+                    </section>
                 )}
 
-                <div>
-                    <h2 class="text-sm font-bold flex items-center gap-1.5 mb-3">
-                        <PawPrint size={16} class="text-primary" /> All Reports
+                {/* All reports */}
+                <section>
+                    <h2 style="font-size:12px;font-weight:700;color:var(--text-secondary);letter-spacing:0.05em;margin:0 0 10px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                        <PawPrint size={13} style="color:var(--text-secondary);" />
+                        All Reports
                     </h2>
                     {loading ? (
-                        [1, 2].map((i) => (
-                            <div key={i} class="glass rounded-2xl p-4 animate-pulse h-20 mb-2" />
-                        ))
-                    ) : (
-                        <div class="space-y-2">
-                            {pets.map((pet, i) => (
-                                <div
-                                    key={pet.id}
-                                    class="glass rounded-2xl p-3 flex items-center gap-3 animate-fade-up"
-                                    style={{ animationDelay: `${i * 50}ms` }}
-                                >
-                                    <div
-                                        class={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                                            pet.reportType === 'lost'
-                                                ? 'bg-danger/10 text-danger'
-                                                : 'bg-secondary/10 text-secondary'
-                                        }`}
-                                    >
-                                        <PawPrint size={18} />
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class={`text-[10px] font-bold uppercase ${pet.reportType === 'lost' ? 'text-danger' : 'text-secondary'}`}
-                                            >
-                                                {pet.reportType}
-                                            </span>
-                                            <span class="text-xs font-semibold">{pet.breed}</span>
-                                        </div>
-                                        <p class="text-[10px] text-text-secondary truncate">
-                                            {pet.markings}
-                                        </p>
-                                    </div>
-                                    <div class="text-right shrink-0">
-                                        <p class="text-[10px] text-text-secondary flex items-center gap-0.5">
-                                            <Clock size={8} />
-                                            {timeAgo(pet.timestamp)}
-                                        </p>
-                                    </div>
-                                </div>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            {[1, 2].map((i) => (
+                                <div key={i} style="height:68px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;" />
                             ))}
                         </div>
+                    ) : (
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                            {pets.map((pet, i) => {
+                                const isLost = pet.reportType === 'lost';
+                                return (
+                                    <div
+                                        key={pet.id}
+                                        class="card animate-slide-up"
+                                        style={`padding:12px 14px;display:flex;align-items:center;gap:12px;animation-delay:${i * 40}ms;`}
+                                    >
+                                        {/* Icon */}
+                                        <div style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isLost ? 'var(--type-emergency-bg)' : 'var(--type-item-bg)'};color:${isLost ? 'var(--type-emergency-text)' : 'var(--type-item-text)'};`}>
+                                            <PawPrint size={16} />
+                                        </div>
+
+                                        <div style="flex:1;min-width:0;">
+                                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                                                <span
+                                                    class="type-badge"
+                                                    style={`background:${isLost ? 'var(--type-emergency-bg)' : 'var(--type-item-bg)'};color:${isLost ? 'var(--type-emergency-text)' : 'var(--type-item-text)'};border-color:${isLost ? 'var(--type-emergency-border)' : 'var(--type-item-border)'};`}
+                                                >
+                                                    {isLost ? 'LOST' : 'FOUND'}
+                                                </span>
+                                                <span style="font-size:13px;font-weight:600;color:var(--text);">{pet.breed}</span>
+                                            </div>
+                                            <p style="font-size:11px;color:var(--text-tertiary);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{pet.markings}</p>
+                                        </div>
+
+                                        <div style="text-align:right;flex-shrink:0;">
+                                            <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
+                                                <Clock size={9} />{timeAgo(pet.timestamp)}
+                                            </span>
+                                            {pet.matchConfidence && (
+                                                <p style="font-size:10px;color:var(--warning);font-weight:700;margin:2px 0 0;">{pet.matchConfidence}% match</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
-                </div>
+                </section>
             </div>
         </AppLayout>
     );

@@ -5,6 +5,23 @@ import { fetchFlags, resolveFlag } from '../lib/mockApi';
 import type { AdminFlag, User } from '../lib/types';
 import { fetchUsers } from '../lib/userApi';
 
+const TAB_BTN = (active: boolean) => `
+    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:6px 12px;border-radius:6px;border:none;
+    font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+    transition:all 0.15s;
+    ${active
+        ? 'background:var(--surface-raised);color:var(--text);box-shadow:var(--shadow-sm);'
+        : 'background:transparent;color:var(--text-tertiary);'
+    }
+`;
+
+const STATUS_STYLE: Record<string, string> = {
+    pending: 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);',
+    resolved: 'background:var(--success-subtle);color:var(--success);border-color:rgba(74,222,128,0.2);',
+    dismissed: 'background:var(--bg-muted);color:var(--text-tertiary);border-color:var(--border);',
+};
+
 export function AdminDashboard() {
     const [flags, setFlags] = useState<AdminFlag[]>([]);
     const [users, setUsers] = useState<User[]>([]);
@@ -24,125 +41,118 @@ export function AdminDashboard() {
         setFlags((prev) => prev.map((f) => (f.id === id ? { ...f, status } : f)));
     };
 
-    const statusColors: Record<string, string> = {
-        pending: 'bg-accent/10 text-accent',
-        resolved: 'bg-secondary/10 text-secondary',
-        dismissed: 'bg-gray-100 text-text-secondary',
-    };
+    const pendingCount = flags.filter((f) => f.status === 'pending').length;
 
     return (
         <AppLayout title="Admin">
-            <div class="p-4 space-y-3">
-                <div class="flex glass rounded-xl p-0.5 gap-0.5">
-                    <button
-                        type="button"
-                        onClick={() => setTab('flags')}
-                        class={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                            tab === 'flags'
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'text-text-secondary'
-                        }`}
-                    >
-                        <Flag size={14} /> Flagged (
-                        {flags.filter((f) => f.status === 'pending').length})
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                {/* Tab strip */}
+                <div style="display:flex;gap:0;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
+                    <button type="button" onClick={() => setTab('flags')} style={TAB_BTN(tab === 'flags')}>
+                        <Flag size={13} />
+                        Flagged ({pendingCount})
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setTab('users')}
-                        class={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                            tab === 'users'
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'text-text-secondary'
-                        }`}
-                    >
-                        <Users size={14} /> Users ({users.length})
+                    <button type="button" onClick={() => setTab('users')} style={TAB_BTN(tab === 'users')}>
+                        <Users size={13} />
+                        Users ({users.length})
                     </button>
                 </div>
 
+                {/* Content */}
                 {loading ? (
-                    [1, 2, 3].map((i) => (
-                        <div key={i} class="glass rounded-2xl p-4 animate-pulse h-20" />
-                    ))
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} style="height:80px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;" />
+                        ))}
+                    </div>
                 ) : tab === 'flags' ? (
                     flags.length === 0 ? (
-                        <div class="text-center py-16 text-text-secondary">
-                            <Shield size={32} class="mx-auto mb-2 opacity-40" />
-                            <p class="text-sm">No flagged content</p>
+                        <div style="padding:48px 24px;text-align:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);">
+                            <Shield size={28} style="color:var(--text-tertiary);margin:0 auto 8px;" />
+                            <p style="font-size:13px;color:var(--text-secondary);margin:0;">No flagged content</p>
                         </div>
                     ) : (
-                        flags.map((flag, i) => (
-                            <div
-                                key={flag.id}
-                                class="glass rounded-2xl p-4 animate-fade-up"
-                                style={{ animationDelay: `${i * 60}ms` }}
-                            >
-                                <div class="flex items-start justify-between gap-2">
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-2 flex-wrap">
-                                            <span
-                                                class={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColors[flag.status]}`}
-                                            >
-                                                {flag.status}
-                                            </span>
-                                            <span class="text-[10px] text-text-secondary capitalize">
-                                                {flag.targetType}
-                                            </span>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            {flags.map((flag, i) => (
+                                <div
+                                    key={flag.id}
+                                    class="card animate-slide-up"
+                                    style={`padding:14px 16px;animation-delay:${i * 50}ms;`}
+                                >
+                                    <div style="display:flex;align-items:flex-start;gap:12px;">
+                                        <div style="flex:1;min-width:0;">
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+                                                <span
+                                                    class="type-badge"
+                                                    style={STATUS_STYLE[flag.status] ?? STATUS_STYLE.dismissed}
+                                                >
+                                                    {flag.status}
+                                                </span>
+                                                <span style="font-size:11px;color:var(--text-tertiary);text-transform:capitalize;">
+                                                    {flag.targetType}
+                                                </span>
+                                            </div>
+                                            <p style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 6px;">{flag.reason}</p>
+                                            <p style="font-size:11px;color:var(--text-secondary);margin:0;padding:8px 10px;border-radius:6px;background:var(--bg-subtle);border:1px solid var(--border);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                                                {flag.content}
+                                            </p>
                                         </div>
-                                        <p class="text-sm font-medium mt-1.5">{flag.reason}</p>
-                                        <p class="text-xs text-text-secondary mt-1 bg-surface-dim/60 rounded-lg p-2 line-clamp-2">
-                                            {flag.content}
-                                        </p>
+
+                                        {flag.status === 'pending' && (
+                                            <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleResolve(flag.id, 'resolved')}
+                                                    class="btn-icon"
+                                                    title="Resolve"
+                                                    style="color:var(--success);background:var(--success-subtle);width:30px;height:30px;"
+                                                >
+                                                    <CheckCircle size={15} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleResolve(flag.id, 'dismissed')}
+                                                    class="btn-icon"
+                                                    title="Dismiss"
+                                                    style="color:var(--text-tertiary);background:var(--bg-muted);width:30px;height:30px;"
+                                                >
+                                                    <XCircle size={15} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                    {flag.status === 'pending' && (
-                                        <div class="flex gap-1 shrink-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleResolve(flag.id, 'resolved')}
-                                                class="p-2 rounded-xl bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors"
-                                                title="Resolve"
-                                            >
-                                                <CheckCircle size={16} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleResolve(flag.id, 'dismissed')}
-                                                class="p-2 rounded-xl bg-gray-100 text-text-secondary hover:bg-gray-200 transition-colors"
-                                                title="Dismiss"
-                                            >
-                                                <XCircle size={16} />
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
-                        ))
+                            ))}
+                        </div>
                     )
                 ) : (
-                    users.map((user, i) => (
-                        <div
-                            key={user.id}
-                            class="glass rounded-2xl p-4 flex items-center gap-3 animate-fade-up"
-                            style={{ animationDelay: `${i * 60}ms` }}
-                        >
-                            <img
-                                src={user.avatar}
-                                alt=""
-                                class="w-10 h-10 rounded-full bg-surface-dim"
-                            />
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <p class="font-semibold text-sm">{user.name}</p>
-                                    {user.verified && (
-                                        <CheckCircle size={12} class="text-secondary" />
-                                    )}
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        {users.map((user, i) => (
+                            <div
+                                key={user.id}
+                                class="card animate-slide-up"
+                                style={`padding:12px 14px;display:flex;align-items:center;gap:12px;animation-delay:${i * 40}ms;`}
+                            >
+                                <img
+                                    src={user.avatar}
+                                    alt=""
+                                    style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);object-fit:cover;flex-shrink:0;background:var(--bg-muted);"
+                                />
+                                <div style="flex:1;min-width:0;">
+                                    <div style="display:flex;align-items:center;gap:6px;">
+                                        <span style="font-size:13px;font-weight:600;color:var(--text);">{user.name}</span>
+                                        {user.verified && (
+                                            <CheckCircle size={12} style="color:var(--success);flex-shrink:0;" />
+                                        )}
+                                    </div>
+                                    <p style="font-size:11px;color:var(--text-tertiary);margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{user.bio}</p>
                                 </div>
-                                <p class="text-xs text-text-secondary truncate">{user.bio}</p>
+                                <span style="font-size:12px;font-weight:700;color:var(--text-secondary);flex-shrink:0;font-variant-numeric:tabular-nums;">
+                                    {user.trustScore}
+                                </span>
                             </div>
-                            <div class="flex items-center gap-1 text-xs text-text-secondary">
-                                <span class="font-semibold">{user.trustScore}</span>
-                            </div>
-                        </div>
-                    ))
+                        ))}
+                    </div>
                 )}
             </div>
         </AppLayout>
