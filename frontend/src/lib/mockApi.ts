@@ -7,7 +7,6 @@ import type {
     PetMatch,
     Pulse,
     User,
-    WeatherData,
 } from './types';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -453,20 +452,6 @@ export async function postPulse(
     };
     mockPulses.unshift(newPulse);
     return newPulse;
-}
-
-export async function fetchWeather(): Promise<WeatherData> {
-    await delay(200);
-    const isSevere = Math.random() > 0.5;
-    return isSevere
-        ? {
-            temp: 35,
-            description: 'Thunderstorm Warning',
-            icon: '⛈️',
-            severe: true,
-            warning: 'Severe thunderstorm warning issued until 8 PM. Seek shelter immediately.',
-        }
-        : { temp: 22, description: 'Partly Cloudy', icon: '⛅', severe: false };
 }
 
 export async function fetchLibrary(): Promise<LibraryItem[]> {

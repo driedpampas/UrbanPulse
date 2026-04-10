@@ -1,7 +1,8 @@
-import { AlertTriangle, RefreshCw, Sun } from 'lucide-preact';
+import { AlertTriangle, RefreshCw, Thermometer } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
-import { fetchWeather } from '../../lib/mockApi';
 import type { WeatherData } from '../../lib/types';
+import { fetchCurrentUser } from '../../lib/userApi';
+import { fetchWeather } from '../../lib/weatherApi';
 
 export function WeatherAlert() {
     const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -10,8 +11,24 @@ export function WeatherAlert() {
     const load = async () => {
         setLoading(true);
         try {
-            const data = await fetchWeather();
-            setWeather(data);
+            const user = await fetchCurrentUser();
+            let lat = user.lat;
+            let lng = user.lng;
+
+            if (!lat || !lng) {
+                try {
+                    const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
+                    );
+                    lat = pos.coords.latitude;
+                    lng = pos.coords.longitude;
+                } catch {
+                    lat = 40.7128;
+                    lng = -74.006;
+                }
+            }
+
+            setWeather(await fetchWeather(lat, lng));
         } catch {
             setWeather(null);
         }
@@ -22,46 +39,58 @@ export function WeatherAlert() {
         load();
     }, []);
 
-    if (loading)
-        return <div class="mx-4 mt-3 rounded-2xl bg-surface-dim/50 p-3 animate-pulse h-14" />;
+    if (loading) {
+        return (
+            <div style="margin:12px 0 0;height:36px;border-radius:8px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;" />
+        );
+    }
 
     if (!weather) return null;
 
     if (weather.severe) {
         return (
-            <div class="mx-4 mt-3 rounded-2xl bg-linear-to-r from-danger/90 to-danger-light/80 text-white p-4 animate-fade-up shadow-lg">
-                <div class="flex items-start gap-3">
-                    <AlertTriangle size={24} class="shrink-0 mt-0.5" />
-                    <div class="flex-1">
-                        <p class="font-bold text-sm">
-                            {weather.icon} {weather.description}
+            <div
+                class="animate-fade-in"
+                style="margin:12px 0 0;padding:10px 14px;border-radius:8px;background:var(--danger-subtle);border:1px solid var(--type-emergency-border);display:flex;align-items:flex-start;gap:10px;"
+            >
+                <AlertTriangle
+                    size={15}
+                    style="color:var(--danger);flex-shrink:0;margin-top:1px;"
+                />
+                <div style="flex:1;min-width:0;">
+                    <p style="font-size:13px;font-weight:600;color:var(--danger);margin:0 0 2px;">
+                        {weather.icon} {weather.description}
+                    </p>
+                    {weather.warning && (
+                        <p style="font-size:11px;color:var(--text-secondary);margin:0 0 6px;">
+                            {weather.warning}
                         </p>
-                        <p class="text-xs opacity-90 mt-1">{weather.warning}</p>
-                        <div class="mt-2 flex items-center gap-2">
-                            <span class="text-xs bg-white/20 rounded-full px-2 py-0.5">
-                                Safety Check-in
-                            </span>
-                            <button
-                                type="button"
-                                onClick={load}
-                                class="text-xs underline opacity-80 hover:opacity-100 flex items-center gap-1"
-                            >
-                                <RefreshCw size={12} /> Refresh
-                            </button>
-                        </div>
-                    </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={load}
+                        style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;opacity:0.7;"
+                    >
+                        <RefreshCw size={10} />
+                        Refresh
+                    </button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div class="mx-4 mt-3 rounded-2xl glass p-3 flex items-center gap-3 animate-fade-up">
-            <Sun size={20} class="text-accent" />
-            <div>
-                <span class="text-sm font-medium">{weather.temp}°C</span>
-                <span class="text-xs text-text-secondary ml-2">{weather.description}</span>
-            </div>
+        <div
+            class="animate-fade-in"
+            style="margin:12px 0 0;padding:8px 12px;border-radius:8px;background:var(--bg-subtle);border:1px solid var(--border);display:inline-flex;align-items:center;gap:8px;width:100%;"
+        >
+            <Thermometer size={13} style="color:var(--warning);flex-shrink:0;" />
+            <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
+                {weather.temp}°C
+            </span>
+            <span style="font-size:12px;color:var(--text-secondary);">
+                {weather.icon} {weather.description}
+            </span>
         </div>
     );
 }

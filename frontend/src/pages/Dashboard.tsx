@@ -1,96 +1,139 @@
-import { List, Map as MapIcon, Plus, SlidersHorizontal } from "lucide-preact";
-import { useState } from "preact/hooks";
-import { LiveFeed } from "../components/Dashboard/LiveFeed";
-import { PulseMap } from "../components/Dashboard/PulseMap";
-import { WeatherAlert } from "../components/Dashboard/WeatherAlert";
-import { AppLayout } from "../components/Layout/AppLayout";
-import { NeedPostingForm } from "../components/Requests/NeedPostingForm";
+import { List, Map as MapIcon, Plus, SlidersHorizontal } from 'lucide-preact';
+import { useState } from 'preact/hooks';
+import { LiveFeed } from '../components/Dashboard/LiveFeed';
+import { PulseMap } from '../components/Dashboard/PulseMap';
+import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
+import { AppLayout } from '../components/Layout/AppLayout';
+import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 
 export function Dashboard() {
-	const [view, setView] = useState<"feed" | "map">("feed");
-	const [showPostForm, setShowPostForm] = useState(false);
-	const [radius, setRadius] = useState(500);
-	const [showFilters, setShowFilters] = useState(false);
+    const [view, setView] = useState<'feed' | 'map'>('feed');
+    const [showPostForm, setShowPostForm] = useState(false);
+    const [radius, setRadius] = useState(500);
+    const [showFilters, setShowFilters] = useState(false);
 
-	return (
-		<AppLayout title="UrbanPulse">
-			<div class={`flex min-h-full flex-col ${view === "map" ? "pb-4" : ""}`}>
-				<WeatherAlert />
+    /* Segmented control tab */
+    const tabStyle = (active: boolean) => `
+		display:inline-flex;align-items:center;gap:5px;
+		padding:4px 10px;border-radius:6px;border:none;
+		font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;
+		font-family:inherit;
+		${
+            active
+                ? 'background:var(--accent-subtle);color:var(--accent);'
+                : 'background:transparent;color:var(--text-tertiary);'
+        }
+	`;
 
-				<div class="flex items-center justify-between px-4 mt-3">
-					<div class="flex glass rounded-xl p-0.5 gap-0.5">
-						<button
-							type="button"
-							onClick={() => setView("feed")}
-							class={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-								view === "feed"
-									? "bg-primary text-white shadow-sm"
-									: "text-text-secondary hover:text-text"
-							}`}
-						>
-							<List size={14} /> Feed
-						</button>
-						<button
-							type="button"
-							onClick={() => setView("map")}
-							class={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-								view === "map"
-									? "bg-primary text-white shadow-sm"
-									: "text-text-secondary hover:text-text"
-							}`}
-						>
-							<MapIcon size={14} /> Map
-						</button>
-					</div>
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={() => setShowFilters(!showFilters)}
-							class="glass rounded-xl p-2 text-text-secondary hover:text-primary transition-colors"
-						>
-							<SlidersHorizontal size={16} />
-						</button>
-						<button
-							type="button"
-							onClick={() => setShowPostForm(true)}
-							class="bg-linear-to-r from-primary to-primary-dark text-white rounded-xl p-2 shadow-lg hover:shadow-xl transition-shadow"
-						>
-							<Plus size={16} />
-						</button>
-					</div>
-				</div>
+    return (
+        <AppLayout
+            title="UrbanPulse"
+            headerRight={
+                <>
+                    <button
+                        type="button"
+                        id="toggle-filters-btn"
+                        class="btn-icon"
+                        onClick={() => setShowFilters((v) => !v)}
+                        aria-label="Filters"
+                        style={`color:${showFilters ? 'var(--accent)' : 'var(--text-secondary)'};background:${showFilters ? 'var(--accent-subtle)' : 'transparent'};`}
+                    >
+                        <SlidersHorizontal size={15} />
+                    </button>
+                    <button
+                        type="button"
+                        id="post-pulse-btn"
+                        class="btn-primary"
+                        onClick={() => setShowPostForm(true)}
+                        aria-label="Post pulse"
+                    >
+                        <Plus size={14} strokeWidth={2.4} />
+                        New Pulse
+                    </button>
+                </>
+            }
+        >
+            <div style={`display:flex;flex-direction:column;${view === 'map' ? 'flex:1;' : ''}`}>
+                {/* Toolbar row */}
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 0;gap:10px;">
+                    {/* View toggle */}
+                    <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
+                        <button
+                            type="button"
+                            id="view-feed-btn"
+                            style={tabStyle(view === 'feed')}
+                            onClick={() => setView('feed')}
+                        >
+                            <List size={13} />
+                            Feed
+                        </button>
+                        <button
+                            type="button"
+                            id="view-map-btn"
+                            style={tabStyle(view === 'map')}
+                            onClick={() => setView('map')}
+                        >
+                            <MapIcon size={13} />
+                            Map
+                        </button>
+                    </div>
 
-				{showFilters && (
-					<div class="mx-4 mt-2 glass rounded-xl p-3 animate-fade-up">
-						<label class="text-xs font-medium text-text-secondary">
-							Radius: {radius}m
-							<input
-								type="range"
-								min={100}
-								max={2000}
-								step={100}
-								value={radius}
-								onInput={(e) =>
-									setRadius(Number((e.target as HTMLInputElement).value))
-								}
-								class="w-full mt-1 accent-primary"
-							/>
-						</label>
-					</div>
-				)}
+                    {!showFilters && (
+                        <span style="font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
+                            {radius}m radius
+                        </span>
+                    )}
+                </div>
 
-				<div class={view === "map" ? "flex flex-1 flex-col" : ""}>
-					{view === "feed" ? (
-						<LiveFeed radiusFilter={radius} />
-					) : (
-						<PulseMap expanded radiusFilter={radius} />
-					)}
-				</div>
-			</div>
+                {/* Filter panel */}
+                {showFilters && (
+                    <div
+                        class="animate-slide-up"
+                        style="margin-top:10px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);"
+                    >
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <label
+                                style="font-size:12px;font-weight:600;color:var(--text-secondary);"
+                                for="radius-input"
+                            >
+                                Radius filter
+                            </label>
+                            <span style="font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;">
+                                {radius} m
+                            </span>
+                        </div>
+                        <input
+                            id="radius-input"
+                            type="range"
+                            min={100}
+                            max={2000}
+                            step={100}
+                            value={radius}
+                            onInput={(e) => setRadius(Number((e.target as HTMLInputElement).value))}
+                            style="width:100%;accent-color:var(--accent);"
+                            aria-label={`Radius: ${radius} meters`}
+                        />
+                        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                            <span style="font-size:10px;color:var(--text-tertiary);">100m</span>
+                            <span style="font-size:10px;color:var(--text-tertiary);">2km</span>
+                        </div>
+                    </div>
+                )}
 
-			{showPostForm && (
-				<NeedPostingForm onClose={() => setShowPostForm(false)} />
-			)}
-		</AppLayout>
-	);
+                {/* Weather */}
+                <WeatherAlert />
+
+                {/* Main view */}
+                {view === 'feed' ? (
+                    <LiveFeed radiusFilter={radius} />
+                ) : (
+                    <div style="margin-top:12px;flex:1;display:flex;flex-direction:column;min-height:55dvh;">
+                        <PulseMap expanded radiusFilter={radius} />
+                    </div>
+                )}
+            </div>
+
+            {showPostForm && <NeedPostingForm onClose={() => setShowPostForm(false)} />}
+        </AppLayout>
+    );
 }

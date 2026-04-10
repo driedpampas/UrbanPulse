@@ -13,11 +13,12 @@ export interface Timerange {
 }
 
 export const PULSE_TYPE_VALUES = [
-    "Update",
-    "Emergency",
-    "Skill",
-    "Item",
-    "Pet",
+    "update",
+    "emergency",
+    "skill",
+    "item",
+    "pet",
+    "need",
 ] as const;
 
 export type PulseType = (typeof PULSE_TYPE_VALUES)[number];

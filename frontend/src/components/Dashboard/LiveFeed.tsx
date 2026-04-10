@@ -1,361 +1,287 @@
 import {
-	AlertTriangle,
-	CheckCircle,
-	Clock,
-	Heart,
-	MessageSquare,
-	Package,
-	PawPrint,
-	Trash2,
-	Wrench,
-} from "lucide-preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+    AlertTriangle,
+    CheckCircle,
+    Clock,
+    MapPin,
+    MessageSquare,
+    Package,
+    PawPrint,
+    Trash2,
+    Wrench,
+} from 'lucide-preact';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useAuth } from '../../lib/auth';
+import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
-	connectWebSocket,
-	deletePulse,
-	disconnectWebSocket,
-	fetchPulses,
-	mergePulses,
-} from "../../lib/pulseApi";
-import { useAuth } from "../../lib/auth";
-import type { Pulse } from "../../lib/types";
-import type { PulseSocketEvent } from "../../lib/pulseApi";
-import {
-	DEFAULT_PULSE_CENTER,
-	distanceInMeters,
-	isUsableCoordinates,
-} from "../../lib/utils";
-import { fetchCurrentUser } from "../../lib/userApi";
+    connectWebSocket,
+    deletePulse,
+    disconnectWebSocket,
+    fetchPulses,
+    mergePulses,
+} from '../../lib/pulseApi';
+import type { Pulse } from '../../lib/types';
+import { fetchCurrentUser } from '../../lib/userApi';
+import { DEFAULT_PULSE_CENTER, distanceInMeters, isUsableCoordinates } from '../../lib/utils';
 
-const typeConfig: Record<
-	string,
-	{ color: string; bg: string; icon: typeof AlertTriangle; label: string }
-> = {
-	emergency: {
-		color: "text-danger",
-		bg: "bg-danger/10",
-		icon: AlertTriangle,
-		label: "Emergency",
-	},
-	skill: {
-		color: "text-primary",
-		bg: "bg-primary/10",
-		icon: Wrench,
-		label: "Skill",
-	},
-	item: {
-		color: "text-secondary",
-		bg: "bg-secondary/10",
-		icon: Package,
-		label: "Item",
-	},
-	need: {
-		color: "text-accent",
-		bg: "bg-accent/10",
-		icon: Heart,
-		label: "Need",
-	},
-	pet: {
-		color: "text-pink-500",
-		bg: "bg-pink-500/10",
-		icon: PawPrint,
-		label: "Pet",
-	},
-	update: {
-		color: "text-text-secondary",
-		bg: "bg-gray-100",
-		icon: MessageSquare,
-		label: "Update",
-	},
+interface TypeDef {
+    icon: typeof AlertTriangle;
+    label: string;
+    cssPrefix: string;
+}
+
+const TYPE_MAP: Record<string, TypeDef> = {
+    emergency: { icon: AlertTriangle, label: 'Emergency', cssPrefix: 'emergency' },
+    skill: { icon: Wrench, label: 'Skill', cssPrefix: 'skill' },
+    item: { icon: Package, label: 'Item', cssPrefix: 'item' },
+    pet: { icon: PawPrint, label: 'Pet', cssPrefix: 'pet' },
+    update: { icon: MessageSquare, label: 'Update', cssPrefix: 'update' },
 };
 
-function timeAgo(ts: number) {
-	const diff = Date.now() - ts;
-	if (diff < 60000) return "just now";
-	if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-	if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-	return `${Math.floor(diff / 86400000)}d ago`;
+function timeAgo(ts: number): string {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s / 60)}m`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h`;
+    return `${Math.floor(s / 86400)}d`;
 }
 
 interface Props {
-	radiusFilter: number;
+    radiusFilter: number;
 }
 
-export function LiveFeed(_props: Props) {
-	const { session } = useAuth();
-	const [pulses, setPulses] = useState<Pulse[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [loadError, setLoadError] = useState<string | null>(null);
-	const [newPulseFlash, setNewPulseFlash] = useState<string | null>(null);
-	const [feedCenter, setFeedCenter] = useState(DEFAULT_PULSE_CENTER);
-	const clearFlashTimeoutRef = useRef<number | null>(null);
+export function LiveFeed({ radiusFilter }: Props) {
+    const { session } = useAuth();
+    const [pulses, setPulses] = useState<Pulse[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [newId, setNewId] = useState<string | null>(null);
+    const [feedCenter, setFeedCenter] = useState(DEFAULT_PULSE_CENTER);
+    const clearRef = useRef<number | null>(null);
 
-	useEffect(() => {
-		let cancelled = false;
+    useEffect(() => {
+        let cancelled = false;
+        fetchCurrentUser()
+            .then((u) => {
+                if (!cancelled && isUsableCoordinates(u.lat, u.lng))
+                    setFeedCenter({ lat: u.lat, lng: u.lng });
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
-		fetchCurrentUser()
-			.then((user) => {
-				if (cancelled) {
-					return;
-				}
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setLoadError(null);
+        fetchPulses()
+            .then((d) => {
+                if (!cancelled) setPulses((c) => mergePulses(c, d));
+            })
+            .catch((e: unknown) => {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load.');
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
-				if (isUsableCoordinates(user.lat, user.lng)) {
-					setFeedCenter({ lat: user.lat, lng: user.lng });
-				}
-			})
-			.catch(() => {
-				if (!cancelled) {
-					setFeedCenter(DEFAULT_PULSE_CENTER);
-				}
-			});
+    const handleWS = useCallback((event: PulseSocketEvent) => {
+        if (event.event === 'pulse.created') {
+            setPulses((c) => mergePulses(c, [event.pulse]));
+            setNewId(event.pulse.id);
+            if (clearRef.current) window.clearTimeout(clearRef.current);
+            clearRef.current = window.setTimeout(() => {
+                setNewId((c) => (c === event.pulse.id ? null : c));
+                clearRef.current = null;
+            }, 2500);
+        } else {
+            setPulses((c) => c.filter((p) => p.id !== event.pulseId));
+            setNewId((c) => (c === event.pulseId ? null : c));
+        }
+    }, []);
 
-		return () => {
-			cancelled = true;
-		};
-	}, []);
+    useEffect(() => {
+        connectWebSocket(handleWS);
+        return () => {
+            disconnectWebSocket(handleWS);
+            if (clearRef.current) window.clearTimeout(clearRef.current);
+        };
+    }, [handleWS]);
 
-	useEffect(() => {
-		let cancelled = false;
+    const visible = pulses.filter(
+        (p) => distanceInMeters(feedCenter.lat, feedCenter.lng, p.lat, p.lng) <= radiusFilter
+    );
 
-		setLoading(true);
-		setLoadError(null);
+    const handleDelete = async (id: string) => {
+        if (!window.confirm('Delete this pulse?')) return;
+        try {
+            await deletePulse(id);
+            setPulses((c) => c.filter((p) => p.id !== id));
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
-		fetchPulses()
-			.then((data) => {
-				if (cancelled) {
-					return;
-				}
+    const canDelete = (p: Pulse) =>
+        Boolean(
+            session &&
+                (session.user.id === p.userId ||
+                    session.user.role === 'admin' ||
+                    session.user.role === 'mod')
+        );
 
-				setPulses((current) => mergePulses(current, data));
-			})
-			.catch((error: unknown) => {
-				if (cancelled) {
-					return;
-				}
+    /* ── States ── */
+    if (loading) {
+        return (
+            <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                {[1, 2, 3].map((i) => (
+                    <div
+                        key={i}
+                        class="card"
+                        style="padding:16px;animation:pulse 1.5s ease-in-out infinite;"
+                    >
+                        <div style="display:flex;gap:12px;align-items:flex-start;">
+                            <div style="width:32px;height:32px;border-radius:50%;background:var(--bg-muted);flex-shrink:0;" />
+                            <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+                                <div style="height:11px;border-radius:4px;background:var(--bg-muted);width:30%;" />
+                                <div style="height:11px;border-radius:4px;background:var(--bg-muted);width:80%;" />
+                                <div style="height:11px;border-radius:4px;background:var(--bg-muted);width:55%;" />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
-				setLoadError(
-					error instanceof Error ? error.message : "Unable to load pulses.",
-				);
-			})
-			.finally(() => {
-				if (!cancelled) {
-					setLoading(false);
-				}
-			});
+    if (loadError) {
+        return (
+            <div style="padding:16px;">
+                <div style="padding:12px 14px;border-radius:8px;background:var(--danger-subtle);border:1px solid var(--type-emergency-border);color:var(--danger);font-size:13px;">
+                    {loadError}
+                </div>
+            </div>
+        );
+    }
 
-		return () => {
-			cancelled = true;
-		};
-	}, []);
+    if (pulses.length === 0) {
+        return (
+            <div style="padding:16px;">
+                <div class="card" style="padding:40px 24px;text-align:center;">
+                    <MapPin size={28} style="color:var(--text-tertiary);margin:0 auto 10px;" />
+                    <p style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 4px;">
+                        No pulses yet
+                    </p>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
+                        Be the first to post in this area.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
-	const handleWS = useCallback((event: PulseSocketEvent) => {
-		if (event.event === "pulse.created") {
-			setPulses((current) => mergePulses(current, [event.pulse]));
-			setNewPulseFlash(event.pulse.id);
+    if (visible.length === 0) {
+        return (
+            <div style="padding:16px;">
+                <div class="card" style="padding:32px 24px;text-align:center;">
+                    <p style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 4px;">
+                        Nothing within {radiusFilter}m
+                    </p>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
+                        Widen the radius to see more.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
-			if (clearFlashTimeoutRef.current !== null) {
-				window.clearTimeout(clearFlashTimeoutRef.current);
-			}
+    return (
+        <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+            {visible.map((pulse, i) => {
+                const def = TYPE_MAP[pulse.type] ?? TYPE_MAP.update;
+                const Icon = def.icon;
+                const isNew = pulse.id === newId;
+                const isVerified = pulse.verified || pulse.confirmations >= 3;
+                const mayDelete = canDelete(pulse);
+                const p = def.cssPrefix;
 
-			clearFlashTimeoutRef.current = window.setTimeout(() => {
-				setNewPulseFlash((current) =>
-					current === event.pulse.id ? null : current,
-				);
-				clearFlashTimeoutRef.current = null;
-			}, 2000);
-			return;
-		}
+                return (
+                    <article
+                        key={pulse.id}
+                        class={`card animate-slide-up${isNew ? ' animate-pulse-ring' : ''}`}
+                        style={`animation-delay:${i * 40}ms;padding:14px 16px;${pulse.type === 'emergency' ? 'border-left:3px solid var(--type-emergency-text);' : ''}`}
+                    >
+                        <div style="display:flex;gap:11px;align-items:flex-start;">
+                            {/* Avatar */}
+                            <img
+                                src={pulse.userAvatar}
+                                alt=""
+                                style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;object-fit:cover;background:var(--bg-muted);"
+                            />
 
-		setPulses((current) =>
-			current.filter((pulse) => pulse.id !== event.pulseId),
-		);
-		setNewPulseFlash((current) => (current === event.pulseId ? null : current));
-	}, []);
+                            <div style="flex:1;min-width:0;">
+                                {/* Row 1: name + badge + delete */}
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;">
+                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;">
+                                        <span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            {pulse.userName}
+                                        </span>
+                                        {/* Type badge */}
+                                        <span
+                                            class="type-badge"
+                                            style={`background:var(--type-${p}-bg);color:var(--type-${p}-text);border-color:var(--type-${p}-border);`}
+                                        >
+                                            <Icon size={9} />
+                                            {def.label}
+                                        </span>
+                                        {isVerified && (
+                                            <span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--success);">
+                                                <CheckCircle size={10} />
+                                                Verified
+                                            </span>
+                                        )}
+                                    </div>
+                                    {mayDelete && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDelete(pulse.id)}
+                                            style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
+                                            title="Delete"
+                                            aria-label="Delete pulse"
+                                        >
+                                            <Trash2 size={11} />
+                                        </button>
+                                    )}
+                                </div>
 
-	useEffect(() => {
-		connectWebSocket(handleWS);
-		return () => {
-			disconnectWebSocket(handleWS);
+                                {/* Content */}
+                                <p style="font-size:13px;color:var(--text);margin:7px 0 0;line-height:1.55;">
+                                    {pulse.content}
+                                </p>
 
-			if (clearFlashTimeoutRef.current !== null) {
-				window.clearTimeout(clearFlashTimeoutRef.current);
-			}
-		};
-	}, [handleWS]);
-
-	const visiblePulses = pulses.filter((pulse) => {
-		const pulseDistance = distanceInMeters(
-			feedCenter.lat,
-			feedCenter.lng,
-			pulse.lat,
-			pulse.lng,
-		);
-
-		return pulseDistance <= _props.radiusFilter;
-	});
-
-	const handleDeletePulse = async (pulseId: string) => {
-		if (
-			typeof window !== "undefined" &&
-			!window.confirm("Delete this pulse?")
-		) {
-			return;
-		}
-
-		try {
-			await deletePulse(pulseId);
-			setPulses((current) => current.filter((pulse) => pulse.id !== pulseId));
-			setNewPulseFlash((current) => (current === pulseId ? null : current));
-		} catch (error) {
-			console.error(error);
-		}
-	};
-
-	const canDeletePulse = (pulse: Pulse) =>
-		Boolean(
-			session &&
-				(session.user.id === pulse.userId ||
-					session.user.role === "admin" ||
-					session.user.role === "mod"),
-		);
-
-	if (loading) {
-		return (
-			<div class="px-4 space-y-3 mt-3">
-				{[1, 2, 3].map((i) => (
-					<div key={i} class="glass rounded-2xl p-4 animate-pulse">
-						<div class="flex gap-3">
-							<div class="w-10 h-10 rounded-full bg-surface-dim" />
-							<div class="flex-1 space-y-2">
-								<div class="h-3 bg-surface-dim rounded w-1/3" />
-								<div class="h-3 bg-surface-dim rounded w-full" />
-								<div class="h-3 bg-surface-dim rounded w-2/3" />
-							</div>
-						</div>
-					</div>
-				))}
-			</div>
-		);
-	}
-
-	if (loadError) {
-		return (
-			<div class="px-4 mt-3">
-				<div class="glass rounded-2xl p-4 border border-danger/20 bg-danger/5 text-sm text-text-secondary">
-					{loadError}
-				</div>
-			</div>
-		);
-	}
-
-	if (pulses.length === 0) {
-		return (
-			<div class="px-4 mt-3">
-				<div class="glass rounded-2xl p-5 text-center text-sm text-text-secondary">
-					No pulses yet. Post the first neighborhood update.
-				</div>
-			</div>
-		);
-	}
-
-	if (visiblePulses.length === 0) {
-		return (
-			<div class="px-4 mt-3">
-				<div class="glass rounded-2xl p-5 text-center text-sm text-text-secondary space-y-1">
-					<p>No pulses within {_props.radiusFilter}m.</p>
-					<p class="text-xs">
-						Try widening the radius to see more nearby activity.
-					</p>
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div class="px-4 space-y-3 mt-3">
-			{visiblePulses.map((pulse, i) => {
-				const cfg = typeConfig[pulse.type] || typeConfig.update;
-				const Icon = cfg.icon;
-				const isNew = pulse.id === newPulseFlash;
-				const isVerified = pulse.verified || pulse.confirmations >= 3;
-				const mayDelete = canDeletePulse(pulse);
-
-				return (
-					<div
-						key={pulse.id}
-						class="relative animate-fade-up"
-						style={{ animationDelay: `${i * 60}ms` }}
-					>
-						{isNew && (
-							<div
-								aria-hidden="true"
-								class="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-primary/50 animate-pulse-glow"
-							/>
-						)}
-						<div
-							class={`glass rounded-2xl p-4 transition-all duration-500 ${
-								pulse.type === "emergency" ? "border-l-4 border-l-danger" : ""
-							}`}
-						>
-							<div class="flex gap-3">
-								<img
-									src={pulse.userAvatar}
-									alt=""
-									class="w-10 h-10 rounded-full bg-surface-dim shrink-0"
-								/>
-								<div class="flex-1 min-w-0">
-									<div class="flex items-start justify-between gap-2 flex-wrap">
-										<div class="flex items-center gap-2 flex-wrap">
-											<span class="font-semibold text-sm">
-												{pulse.userName}
-											</span>
-											<span class="flex items-center gap-1">
-												<span
-													class={`text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}
-												>
-													<Icon size={10} class="inline -mt-0.5 mr-0.5" />
-													{cfg.label}
-												</span>
-												{isVerified && (
-													<span class="text-[10px] text-secondary flex items-center gap-0.5">
-														<CheckCircle size={10} /> Verified
-													</span>
-												)}
-											</span>
-										</div>
-										{mayDelete && (
-											<button
-												type="button"
-												onClick={() => handleDeletePulse(pulse.id)}
-												class="p-1.5 rounded-full bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
-												title="Delete pulse"
-												aria-label="Delete pulse"
-											>
-												<Trash2 size={12} />
-											</button>
-										)}
-									</div>
-									<p class="text-sm mt-1.5 text-text leading-relaxed">
-										{pulse.content}
-									</p>
-									<div class="flex items-center gap-3 mt-2 text-[11px] text-text-secondary">
-										<span class="flex items-center gap-1">
-											<Clock size={11} />
-											{timeAgo(pulse.timestamp)}
-										</span>
-										{pulse.confirmations > 0 && (
-											<span class="flex items-center gap-1">
-												<CheckCircle size={11} />
-												{pulse.confirmations} confirmed
-											</span>
-										)}
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				);
-			})}
-		</div>
-	);
+                                {/* Meta */}
+                                <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+                                    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
+                                        <Clock size={10} />
+                                        {timeAgo(pulse.timestamp)}
+                                    </span>
+                                    {pulse.confirmations > 0 && (
+                                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);">
+                                            <CheckCircle size={10} />
+                                            {pulse.confirmations} confirmed
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                );
+            })}
+        </div>
+    );
 }

@@ -1,426 +1,383 @@
 import {
-	AlertCircle,
-	ArrowRight,
-	Eye,
-	EyeOff,
-	LoaderCircle,
-	LogIn,
-	UserPlus,
-} from "lucide-preact";
-import { useState } from "preact/hooks";
-import { useLocation } from "wouter";
-import { AuthApiError, useAuth } from "../lib/auth";
-import { cn } from "../lib/utils";
+    AlertCircle,
+    ArrowRight,
+    Eye,
+    EyeOff,
+    LoaderCircle,
+    LogIn,
+    Moon,
+    Sun,
+    UserPlus,
+} from 'lucide-preact';
+import { useState } from 'preact/hooks';
+import { useLocation } from 'wouter';
+import { AuthApiError, useAuth } from '../lib/auth';
+import { useTheme } from '../lib/theme';
 
-type AuthMode = "login" | "register";
-
+type AuthMode = 'login' | 'register';
 type FormErrors = Partial<{
-	displayName: string;
-	email: string;
-	password: string;
-	confirmPassword: string;
-	form: string;
+    displayName: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    form: string;
 }>;
 
 export function Auth() {
-	const [, setLocation] = useLocation();
-	const { login, register } = useAuth();
-	const [mode, setMode] = useState<AuthMode>("login");
-	const [displayName, setDisplayName] = useState("");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
-	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-	const [loading, setLoading] = useState(false);
-	const [errors, setErrors] = useState<FormErrors>({});
+    const [, setLocation] = useLocation();
+    const { login, register } = useAuth();
+    const { theme, toggle } = useTheme();
 
-	const validate = () => {
-		const nextErrors: FormErrors = {};
+    const [mode, setMode] = useState<AuthMode>('login');
+    const [displayName, setDisplayName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPw, setShowPw] = useState(false);
+    const [showCPw, setShowCPw] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<FormErrors>({});
 
-		if (mode === "register" && !displayName.trim()) {
-			nextErrors.displayName = "Display name is required";
-		}
+    const validate = () => {
+        const e: FormErrors = {};
+        if (mode === 'register' && !displayName.trim()) e.displayName = 'Display name is required';
+        if (!email.trim()) e.email = 'Email is required';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Enter a valid email';
+        if (!password) e.password = 'Password is required';
+        else if (password.length < 8) e.password = 'Minimum 8 characters';
+        if (mode === 'register' && password !== confirmPassword)
+            e.confirmPassword = 'Passwords do not match';
+        setErrors(e);
+        return Object.keys(e).length === 0;
+    };
 
-		if (!email.trim()) {
-			nextErrors.email = "Email is required";
-		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-			nextErrors.email = "Enter a valid email address";
-		}
+    const reset = (m: AuthMode) => {
+        setMode(m);
+        setErrors({});
+        setPassword('');
+        setConfirmPassword('');
+        setShowPw(false);
+        setShowCPw(false);
+    };
 
-		if (!password) {
-			nextErrors.password = "Password is required";
-		} else if (password.length < 8) {
-			nextErrors.password = "Password must be at least 8 characters";
-		}
+    const mapErr = (err: unknown): FormErrors => {
+        if (!(err instanceof AuthApiError)) return { form: 'Cannot reach server. Try again.' };
+        if (err.status === 409) return { email: err.message };
+        if (err.status === 401) return { form: err.message || 'Invalid credentials' };
+        return { form: err.message || 'Something went wrong' };
+    };
 
-		if (mode === "register" && password !== confirmPassword) {
-			nextErrors.confirmPassword = "Passwords do not match";
-		}
+    const handleSubmit = async (e: Event) => {
+        e.preventDefault();
+        if (!validate()) return;
+        setLoading(true);
+        setErrors({});
+        try {
+            if (mode === 'login') await login({ email: email.trim(), password });
+            else await register({ displayName: displayName.trim(), email: email.trim(), password });
+            setLocation('/');
+        } catch (err) {
+            setErrors(mapErr(err));
+        } finally {
+            setLoading(false);
+        }
+    };
 
-		setErrors(nextErrors);
-		return Object.keys(nextErrors).length === 0;
-	};
+    const fieldStyle = (hasErr: boolean) => `
+		width:100%;padding:9px 12px;border-radius:8px;border:1px solid;
+		font-size:13px;font-family:inherit;outline:none;
+		background:var(--bg-subtle);color:var(--text);
+		border-color:${hasErr ? 'var(--danger)' : 'var(--border)'};
+		transition:border-color 0.15s,box-shadow 0.15s;
+	`;
 
-	const resetForMode = (nextMode: AuthMode) => {
-		setMode(nextMode);
-		setErrors({});
-		setPassword("");
-		setConfirmPassword("");
-		setShowPassword(false);
-		setShowConfirmPassword(false);
-	};
+    const pwWrap = { position: 'relative' as const };
+    const eyeBtn = `
+		position:absolute;right:0;top:0;bottom:0;width:38px;
+		display:flex;align-items:center;justify-content:center;
+		background:none;border:none;cursor:pointer;color:var(--text-tertiary);
+	`;
 
-	const mapApiError = (error: unknown): FormErrors => {
-		if (!(error instanceof AuthApiError)) {
-			return {
-				form: "Unable to reach UrbanPulse right now. Check the API and try again.",
-			};
-		}
+    return (
+        <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);">
+            {/* Top bar */}
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:680px;width:100%;margin:0 auto;">
+                <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.02em;">
+                    UrbanPulse
+                </p>
+                <button
+                    type="button"
+                    class="btn-icon"
+                    onClick={toggle}
+                    aria-label="Toggle theme"
+                    style="color:var(--text-secondary);"
+                >
+                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+            </div>
 
-		if (error.status === 409) {
-			return { email: error.message };
-		}
+            {/* Centered card */}
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px;">
+                <div style="width:100%;max-width:380px;" class="animate-slide-up">
+                    {/* Heading */}
+                    <div style="margin-bottom:24px;">
+                        <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0 0 6px;letter-spacing:-0.03em;">
+                            {mode === 'login' ? 'Welcome back' : 'Create an account'}
+                        </h1>
+                        <p style="font-size:13px;color:var(--text-secondary);margin:0;">
+                            {mode === 'login'
+                                ? 'Sign in to access your neighborhood feed.'
+                                : 'Join your neighborhood network today.'}
+                        </p>
+                    </div>
 
-		if (error.status === 401) {
-			return { form: error.message || "Invalid credentials" };
-		}
+                    {/* Tab strip */}
+                    <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:20px;background:var(--bg-subtle);">
+                        {(['login', 'register'] as AuthMode[]).map((m) => (
+                            <button
+                                key={m}
+                                type="button"
+                                id={`auth-tab-${m}`}
+                                onClick={() => reset(m)}
+                                style={`
+									flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+									padding:6px 12px;border-radius:6px;border:none;
+									font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+									transition:all 0.15s;
+									${
+                                        mode === m
+                                            ? 'background:var(--surface-raised);color:var(--text);box-shadow:var(--shadow-sm);'
+                                            : 'background:transparent;color:var(--text-tertiary);'
+                                    }
+								`}
+                            >
+                                {m === 'login' ? <LogIn size={13} /> : <UserPlus size={13} />}
+                                {m === 'login' ? 'Sign In' : 'Register'}
+                            </button>
+                        ))}
+                    </div>
 
-		if (error.status === 400) {
-			return { form: error.message || "Invalid request body" };
-		}
-
-		if (error.status === 403) {
-			return {
-				form: error.message || "You are already authenticated. Sign out first.",
-			};
-		}
-
-		return { form: error.message || "Something went wrong" };
-	};
-
-	const handleSubmit = async (e: Event) => {
-		e.preventDefault();
-		if (!validate()) {
-			return;
-		}
-
-		setLoading(true);
-		setErrors({});
-
-		try {
-			if (mode === "login") {
-				await login({ email: email.trim(), password });
-			} else {
-				await register({
-					displayName: displayName.trim(),
-					email: email.trim(),
-					password,
-				});
-			}
-
-			setLocation("/");
-		} catch (error) {
-			setErrors(mapApiError(error));
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const inputClassName = (hasError: boolean) =>
-		cn(
-			"w-full rounded-2xl border bg-white/80 px-4 py-3 text-sm text-text shadow-sm transition-all placeholder:text-text-secondary/70",
-			"focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40",
-			hasError ? "border-danger/60 focus:ring-danger/20" : "border-white/70",
-		);
-
-	return (
-		<div class="relative min-h-dvh overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(139,92,246,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(16,185,129,0.18),_transparent_28%),linear-gradient(135deg,_#f8fafc_0%,_#ffffff_48%,_#f0fdf4_100%)] px-4 py-8 sm:px-6 lg:px-8">
-			<div class="pointer-events-none absolute inset-0 overflow-hidden">
-				<div class="absolute left-[8%] top-10 h-32 w-32 rounded-full bg-primary/12 blur-3xl" />
-				<div class="absolute bottom-0 right-[12%] h-40 w-40 rounded-full bg-secondary/12 blur-3xl" />
-			</div>
-
-			<div class="relative mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-5xl items-center justify-center">
-				<div class="w-full min-w-[18.5rem] max-w-[32rem] overflow-hidden rounded-[32px] border border-white/60 bg-white/65 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:min-w-[24rem]">
-					{/* <section class="hidden bg-[linear-gradient(160deg,rgba(124,58,237,0.96),rgba(16,185,129,0.86))] px-8 py-10 text-white lg:flex lg:flex-col lg:justify-between">
-                        <div class="space-y-4 animate-fade-up">
-                            <span class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-white/90">
-                                UrbanPulse Access
-                            </span>
+                    {/* Form */}
+                    <form
+                        onSubmit={handleSubmit}
+                        style="display:flex;flex-direction:column;gap:14px;"
+                    >
+                        {mode === 'register' && (
                             <div>
-                                <h1 class="max-w-sm text-4xl font-black leading-tight">
-                                    Your block, your signal, one secure login.
-                                </h1>
-                                <p class="mt-4 max-w-md text-sm leading-6 text-white/80">
-                                    Sign in to post verified updates, lend skills, and respond to
-                                    urgent neighborhood requests without leaving the live feed.
-                                </p>
+                                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                                    Display name
+                                </label>
+                                <input
+                                    class="input-field"
+                                    value={displayName}
+                                    onInput={(e) =>
+                                        setDisplayName((e.target as HTMLInputElement).value)
+                                    }
+                                    placeholder="Alex Neighbor"
+                                    autoComplete="name"
+                                    style={fieldStyle(Boolean(errors.displayName))}
+                                    onFocus={(e) => {
+                                        (e.target as HTMLElement).style.borderColor =
+                                            'var(--border-focus)';
+                                        (e.target as HTMLElement).style.boxShadow =
+                                            '0 0 0 3px var(--accent-muted)';
+                                    }}
+                                    onBlur={(e) => {
+                                        (e.target as HTMLElement).style.borderColor =
+                                            errors.displayName ? 'var(--danger)' : 'var(--border)';
+                                        (e.target as HTMLElement).style.boxShadow = 'none';
+                                    }}
+                                />
+                                {errors.displayName && (
+                                    <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
+                                        {errors.displayName}
+                                    </p>
+                                )}
                             </div>
+                        )}
+
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                                Email
+                            </label>
+                            <input
+                                type="email"
+                                class="input-field"
+                                value={email}
+                                onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
+                                placeholder="you@example.com"
+                                autoComplete="email"
+                                style={fieldStyle(Boolean(errors.email))}
+                                onFocus={(e) => {
+                                    (e.target as HTMLElement).style.borderColor =
+                                        'var(--border-focus)';
+                                    (e.target as HTMLElement).style.boxShadow =
+                                        '0 0 0 3px var(--accent-muted)';
+                                }}
+                                onBlur={(e) => {
+                                    (e.target as HTMLElement).style.borderColor = errors.email
+                                        ? 'var(--danger)'
+                                        : 'var(--border)';
+                                    (e.target as HTMLElement).style.boxShadow = 'none';
+                                }}
+                            />
+                            {errors.email && (
+                                <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
+                                    {errors.email}
+                                </p>
+                            )}
                         </div>
 
-                        <div class="grid gap-3 text-sm">
-                            <div class="rounded-2xl border border-white/15 bg-white/10 p-4">
-                                <div class="flex items-center gap-2 font-semibold">
-                                    <ShieldCheck size={18} /> Backend-aligned auth
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                                Password
+                            </label>
+                            <div style={pwWrap}>
+                                <input
+                                    type={showPw ? 'text' : 'password'}
+                                    class="input-field"
+                                    value={password}
+                                    onInput={(e) =>
+                                        setPassword((e.target as HTMLInputElement).value)
+                                    }
+                                    placeholder="8+ characters"
+                                    autoComplete={
+                                        mode === 'login' ? 'current-password' : 'new-password'
+                                    }
+                                    style={
+                                        fieldStyle(Boolean(errors.password)) + 'padding-right:38px;'
+                                    }
+                                    onFocus={(e) => {
+                                        (e.target as HTMLElement).style.borderColor =
+                                            'var(--border-focus)';
+                                        (e.target as HTMLElement).style.boxShadow =
+                                            '0 0 0 3px var(--accent-muted)';
+                                    }}
+                                    onBlur={(e) => {
+                                        (e.target as HTMLElement).style.borderColor =
+                                            errors.password ? 'var(--danger)' : 'var(--border)';
+                                        (e.target as HTMLElement).style.boxShadow = 'none';
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPw((v) => !v)}
+                                    style={eyeBtn}
+                                    aria-label={showPw ? 'Hide' : 'Show'}
+                                >
+                                    {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                </button>
+                            </div>
+                            {errors.password && (
+                                <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
+                                    {errors.password}
+                                </p>
+                            )}
+                        </div>
+
+                        {mode === 'register' && (
+                            <div>
+                                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                                    Confirm password
+                                </label>
+                                <div style={pwWrap}>
+                                    <input
+                                        type={showCPw ? 'text' : 'password'}
+                                        class="input-field"
+                                        value={confirmPassword}
+                                        onInput={(e) =>
+                                            setConfirmPassword((e.target as HTMLInputElement).value)
+                                        }
+                                        placeholder="Repeat password"
+                                        autoComplete="new-password"
+                                        style={
+                                            fieldStyle(Boolean(errors.confirmPassword)) +
+                                            'padding-right:38px;'
+                                        }
+                                        onFocus={(e) => {
+                                            (e.target as HTMLElement).style.borderColor =
+                                                'var(--border-focus)';
+                                            (e.target as HTMLElement).style.boxShadow =
+                                                '0 0 0 3px var(--accent-muted)';
+                                        }}
+                                        onBlur={(e) => {
+                                            (e.target as HTMLElement).style.borderColor =
+                                                errors.confirmPassword
+                                                    ? 'var(--danger)'
+                                                    : 'var(--border)';
+                                            (e.target as HTMLElement).style.boxShadow = 'none';
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCPw((v) => !v)}
+                                        style={eyeBtn}
+                                        aria-label={showCPw ? 'Hide' : 'Show'}
+                                    >
+                                        {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    </button>
                                 </div>
-                                <p class="mt-2 text-white/75">
-                                    Uses the live register and login endpoints from the UrbanPulse
-                                    API contract.
+                                {errors.confirmPassword && (
+                                    <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
+                                        {errors.confirmPassword}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {errors.form && (
+                            <div style="padding:10px 12px;border-radius:8px;background:var(--danger-subtle);border:1px solid var(--type-emergency-border);display:flex;align-items:flex-start;gap:8px;">
+                                <AlertCircle
+                                    size={14}
+                                    style="color:var(--danger);flex-shrink:0;margin-top:1px;"
+                                />
+                                <p style="font-size:12px;color:var(--danger);margin:0;">
+                                    {errors.form}
                                 </p>
                             </div>
-                            <div class="rounded-2xl border border-white/15 bg-white/10 p-4">
-                                <div class="font-semibold">What the session stores</div>
-                                <p class="mt-2 text-white/75">
-                                    JWT token plus the returned user id and role, kept locally so
-                                    protected screens stay gated after refresh.
-                                </p>
-                            </div>
-                        </div>
-                    </section> */}
+                        )}
 
-					<section class="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
-						<div class="mx-auto w-full max-w-md animate-fade-up">
-							{/* <div class="mb-8 lg:hidden">
-                                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-                                    UrbanPulse Access
-                                </p>
-                                <h1 class="mt-3 text-3xl font-black text-text">
-                                    Secure access for your neighborhood network.
-                                </h1>
-                                <p class="mt-3 text-sm leading-6 text-text-secondary">
-                                    Use the live backend auth endpoints to enter the app or create a
-                                    new account.
-                                </p>
-                            </div> */}
-
-							{/* Tab switcher
-                            <div class="mb-6 flex rounded-2xl bg-surface-dim p-1">
-                                <button
-                                    type="button"
-                                    onClick={() => resetForMode('login')}
-                                    class={cn(
-                                        'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all',
-                                        mode === 'login'
-                                            ? 'bg-white text-text shadow-sm'
-                                            : 'text-text-secondary hover:text-text'
+                        <button
+                            type="submit"
+                            id="auth-submit-btn"
+                            disabled={loading}
+                            class="btn-primary"
+                            style="height:40px;font-size:13px;width:100%;background:var(--accent);border-radius:8px;opacity:1;margin-top:2px;"
+                        >
+                            {loading ? (
+                                <>
+                                    <LoaderCircle size={14} class="animate-spin" />
+                                    Working…
+                                </>
+                            ) : (
+                                <>
+                                    {mode === 'login' ? (
+                                        <LogIn size={14} />
+                                    ) : (
+                                        <UserPlus size={14} />
                                     )}
-                                >
-                                    <LogIn size={16} /> Sign In
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => resetForMode('register')}
-                                    class={cn(
-                                        'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all',
-                                        mode === 'register'
-                                            ? 'bg-white text-text shadow-sm'
-                                            : 'text-text-secondary hover:text-text'
-                                    )}
-                                >
-                                    <UserPlus size={16} /> Register
-                                </button>
-                            </div>
-                            */}
+                                    {mode === 'login' ? 'Sign In' : 'Create Account'}
+                                </>
+                            )}
+                        </button>
+                    </form>
 
-							{/* Info blurb
-                            <div class="mb-6 rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
-                                <p class="font-semibold text-text">
-                                    {mode === 'login'
-                                        ? 'Welcome back to the live civic feed.'
-                                        : 'Create a verified presence in your area.'}
-                                </p>
-                                <p class="mt-1 leading-6">
-                                    {mode === 'login'
-                                        ? 'Use the same email and password accepted by the backend login route.'
-                                        : 'Registration requires display name, email, and a password with at least 8 characters.'}
-                                </p>
-                            </div>
-                            */}
-
-							<form onSubmit={handleSubmit} class="space-y-4">
-								{mode === "register" && (
-									<label class="block">
-										<span class="mb-2 block text-sm font-semibold text-text">
-											Display name
-										</span>
-										<input
-											value={displayName}
-											onInput={(e) =>
-												setDisplayName((e.target as HTMLInputElement).value)
-											}
-											placeholder="Alex Slanina"
-											autoComplete="name"
-											class={inputClassName(Boolean(errors.displayName))}
-										/>
-										{errors.displayName && (
-											<p class="mt-2 text-xs font-medium text-danger">
-												{errors.displayName}
-											</p>
-										)}
-									</label>
-								)}
-
-								<label class="block">
-									<span class="mb-2 block text-sm font-semibold text-text">
-										Email
-									</span>
-									<input
-										type="email"
-										value={email}
-										onInput={(e) =>
-											setEmail((e.target as HTMLInputElement).value)
-										}
-										placeholder="neighbor@iasi.ro"
-										autoComplete="email"
-										class={inputClassName(Boolean(errors.email))}
-									/>
-									{errors.email && (
-										<p class="mt-2 text-xs font-medium text-danger">
-											{errors.email}
-										</p>
-									)}
-								</label>
-
-								<label class="block">
-									<span class="mb-2 block text-sm font-semibold text-text">
-										Password
-									</span>
-									<div class="relative">
-										<input
-											type={showPassword ? "text" : "password"}
-											value={password}
-											onInput={(e) =>
-												setPassword((e.target as HTMLInputElement).value)
-											}
-											placeholder="securePassword123"
-											autoComplete={
-												mode === "login" ? "current-password" : "new-password"
-											}
-											class={cn(
-												inputClassName(Boolean(errors.password)),
-												"pr-12",
-											)}
-										/>
-										<button
-											type="button"
-											onClick={() => setShowPassword((current) => !current)}
-											class="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-text-secondary"
-											aria-label={
-												showPassword ? "Hide password" : "Show password"
-											}
-										>
-											{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-										</button>
-									</div>
-									{errors.password && (
-										<p class="mt-2 text-xs font-medium text-danger">
-											{errors.password}
-										</p>
-									)}
-								</label>
-
-								{mode === "register" && (
-									<label class="block">
-										<span class="mb-2 block text-sm font-semibold text-text">
-											Confirm password
-										</span>
-										<div class="relative">
-											<input
-												type={showConfirmPassword ? "text" : "password"}
-												value={confirmPassword}
-												onInput={(e) =>
-													setConfirmPassword(
-														(e.target as HTMLInputElement).value,
-													)
-												}
-												placeholder="Repeat your password"
-												autoComplete="new-password"
-												class={cn(
-													inputClassName(Boolean(errors.confirmPassword)),
-													"pr-12",
-												)}
-											/>
-											<button
-												type="button"
-												onClick={() =>
-													setShowConfirmPassword((current) => !current)
-												}
-												class="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-text-secondary"
-												aria-label={
-													showConfirmPassword
-														? "Hide confirmation password"
-														: "Show confirmation password"
-												}
-											>
-												{showConfirmPassword ? (
-													<EyeOff size={18} />
-												) : (
-													<Eye size={18} />
-												)}
-											</button>
-										</div>
-										{errors.confirmPassword && (
-											<p class="mt-2 text-xs font-medium text-danger">
-												{errors.confirmPassword}
-											</p>
-										)}
-									</label>
-								)}
-
-								{errors.form && (
-									<div class="flex items-start gap-3 rounded-2xl border border-danger/15 bg-danger/6 px-4 py-3 text-sm text-danger">
-										<AlertCircle size={18} class="mt-0.5 shrink-0" />
-										<p>{errors.form}</p>
-									</div>
-								)}
-
-								<button
-									type="submit"
-									disabled={loading}
-									class="flex w-full items-center justify-center gap-2 rounded-2xl bg-linear-to-r from-primary to-primary-dark px-4 py-3.5 text-sm font-semibold text-white shadow-lg transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-60"
-								>
-									{loading ? (
-										<>
-											<LoaderCircle size={18} class="animate-spin" />
-											Working...
-										</>
-									) : (
-										<>
-											{mode === "login" ? (
-												<LogIn size={18} />
-											) : (
-												<UserPlus size={18} />
-											)}
-											{mode === "login"
-												? "Sign In to UrbanPulse"
-												: "Create Account"}
-										</>
-									)}
-								</button>
-							</form>
-
-							<div class="mt-6 flex items-center justify-between rounded-2xl border border-border/70 bg-white/70 px-4 py-3 text-sm text-text-secondary">
-								<span>
-									{mode === "login"
-										? "Need an account first?"
-										: "Already have an account?"}
-								</span>
-								<button
-									type="button"
-									onClick={() =>
-										resetForMode(mode === "login" ? "register" : "login")
-									}
-									class="inline-flex items-center gap-1 font-semibold text-primary"
-								>
-									{mode === "login" ? "Register" : "Sign In"}{" "}
-									<ArrowRight size={16} />
-								</button>
-							</div>
-						</div>
-					</section>
-				</div>
-			</div>
-		</div>
-	);
+                    {/* Switch mode */}
+                    <div style="margin-top:16px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;justify-content:space-between;">
+                        <span style="font-size:12px;color:var(--text-secondary);">
+                            {mode === 'login' ? 'No account?' : 'Already registered?'}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => reset(mode === 'login' ? 'register' : 'login')}
+                            style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;"
+                        >
+                            {mode === 'login' ? 'Register' : 'Sign In'}
+                            <ArrowRight size={12} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }

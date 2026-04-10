@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './lib/auth';
+import { ThemeProvider } from './lib/theme';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
@@ -12,16 +13,12 @@ import './index.css';
 
 function RouteRedirect({ to }: { to: string }) {
     const [, setLocation] = useLocation();
-
     useEffect(() => {
         setLocation(to);
     }, [setLocation, to]);
-
     return (
-        <div class="min-h-dvh flex items-center justify-center bg-linear-to-br from-primary/8 via-white to-secondary/10 px-6">
-            <div class="glass rounded-3xl px-6 py-5 text-center">
-                <p class="text-sm font-medium text-text-secondary">Redirecting...</p>
-            </div>
+        <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:13px;color:var(--text-secondary);">Redirecting…</span>
         </div>
     );
 }
@@ -31,12 +28,14 @@ function AppRoutes() {
 
     if (!isReady) {
         return (
-            <div class="min-h-dvh flex items-center justify-center bg-linear-to-br from-primary/8 via-white to-secondary/10 px-6">
-                <div class="glass rounded-[28px] px-8 py-6 text-center animate-fade-up">
-                    <p class="text-xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
+            <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
+                <div style="text-align:center;">
+                    <p style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.02em;">
                         UrbanPulse
                     </p>
-                    <p class="mt-2 text-sm text-text-secondary">Loading your neighborhood...</p>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">
+                        Loading…
+                    </p>
                 </div>
             </div>
         );
@@ -65,8 +64,8 @@ function AppRoutes() {
             </Route>
             <Route path="/admin" component={AdminDashboard} />
             <Route>
-                <div class="min-h-dvh flex items-center justify-center">
-                    <p class="text-text-secondary">Page not found</p>
+                <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
+                    <span style="color:var(--text-secondary);font-size:13px;">Page not found</span>
                 </div>
             </Route>
         </Switch>
@@ -75,8 +74,10 @@ function AppRoutes() {
 
 export function App() {
     return (
-        <AuthProvider>
-            <AppRoutes />
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <AppRoutes />
+            </AuthProvider>
+        </ThemeProvider>
     );
 }

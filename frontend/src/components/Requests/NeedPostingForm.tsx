@@ -1,135 +1,180 @@
 import {
-	AlertTriangle,
-	Heart,
-	Package,
-	PawPrint,
-	Send,
-	Wrench,
-	X,
-} from "lucide-preact";
-import { useState } from "preact/hooks";
-import { postPulse } from "../../lib/pulseApi";
-import type { Pulse } from "../../lib/types";
+    AlertTriangle,
+    MapPin,
+    MessageSquare,
+    Package,
+    PawPrint,
+    Send,
+    Wrench,
+    X,
+} from 'lucide-preact';
+import { useState } from 'preact/hooks';
+import { postPulse } from '../../lib/pulseApi';
+import type { Pulse } from '../../lib/types';
 
-const TYPES = [
-	{ val: "need" as const, label: "Need", icon: Heart, color: "text-accent" },
-	{
-		val: "emergency" as const,
-		label: "Emergency",
-		icon: AlertTriangle,
-		color: "text-danger",
-	},
-	{
-		val: "skill" as const,
-		label: "Skill Offer",
-		icon: Wrench,
-		color: "text-primary",
-	},
-	{
-		val: "item" as const,
-		label: "Item",
-		icon: Package,
-		color: "text-secondary",
-	},
-	{
-		val: "pet" as const,
-		label: "Pet Alert",
-		icon: PawPrint,
-		color: "text-pink-500",
-	},
+const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
+    { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
+    { val: 'emergency', label: 'Emergency', icon: AlertTriangle, css: 'emergency' },
+    { val: 'skill', label: 'Skill', icon: Wrench, css: 'skill' },
+    { val: 'item', label: 'Item', icon: Package, css: 'item' },
+    { val: 'pet', label: 'Pet alert', icon: PawPrint, css: 'pet' },
 ];
 
+const MAX = 280;
+
 interface Props {
-	onClose: () => void;
+    onClose: () => void;
 }
 
 export function NeedPostingForm({ onClose }: Props) {
-	const [type, setType] = useState<Pulse["type"]>("need");
-	const [content, setContent] = useState("");
-	const [sending, setSending] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+    const [type, setType] = useState<Pulse['type']>('update');
+    const [content, setContent] = useState('');
+    const [sending, setSending] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-	const handleSubmit = async (e: Event) => {
-		e.preventDefault();
-		if (!content.trim()) return;
-		setSending(true);
-		setError(null);
+    const left = MAX - content.length;
 
-		try {
-			await postPulse({
-				type,
-				content,
-				lat: 40.7128,
-				lng: -74.006,
-			});
-			onClose();
-		} catch (submitError) {
-			setError(
-				submitError instanceof Error
-					? submitError.message
-					: "Unable to post pulse.",
-			);
-		} finally {
-			setSending(false);
-		}
-	};
+    const handleSubmit = async (e: Event) => {
+        e.preventDefault();
+        if (!content.trim() || left < 0) return;
+        setSending(true);
+        setError(null);
+        try {
+            await postPulse({ type, content, lat: 40.7128, lng: -74.006 });
+            onClose();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Unable to post pulse.');
+        } finally {
+            setSending(false);
+        }
+    };
 
-	return (
-		<div
-			class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
-			role="dialog"
-		>
-			<div class="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-5 animate-fade-up shadow-2xl">
-				<div class="flex items-center justify-between mb-4">
-					<h2 class="text-lg font-bold">Post a Pulse</h2>
-					<button
-						type="button"
-						onClick={onClose}
-						class="p-1 rounded-full hover:bg-surface-dim transition-colors"
-					>
-						<X size={20} />
-					</button>
-				</div>
+    return (
+        /* Overlay */
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Post a pulse"
+            style="position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);"
+        >
+            {/* Tap-outside to close */}
+            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
 
-				<form onSubmit={handleSubmit}>
-					<div class="flex gap-2 flex-wrap mb-4">
-						{TYPES.map((t) => {
-							const Icon = t.icon;
-							return (
-								<button
-									key={t.val}
-									type="button"
-									onClick={() => setType(t.val)}
-									class={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-										type === t.val
-											? "border-primary bg-primary/10 text-primary"
-											: "border-border text-text-secondary hover:border-primary/30"
-									}`}
-								>
-									<Icon size={12} /> {t.label}
-								</button>
-							);
-						})}
-					</div>
+            {/* Sheet */}
+            <div
+                class="animate-slide-up"
+                style={`
+					position:relative;
+					width:100%;
+					max-width:680px;
+					background:var(--surface);
+					border:1px solid var(--border);
+					border-bottom:none;
+					border-radius:14px 14px 0 0;
+					box-shadow:0 -8px 40px rgba(0,0,0,0.2);
+					padding:20px 20px 28px;
+				`}
+            >
+                {/* Header */}
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
+                        Post a Pulse
+                    </p>
+                    <button
+                        type="button"
+                        class="btn-icon"
+                        onClick={onClose}
+                        aria-label="Close"
+                        style="color:var(--text-secondary);"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
 
-					<textarea
-						value={content}
-						onInput={(e) => setContent((e.target as HTMLTextAreaElement).value)}
-						placeholder="What's happening in the neighborhood?"
-						class="w-full h-28 rounded-2xl border border-border p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-					/>
+                <form onSubmit={handleSubmit}>
+                    {/* Type pills */}
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+                        {TYPES.map((t) => {
+                            const Icon = t.icon;
+                            const active = type === t.val;
+                            return (
+                                <button
+                                    key={t.val}
+                                    type="button"
+                                    onClick={() => setType(t.val)}
+                                    style={`
+										display:inline-flex;align-items:center;gap:5px;
+										padding:4px 10px;border-radius:6px;border:1px solid;
+										font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;
+										${
+                                            active
+                                                ? `background:var(--type-${t.css}-bg);color:var(--type-${t.css}-text);border-color:var(--type-${t.css}-border);`
+                                                : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+                                        }
+									`}
+                                >
+                                    <Icon size={11} />
+                                    {t.label}
+                                </button>
+                            );
+                        })}
+                    </div>
 
-					{error && <p class="mt-2 text-xs text-danger">{error}</p>}
+                    {/* Textarea */}
+                    <div style="position:relative;">
+                        <textarea
+                            value={content}
+                            onInput={(e) => setContent((e.target as HTMLTextAreaElement).value)}
+                            placeholder="What's happening in your neighborhood?"
+                            class="input-field"
+                            style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
+                            maxLength={MAX + 20}
+                            onFocus={(e) => {
+                                const el = e.target as HTMLElement;
+                                el.style.borderColor = 'var(--border-focus)';
+                                el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
+                            }}
+                            onBlur={(e) => {
+                                const el = e.target as HTMLElement;
+                                el.style.borderColor = 'var(--border)';
+                                el.style.boxShadow = 'none';
+                            }}
+                        />
+                        <span
+                            style={`
+								position:absolute;right:10px;bottom:10px;
+								font-size:11px;font-variant-numeric:tabular-nums;
+								color:${left < 0 ? 'var(--danger)' : left < 40 ? 'var(--warning)' : 'var(--text-tertiary)'};
+							`}
+                        >
+                            {left}
+                        </span>
+                    </div>
 
-					<button
-						type="submit"
-						disabled={!content.trim() || sending}
-						class="mt-3 w-full bg-linear-to-r from-primary to-primary-dark text-white py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-opacity shadow-lg"
-					>
-						<Send size={16} /> {sending ? "Posting…" : "Post Pulse"}
-					</button>
-				</form>
-			</div>
-		</div>
-	);
+                    {/* Location note */}
+                    <p style="font-size:11px;color:var(--text-tertiary);margin:8px 0 0;display:flex;align-items:center;gap:4px;">
+                        <MapPin size={10} />
+                        Location auto-detected from your profile
+                    </p>
+
+                    {error && (
+                        <p style="margin:10px 0 0;padding:8px 12px;border-radius:6px;background:var(--danger-subtle);color:var(--danger);font-size:12px;border:1px solid var(--type-emergency-border);">
+                            {error}
+                        </p>
+                    )}
+
+                    <button
+                        type="submit"
+                        id="post-pulse-submit"
+                        disabled={!content.trim() || sending || left < 0}
+                        class="btn-primary"
+                        style="margin-top:14px;width:100%;height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;"
+                    >
+                        <Send size={13} />
+                        {sending ? 'Posting…' : 'Post Pulse'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 }

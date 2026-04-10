@@ -13,8 +13,14 @@ export function BottomNav() {
     const [location, setLocation] = useLocation();
 
     return (
-        <nav class="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/20">
-            <div class="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
+        <nav
+            class="nav-bar"
+            style="position:fixed;bottom:0;left:0;right:0;z-index:50;height:var(--nav-h);"
+        >
+            <div
+                class="app-container"
+                style="height:100%;display:flex;align-items:center;justify-content:space-around;padding:0 4px;"
+            >
                 {tabs.map((tab) => {
                     const active =
                         location === tab.path ||
@@ -24,15 +30,24 @@ export function BottomNav() {
                         <button
                             type="button"
                             key={tab.path}
+                            id={`nav-${tab.label.toLowerCase()}`}
                             onClick={() => setLocation(tab.path)}
-                            class={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-all duration-200 ${
-                                active
-                                    ? 'text-primary scale-105'
-                                    : 'text-text-secondary hover:text-primary/70'
-                            }`}
+                            style={`
+                                display:flex;flex-direction:column;align-items:center;gap:3px;
+                                padding:6px 12px;border-radius:8px;border:none;cursor:pointer;
+                                background:${active ? 'var(--accent-subtle)' : 'transparent'};
+                                color:${active ? 'var(--accent)' : 'var(--text-tertiary)'};
+                                transition:background 0.15s,color 0.15s;
+                                min-width:52px;
+                            `}
+                            aria-current={active ? 'page' : undefined}
                         >
-                            <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
-                            <span class="text-[10px] font-medium">{tab.label}</span>
+                            <Icon size={18} strokeWidth={active ? 2.2 : 1.7} />
+                            <span
+                                style={`font-size:10px;font-weight:${active ? '600' : '500'};letter-spacing:0.01em;`}
+                            >
+                                {tab.label}
+                            </span>
                         </button>
                     );
                 })}

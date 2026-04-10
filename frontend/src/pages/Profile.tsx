@@ -1,442 +1,505 @@
-import { CalendarDays, MapPin, Moon, Plus, Save, Trash2, X } from "lucide-preact";
-import { useEffect, useState } from "preact/hooks";
-import { useLocation } from "wouter";
-import { AppLayout } from "../components/Layout/AppLayout";
-import { RoleBadge } from "../components/Profile/RoleBadge";
-import { TrustBadge } from "../components/Profile/TrustBadge";
-import { useAuth } from "../lib/auth";
-import { deleteAccount, fetchCurrentUser, updateProfile } from "../lib/userApi";
-import type { User } from "../lib/types";
+import { CalendarDays, LogOut, MapPin, Moon, Pencil, Plus, Save, Trash2, X } from 'lucide-preact';
+import { useEffect, useState } from 'preact/hooks';
+import { useLocation } from 'wouter';
+import { AppLayout } from '../components/Layout/AppLayout';
+import { RoleBadge } from '../components/Profile/RoleBadge';
+import { TrustBadge } from '../components/Profile/TrustBadge';
+import { useAuth } from '../lib/auth';
+import type { User } from '../lib/types';
+import { deleteAccount, fetchCurrentUser, updateProfile } from '../lib/userApi';
 
-const WEEKDAYS: Array<{ value: number; short: string; full: string }> = [
-	{ value: 0, short: "Sun", full: "Sunday" },
-	{ value: 1, short: "Mon", full: "Monday" },
-	{ value: 2, short: "Tue", full: "Tuesday" },
-	{ value: 3, short: "Wed", full: "Wednesday" },
-	{ value: 4, short: "Thu", full: "Thursday" },
-	{ value: 5, short: "Fri", full: "Friday" },
-	{ value: 6, short: "Sat", full: "Saturday" },
+const DAYS = [
+    { v: 0, s: 'Sun' },
+    { v: 1, s: 'Mon' },
+    { v: 2, s: 'Tue' },
+    { v: 3, s: 'Wed' },
+    { v: 4, s: 'Thu' },
+    { v: 5, s: 'Fri' },
+    { v: 6, s: 'Sat' },
 ];
 
-function normalizeQuietDays(days: Array<number | string> | undefined): number[] {
-	return Array.from(
-		new Set(
-			(days || [])
-				.map((day) => Number(day))
-				.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
-		),
-	).sort((a, b) => a - b);
+function normDays(days: Array<number | string> | undefined): number[] {
+    return Array.from(
+        new Set((days || []).map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))
+    ).sort((a, b) => a - b);
 }
 
+const S = {
+    label: 'display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;letter-spacing:0.01em;text-transform:uppercase;',
+    val: 'font-size:13px;color:var(--text);',
+    section:
+        'border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden;',
+    sectionHead:
+        'padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;',
+    sectionBody: 'padding:16px;display:flex;flex-direction:column;gap:14px;',
+    row: 'display:flex;align-items:center;justify-content:space-between;gap:12px;',
+    input: 'width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;',
+    textarea:
+        'width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;resize:none;height:80px;transition:border-color 0.15s,box-shadow 0.15s;',
+};
+
+const focusOn = (e: Event) => {
+    const el = e.target as HTMLElement;
+    el.style.borderColor = 'var(--border-focus)';
+    el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
+};
+const focusOff = (e: Event) => {
+    const el = e.target as HTMLElement;
+    el.style.borderColor = 'var(--border)';
+    el.style.boxShadow = 'none';
+};
+
 export function Profile() {
-	const [, setLocation] = useLocation();
-	const { logout, updateLocalUser } = useAuth();
-	const [user, setUser] = useState<User | null>(null);
-	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState<Partial<User>>({});
-	const [newSkill, setNewSkill] = useState("");
-	const [saving, setSaving] = useState(false);
-	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [, setLocation] = useLocation();
+    const { logout, updateLocalUser } = useAuth();
+    const [user, setUser] = useState<User | null>(null);
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState<Partial<User>>({});
+    const [newSkill, setNewSkill] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [showDel, setShowDel] = useState(false);
 
-	useEffect(() => {
-		fetchCurrentUser().then((u) => {
-			setUser(u);
-			setDraft(u);
-		});
-	}, []);
+    useEffect(() => {
+        fetchCurrentUser().then((u) => {
+            setUser(u);
+            setDraft(u);
+        });
+    }, []);
 
-	const handleSave = async () => {
-		if (!draft) return;
-		setSaving(true);
-		const updated = await updateProfile(draft);
-		updateLocalUser({ displayName: updated.name });
-		setUser(updated);
-		setDraft(updated);
-		setEditing(false);
-		setSaving(false);
-	};
+    const handleSave = async () => {
+        if (!draft) return;
+        setSaving(true);
+        const updated = await updateProfile(draft);
+        updateLocalUser({ displayName: updated.name });
+        setUser(updated);
+        setDraft(updated);
+        setEditing(false);
+        setSaving(false);
+    };
 
-	const handleSignOut = () => {
-		logout();
-		setLocation("/auth");
-	};
+    const addSkill = () => {
+        if (!newSkill.trim()) return;
+        setDraft((d) => ({ ...d, skills: [...(d.skills ?? []), newSkill.trim()] }));
+        setNewSkill('');
+    };
 
-	const addSkill = () => {
-		if (!newSkill.trim()) return;
-		setDraft((d) => ({ ...d, skills: [...(d.skills || []), newSkill.trim()] }));
-		setNewSkill("");
-	};
+    const removeSkill = (s: string) =>
+        setDraft((d) => ({ ...d, skills: (d.skills ?? []).filter((x) => x !== s) }));
 
-	const removeSkill = (skill: string) => {
-		setDraft((d) => ({
-			...d,
-			skills: (d.skills || []).filter((s) => s !== skill),
-		}));
-	};
+    const toggleDay = (day: number) => {
+        setDraft((d) => {
+            const cur = normDays(d.quietDays === undefined ? user?.quietDays : d.quietDays);
+            const next = cur.includes(day)
+                ? cur.filter((x) => x !== day)
+                : [...new Set([...cur, day])];
+            return { ...d, quietDays: next.sort((a, b) => a - b) };
+        });
+    };
 
-	const toggleQuietDay = (day: number) => {
-		if (day < 0 || day > 6) return;
+    const selDays = normDays(draft.quietDays === undefined ? user?.quietDays : draft.quietDays);
 
-		setDraft((d) => {
-			const current = normalizeQuietDays(
-				d.quietDays === undefined ? user?.quietDays : d.quietDays,
-			);
-			const next = current.includes(day)
-				? current.filter((value) => value !== day)
-				: [...new Set([...current, day])];
+    if (!user) {
+        return (
+            <AppLayout title="Profile">
+                <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                    {[80, 120, 100].map((h, i) => (
+                        <div
+                            key={i}
+                            style={`height:${h}px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;animation-delay:${i * 100}ms;`}
+                        />
+                    ))}
+                </div>
+            </AppLayout>
+        );
+    }
 
-			return {
-				...d,
-				quietDays: next.sort((a, b) => a - b),
-			};
-		});
-	};
+    return (
+        <AppLayout
+            title="Profile"
+            headerRight={
+                !editing ? (
+                    <button
+                        type="button"
+                        id="edit-profile-btn"
+                        class="btn-ghost"
+                        onClick={() => {
+                            setDraft(user);
+                            setEditing(true);
+                        }}
+                        style="height:30px;font-size:12px;gap:5px;"
+                    >
+                        <Pencil size={12} />
+                        Edit
+                    </button>
+                ) : undefined
+            }
+        >
+            <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                {/* Identity card */}
+                <div style={S.section} class="animate-slide-up">
+                    <div style={S.sectionHead}>
+                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
+                            IDENTITY
+                        </p>
+                    </div>
+                    <div style={`${S.sectionBody}flex-direction:row;align-items:flex-start;`}>
+                        <img
+                            src={user.avatar}
+                            alt=""
+                            style="width:48px;height:48px;border-radius:8px;border:1px solid var(--border);object-fit:cover;flex-shrink:0;background:var(--bg-muted);"
+                        />
+                        <div style="flex:1;min-width:0;">
+                            {editing ? (
+                                <input
+                                    value={draft.name ?? ''}
+                                    onInput={(e) =>
+                                        setDraft((d) => ({
+                                            ...d,
+                                            name: (e.target as HTMLInputElement).value,
+                                        }))
+                                    }
+                                    style={S.input}
+                                    placeholder="Display name"
+                                    onFocus={focusOn}
+                                    onBlur={focusOff}
+                                />
+                            ) : (
+                                <p style="font-size:15px;font-weight:700;color:var(--text);margin:0 0 6px;letter-spacing:-0.01em;">
+                                    {user.name}
+                                </p>
+                            )}
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                                <TrustBadge score={user.trustScore} verified={user.verified} />
+                                {user.role && <RoleBadge role={user.role} />}
+                            </div>
+                        </div>
+                    </div>
 
-	const selectedQuietDays = normalizeQuietDays(
-		draft.quietDays === undefined ? user?.quietDays : draft.quietDays,
-	);
+                    {/* Bio row */}
+                    <div style="padding:0 16px 16px;">
+                        <p style={S.label}>Bio</p>
+                        {editing ? (
+                            <textarea
+                                value={draft.bio ?? ''}
+                                onInput={(e) =>
+                                    setDraft((d) => ({
+                                        ...d,
+                                        bio: (e.target as HTMLTextAreaElement).value,
+                                    }))
+                                }
+                                style={S.textarea}
+                                placeholder="Tell your neighbors a bit about yourself…"
+                                onFocus={focusOn}
+                                onBlur={focusOff}
+                            />
+                        ) : (
+                            <p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.55;">
+                                {user.bio || (
+                                    <span style="color:var(--text-tertiary);font-style:italic;">
+                                        No bio set.
+                                    </span>
+                                )}
+                            </p>
+                        )}
+                    </div>
+                </div>
 
-	if (!user) {
-		return (
-			<AppLayout title="Profile">
-				<div class="p-4 space-y-4">
-					<div class="glass rounded-2xl p-6 animate-pulse">
-						<div class="flex items-center gap-4">
-							<div class="w-16 h-16 rounded-full bg-surface-dim" />
-							<div class="space-y-2 flex-1">
-								<div class="h-4 bg-surface-dim rounded w-1/3" />
-								<div class="h-3 bg-surface-dim rounded w-2/3" />
-							</div>
-						</div>
-					</div>
-				</div>
-			</AppLayout>
-		);
-	}
+                {/* Skills */}
+                <div style={S.section} class="animate-slide-up" style-animation-delay="50ms">
+                    <div style={S.sectionHead}>
+                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
+                            SKILLS & RESOURCES
+                        </p>
+                    </div>
+                    <div style={S.sectionBody}>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                            {(editing ? draft.skills : user.skills)?.map((skill) => (
+                                <span
+                                    key={skill}
+                                    style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:500;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
+                                >
+                                    {skill}
+                                    {editing && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSkill(skill)}
+                                            style="background:none;border:none;cursor:pointer;padding:0;color:var(--text-tertiary);display:flex;align-items:center;"
+                                            aria-label={`Remove ${skill}`}
+                                        >
+                                            <X size={11} />
+                                        </button>
+                                    )}
+                                </span>
+                            ))}
+                            {!(editing ? draft.skills : user.skills)?.length && !editing && (
+                                <span style="font-size:12px;color:var(--text-tertiary);font-style:italic;">
+                                    No skills listed.
+                                </span>
+                            )}
+                            {editing && (
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <input
+                                        value={newSkill}
+                                        onInput={(e) =>
+                                            setNewSkill((e.target as HTMLInputElement).value)
+                                        }
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                addSkill();
+                                            }
+                                        }}
+                                        placeholder="Add skill…"
+                                        style="width:100px;padding:3px 10px;border-radius:6px;border:1px dashed var(--border-strong);background:transparent;color:var(--text);font-size:12px;font-family:inherit;outline:none;"
+                                        onFocus={(e) =>
+                                            ((e.target as HTMLElement).style.borderColor =
+                                                'var(--border-focus)')
+                                        }
+                                        onBlur={(e) =>
+                                            ((e.target as HTMLElement).style.borderColor =
+                                                'var(--border-strong)')
+                                        }
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={addSkill}
+                                        class="btn-icon"
+                                        style="color:var(--accent);width:28px;height:28px;"
+                                        aria-label="Add skill"
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
-	return (
-		<AppLayout title="Profile">
-			<div class="p-4 space-y-4">
-				<div class="glass rounded-2xl p-5 animate-fade-up">
-					<div class="flex items-center gap-4">
-						<img
-							src={user.avatar}
-							alt=""
-							class="w-16 h-16 rounded-full bg-surface-dim ring-2 ring-primary/20"
-						/>
-						<div class="flex-1">
-							{editing ? (
-								<input
-									value={draft.name || ""}
-									onInput={(e) =>
-										setDraft((d) => ({
-											...d,
-											name: (e.target as HTMLInputElement).value,
-										}))
-									}
-									class="text-lg font-bold border-b border-primary/30 focus:outline-none bg-transparent w-full"
-								/>
-							) : (
-								<h2 class="text-lg font-bold">{user.name}</h2>
-							)}
-							<div class="mt-1 flex flex-wrap items-center gap-2">
-								<TrustBadge score={user.trustScore} verified={user.verified} />
-								{user.role && <RoleBadge role={user.role} />}
-							</div>
-						</div>
-					</div>
+                {/* Preferences */}
+                <div style={S.section} class="animate-slide-up" style-animation-delay="100ms">
+                    <div style={S.sectionHead}>
+                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
+                            PREFERENCES
+                        </p>
+                    </div>
+                    <div style={S.sectionBody}>
+                        {/* Distance limit */}
+                        <div style={S.row}>
+                            <div style="display:flex;align-items:center;gap:7px;">
+                                <MapPin
+                                    size={13}
+                                    style="color:var(--text-tertiary);flex-shrink:0;"
+                                />
+                                <span style="font-size:13px;color:var(--text-secondary);">
+                                    Distance limit
+                                </span>
+                            </div>
+                            {editing ? (
+                                <input
+                                    type="number"
+                                    value={draft.distanceLimit}
+                                    onInput={(e) =>
+                                        setDraft((d) => ({
+                                            ...d,
+                                            distanceLimit: Number(
+                                                (e.target as HTMLInputElement).value
+                                            ),
+                                        }))
+                                    }
+                                    style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;text-align:right;"
+                                    onFocus={focusOn}
+                                    onBlur={focusOff}
+                                />
+                            ) : (
+                                <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
+                                    {user.distanceLimit} m
+                                </span>
+                            )}
+                        </div>
 
-					<div class="mt-4">
-						<div class="text-xs font-medium text-text-secondary">
-							<p>Bio</p>
-							{editing ? (
-								<textarea
-									value={draft.bio || ""}
-									onInput={(e) =>
-										setDraft((d) => ({
-											...d,
-											bio: (e.target as HTMLTextAreaElement).value,
-										}))
-									}
-									class="w-full mt-1 rounded-xl border border-border p-2 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-primary/30"
-								/>
-							) : (
-								<p class="mt-1 text-sm text-text">{user.bio}</p>
-							)}
-						</div>
-					</div>
-				</div>
+                        {/* Quiet hours */}
+                        <div style={S.row}>
+                            <div style="display:flex;align-items:center;gap:7px;">
+                                <Moon size={13} style="color:var(--text-tertiary);flex-shrink:0;" />
+                                <span style="font-size:13px;color:var(--text-secondary);">
+                                    Quiet hours
+                                </span>
+                            </div>
+                            {editing ? (
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <input
+                                        type="time"
+                                        value={draft.quietHoursStart}
+                                        onInput={(e) =>
+                                            setDraft((d) => ({
+                                                ...d,
+                                                quietHoursStart: (e.target as HTMLInputElement)
+                                                    .value,
+                                            }))
+                                        }
+                                        style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;"
+                                        onFocus={focusOn}
+                                        onBlur={focusOff}
+                                    />
+                                    <span style="color:var(--text-tertiary);font-size:12px;">
+                                        –
+                                    </span>
+                                    <input
+                                        type="time"
+                                        value={draft.quietHoursEnd}
+                                        onInput={(e) =>
+                                            setDraft((d) => ({
+                                                ...d,
+                                                quietHoursEnd: (e.target as HTMLInputElement).value,
+                                            }))
+                                        }
+                                        style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;"
+                                        onFocus={focusOn}
+                                        onBlur={focusOff}
+                                    />
+                                </div>
+                            ) : (
+                                <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
+                                    {user.quietHoursStart || '—'} – {user.quietHoursEnd || '—'}
+                                </span>
+                            )}
+                        </div>
 
-				<div
-					class="glass rounded-2xl p-5 animate-fade-up"
-					style="animation-delay: 100ms"
-				>
-					<h3 class="text-sm font-bold flex items-center gap-2 mb-3">
-						Skill Tags
-					</h3>
-					<div class="flex flex-wrap gap-2">
-						{(editing ? draft.skills : user.skills)?.map((skill) => (
-							<span
-								key={skill}
-								class="flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full"
-							>
-								{skill}
-								{editing && (
-									<button
-										type="button"
-										onClick={() => removeSkill(skill)}
-										class="hover:text-danger ml-0.5"
-									>
-										<X size={12} />
-									</button>
-								)}
-							</span>
-						))}
-						{editing && (
-							<div class="flex items-center gap-1">
-								<input
-									value={newSkill}
-									onInput={(e) =>
-										setNewSkill((e.target as HTMLInputElement).value)
-									}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.preventDefault();
-											addSkill();
-										}
-									}}
-									placeholder="Add skill"
-									class="w-24 text-xs border border-dashed border-primary/30 rounded-full px-3 py-1.5 focus:outline-none"
-								/>
-								<button type="button" onClick={addSkill} class="text-primary">
-									<Plus size={14} />
-								</button>
-							</div>
-						)}
-					</div>
-				</div>
+                        {/* Quiet days */}
+                        <div>
+                            <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                                <CalendarDays size={13} style="color:var(--text-tertiary);" />
+                                <span style="font-size:13px;color:var(--text-secondary);">
+                                    Quiet days
+                                </span>
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                                {DAYS.map((d) => {
+                                    const sel = selDays.includes(d.v);
+                                    const active = editing ? sel : user.quietDays?.includes(d.v);
+                                    return (
+                                        <button
+                                            key={d.v}
+                                            type="button"
+                                            onClick={editing ? () => toggleDay(d.v) : undefined}
+                                            aria-pressed={editing ? sel : undefined}
+                                            disabled={!editing}
+                                            style={`
+												padding:4px 10px;border-radius:5px;border:1px solid;
+												font-size:12px;font-weight:500;cursor:${editing ? 'pointer' : 'default'};
+												transition:all 0.15s;
+												${
+                                                    active
+                                                        ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
+                                                        : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+                                                }
+											`}
+                                        >
+                                            {d.s}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-				<div
-					class="glass rounded-2xl p-5 animate-fade-up"
-					style="animation-delay: 200ms"
-				>
-					<h3 class="text-sm font-bold mb-3">Preferences</h3>
-					<div class="space-y-3">
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2 text-sm">
-								<MapPin size={14} class="text-text-secondary" /> Distance Limit
-							</div>
-							{editing ? (
-								<input
-									type="number"
-									value={draft.distanceLimit}
-									onInput={(e) =>
-										setDraft((d) => ({
-											...d,
-											distanceLimit: Number(
-												(e.target as HTMLInputElement).value,
-											),
-										}))
-									}
-									class="w-16 text-sm text-right border border-border rounded-lg px-2 py-1 focus:outline-none"
-								/>
-							) : (
-								<span class="text-sm text-text-secondary">
-									{user.distanceLimit} m
-								</span>
-							)}
-						</div>
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2 text-sm">
-								<Moon size={14} class="text-text-secondary" /> Quiet Hours
-							</div>
-							{editing ? (
-								<div class="flex items-center gap-1 text-sm">
-									<input
-										type="time"
-										value={draft.quietHoursStart}
-										onInput={(e) =>
-											setDraft((d) => ({
-												...d,
-												quietHoursStart: (e.target as HTMLInputElement).value,
-											}))
-										}
-										class="border border-border rounded-lg px-2 py-1 text-xs"
-									/>
-									<span>–</span>
-									<input
-										type="time"
-										value={draft.quietHoursEnd}
-										onInput={(e) =>
-											setDraft((d) => ({
-												...d,
-												quietHoursEnd: (e.target as HTMLInputElement).value,
-											}))
-										}
-										class="border border-border rounded-lg px-2 py-1 text-xs"
-									/>
-								</div>
-							) : (
-								<span class="text-sm text-text-secondary">
-									{user.quietHoursStart || "—"} – {user.quietHoursEnd || "—"}
-								</span>
-							)}
-						</div>
-						<div class="space-y-2">
-							<div class="flex items-center justify-between gap-3">
-								<div class="flex items-center gap-2 text-sm">
-									<CalendarDays size={14} class="text-text-secondary" /> Quiet Days
-								</div>
-								{!editing &&
-									(user.quietDays?.length ? (
-										<span class="text-sm text-text-secondary">
-											{user.quietDays
-												.filter((day) => day >= 0 && day <= 6)
-												.sort((a, b) => a - b)
-												.map((day) => WEEKDAYS[day].short)
-												.join(", ")}
-										</span>
-									) : (
-										<span class="text-sm text-text-secondary">—</span>
-									))}
-							</div>
+                {/* Edit action bar */}
+                {editing && (
+                    <div class="animate-fade-in" style="display:flex;gap:8px;">
+                        <button
+                            type="button"
+                            id="save-profile-btn"
+                            class="btn-primary"
+                            onClick={handleSave}
+                            disabled={saving}
+                            style="flex:1;height:40px;background:var(--accent);"
+                        >
+                            <Save size={14} />
+                            {saving ? 'Saving…' : 'Save Changes'}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn-ghost"
+                            onClick={() => {
+                                setEditing(false);
+                                setDraft(user);
+                            }}
+                            style="height:40px;padding:0 16px;"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                )}
 
-							{editing ? (
-								<div class="flex flex-wrap gap-2">
-									{WEEKDAYS.map((day) => {
-										const selected = selectedQuietDays.includes(day.value);
-										return (
-											<button
-												key={day.value}
-												type="button"
-												onClick={() => toggleQuietDay(day.value)}
-												aria-pressed={selected}
-												class={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${selected
-													? "bg-primary/15 text-primary border border-primary/30"
-													: "border border-border text-text-secondary hover:border-primary/30 hover:text-primary"
-													}`}
-											>
-												{day.short}
-											</button>
-										);
-									})}
-								</div>
-							) : user.quietDays?.length ? (
-								<div class="flex flex-wrap gap-1.5">
-									{WEEKDAYS.filter((day) => user.quietDays.includes(day.value)).map(
-										(day) => (
-											<span
-												key={day.value}
-												class="rounded-full bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium"
-											>
-												{day.short}
-											</span>
-										),
-									)}
-								</div>
-							) : (
-								<div class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-text-secondary">
-									{WEEKDAYS.map((day) => (
-										<span key={day.value}>
-											{day.short} —
-										</span>
-									))}
-								</div>
-							)}
-						</div>
-					</div>
-				</div>
+                {/* Sign out */}
+                <button
+                    type="button"
+                    id="sign-out-btn"
+                    class="btn-ghost"
+                    onClick={() => {
+                        logout();
+                        setLocation('/auth');
+                    }}
+                    style="height:38px;width:100%;font-size:13px;color:var(--text-secondary);"
+                >
+                    <LogOut size={14} />
+                    Sign Out
+                </button>
 
-				<div class="flex gap-2">
-					{editing ? (
-						<>
-							<button
-								type="button"
-								onClick={handleSave}
-								disabled={saving}
-								class="flex-1 bg-linear-to-r from-primary to-primary-dark text-white py-3 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
-							>
-								<Save size={16} /> {saving ? "Saving…" : "Save"}
-							</button>
-							<button
-								type="button"
-								onClick={() => {
-									setEditing(false);
-									setDraft(user);
-								}}
-								class="px-5 border border-border rounded-2xl text-sm"
-							>
-								Cancel
-							</button>
-						</>
-					) : (
-						<button
-							type="button"
-							onClick={() => {
-								setDraft(user);
-								setEditing(true);
-							}}
-							class="flex-1 glass py-3 rounded-2xl font-semibold text-sm hover:bg-primary/5 transition-colors"
-						>
-							Edit Profile
-						</button>
-					)}
-				</div>
+                {/* Delete account */}
+                <button
+                    type="button"
+                    id="delete-account-btn"
+                    onClick={() => setShowDel(true)}
+                    style="width:100%;height:32px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:500;color:var(--text-tertiary);background:none;border:none;cursor:pointer;"
+                >
+                    <Trash2 size={12} />
+                    Delete Account
+                </button>
+            </div>
 
-				<button
-					type="button"
-					onClick={handleSignOut}
-					class="w-full rounded-2xl border border-border bg-white/80 py-3 text-sm font-semibold text-text transition-colors hover:bg-surface-dim"
-				>
-					Sign Out
-				</button>
-
-				<button
-					type="button"
-					onClick={() => setShowDeleteConfirm(true)}
-					class="w-full text-xs text-danger/60 hover:text-danger py-2 transition-colors flex items-center justify-center gap-1"
-				>
-					<Trash2 size={12} /> Delete Account
-				</button>
-
-				{showDeleteConfirm && (
-					<div
-						class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-						role="dialog"
-					>
-						<div class="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-2xl animate-fade-up">
-							<h3 class="text-lg font-bold text-danger mb-2">
-								Delete Account?
-							</h3>
-							<p class="text-sm text-text-secondary mb-4">
-								This action cannot be undone. All your data will be permanently
-								removed.
-							</p>
-							<div class="flex gap-2">
-								<button
-									type="button"
-									onClick={() => {
-										deleteAccount();
-										logout();
-										setLocation("/auth");
-										setShowDeleteConfirm(false);
-									}}
-									class="flex-1 bg-danger text-white py-2.5 rounded-xl font-semibold text-sm"
-								>
-									Delete
-								</button>
-								<button
-									type="button"
-									onClick={() => setShowDeleteConfirm(false)}
-									class="flex-1 border border-border py-2.5 rounded-xl text-sm"
-								>
-									Cancel
-								</button>
-							</div>
-						</div>
-					</div>
-				)}
-			</div>
-		</AppLayout>
-	);
+            {/* Delete confirm */}
+            {showDel && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);"
+                >
+                    <div
+                        class="animate-slide-up"
+                        style="width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow-xl);"
+                    >
+                        <h3 style="font-size:15px;font-weight:700;color:var(--danger);margin:0 0 6px;">
+                            Delete Account?
+                        </h3>
+                        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 18px;line-height:1.5;">
+                            This is permanent. All your pulses and profile data will be removed.
+                        </p>
+                        <div style="display:flex;gap:8px;">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    deleteAccount();
+                                    logout();
+                                    setLocation('/auth');
+                                }}
+                                style="flex:1;height:38px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-size:13px;font-weight:600;cursor:pointer;"
+                            >
+                                Delete
+                            </button>
+                            <button
+                                type="button"
+                                class="btn-ghost"
+                                onClick={() => setShowDel(false)}
+                                style="flex:1;height:38px;"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </AppLayout>
+    );
 }
