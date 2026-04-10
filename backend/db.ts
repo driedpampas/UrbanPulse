@@ -1,4 +1,4 @@
-import { sql } from "bun";
+import { sql } from 'bun';
 
 const SEARCH_LIMIT = 50;
 
@@ -12,14 +12,7 @@ export interface Timerange {
     end: string;
 }
 
-export const PULSE_TYPE_VALUES = [
-    "update",
-    "emergency",
-    "skill",
-    "item",
-    "pet",
-    "need",
-] as const;
+export const PULSE_TYPE_VALUES = ['update', 'emergency', 'skill', 'item', 'pet', 'need'] as const;
 
 export type PulseType = (typeof PULSE_TYPE_VALUES)[number];
 
@@ -118,22 +111,17 @@ type UserRow = {
 };
 
 function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
-    const normalizedType = String(
-        rawPulse.type ?? "update",
-    ).toLowerCase() as PulseType;
+    const normalizedType = String(rawPulse.type ?? 'update').toLowerCase() as PulseType;
 
     return {
         id: String(rawPulse.id),
-        userId: String(rawPulse.userId ?? rawPulse.author_id ?? ""),
+        userId: String(rawPulse.userId ?? rawPulse.author_id ?? ''),
         userName:
-            typeof rawPulse.userName === "string" &&
-                rawPulse.userName.trim().length > 0
+            typeof rawPulse.userName === 'string' && rawPulse.userName.trim().length > 0
                 ? rawPulse.userName.trim()
-                : String(rawPulse.userId ?? rawPulse.author_id ?? ""),
-        type: PULSE_TYPE_VALUES.includes(normalizedType)
-            ? normalizedType
-            : "update",
-        content: String(rawPulse.content ?? ""),
+                : String(rawPulse.userId ?? rawPulse.author_id ?? ''),
+        type: PULSE_TYPE_VALUES.includes(normalizedType) ? normalizedType : 'update',
+        content: String(rawPulse.content ?? ''),
         timestamp: Number(rawPulse.timestamp ?? Date.now()),
         lat: Number(rawPulse.lat ?? 0),
         lng: Number(rawPulse.lng ?? 0),
@@ -144,9 +132,7 @@ function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
 }
 
 export async function selectPulses(limit = 50): Promise<PulseFeedItem[]> {
-    const safeLimit = Number.isFinite(limit)
-        ? Math.max(1, Math.min(Math.floor(limit), 100))
-        : 50;
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
 
     const pulses = (await sql`
     SELECT
@@ -170,9 +156,7 @@ export async function selectPulses(limit = 50): Promise<PulseFeedItem[]> {
     return pulses.map((pulse) => mapPulseRow(pulse));
 }
 
-export async function selectPulseById(
-    id: string,
-): Promise<PulseFeedItem | null> {
+export async function selectPulseById(id: string): Promise<PulseFeedItem | null> {
     const [pulse] = (await sql`
     SELECT
         pulses.id,
@@ -195,14 +179,12 @@ export async function selectPulseById(
     return pulse ? mapPulseRow(pulse) : null;
 }
 
-export async function insertPulse(
-    params: PulseCreateParams,
-): Promise<PulseFeedItem> {
+export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedItem> {
     const lat = params.location.lat;
     const lng = params.location.lng;
 
     if (lat === null || lat === undefined || lng === null || lng === undefined) {
-        throw new Error("Pulse location is required");
+        throw new Error('Pulse location is required');
     }
 
     const [insertedPulse] = await sql`
@@ -212,12 +194,12 @@ export async function insertPulse(
     `;
 
     if (!insertedPulse?.id) {
-        throw new Error("Failed to insert pulse");
+        throw new Error('Failed to insert pulse');
     }
 
     const createdPulse = await selectPulseById(insertedPulse.id);
     if (!createdPulse) {
-        throw new Error("Inserted pulse could not be loaded");
+        throw new Error('Inserted pulse could not be loaded');
     }
 
     return createdPulse;
@@ -233,11 +215,7 @@ export async function deletePulse(id: string): Promise<boolean> {
     return Boolean(deletedPulse);
 }
 
-export async function insertUser(
-    email: string,
-    hashedPass: string,
-    displayname: string,
-) {
+export async function insertUser(email: string, hashedPass: string, displayname: string) {
     return await sql`
     INSERT INTO app.users (email, display_name, password_hash)
     VALUES (${email}, ${displayname}, ${hashedPass})
@@ -304,12 +282,8 @@ export async function selectFullUser(id: string): Promise<User | null> {
     } as User;
 }
 
-export async function searchUsers(
-    userSearch: UserSearchParams,
-): Promise<User[]> {
-    const availableDaysQuery = (userSearch.availableDays ?? []).map((day) =>
-        Number(day),
-    );
+export async function searchUsers(userSearch: UserSearchParams): Promise<User[]> {
+    const availableDaysQuery = (userSearch.availableDays ?? []).map((day) => Number(day));
     const results = (await sql`
     SELECT 
         id,
@@ -335,8 +309,8 @@ export async function searchUsers(
     WHERE
         (
         (${userSearch.id}::text IS NULL)
-        AND (${userSearch.email}::text IS NULL OR email ILIKE ${"%" + userSearch.email + "%"})
-        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${"%" + userSearch.displayName + "%"})
+        AND (${userSearch.email}::text IS NULL OR email ILIKE ${`%${userSearch.email}%`})
+        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${`%${userSearch.displayName}%`})
         AND (${userSearch.min_trust}::text IS NULL OR trust_score >= ${userSearch.min_trust}::numeric)
         AND (${userSearch.max_trust}::text IS NULL OR trust_score <= ${userSearch.max_trust}::numeric)
         AND (${userSearch.role}::text IS NULL OR role = ${userSearch.role})
@@ -367,7 +341,7 @@ export async function searchUsers(
             ${userSearch.availableHours}::jsonb IS NULL
             OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours}::jsonb)))
         )
-        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${"%" + userSearch.bio + "%"})
+        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${`%${userSearch.bio}%`})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
         AND (
@@ -434,9 +408,7 @@ export async function updateUserProfile(user: User) {
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
     const shouldClearSkillRes = user.skillsAndResources === null;
-
-    try {
-        await sql`
+    await sql`
       UPDATE app.users 
       SET 
         display_name = COALESCE(${displayName}, display_name),
@@ -469,9 +441,6 @@ export async function updateUserProfile(user: User) {
 
       WHERE id = ${user.id}
     `;
-    } catch (err) {
-        throw err;
-    }
 }
 
 export async function deleteUser(id: string) {
@@ -481,21 +450,16 @@ export async function deleteUser(id: string) {
     `;
 }
 
-export async function deleteUsers(
-    deleterID: string,
-    userSearch: UserSearchParams,
-) {
-    const availableDaysQuery = (userSearch.availableDays ?? []).map((day) =>
-        Number(day),
-    );
+export async function deleteUsers(deleterID: string, userSearch: UserSearchParams) {
+    const availableDaysQuery = (userSearch.availableDays ?? []).map((day) => Number(day));
     await sql`
     DELETE
     FROM app.users 
     WHERE id != ${deleterID} AND (
         (
         (${userSearch.id}::text IS NULL)
-        AND (${userSearch.email}::text IS NULL OR email ILIKE ${"%" + userSearch.email + "%"})
-        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${"%" + userSearch.displayName + "%"})
+        AND (${userSearch.email}::text IS NULL OR email ILIKE ${`%${userSearch.email}%`})
+        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${`%${userSearch.displayName}%`})
         AND (${userSearch.min_trust}::text IS NULL OR trust_score >= ${userSearch.min_trust}::numeric)
         AND (${userSearch.max_trust}::text IS NULL OR trust_score <= ${userSearch.max_trust}::numeric)
         AND (${userSearch.role}::text IS NULL OR role = ${userSearch.role})
@@ -526,7 +490,7 @@ export async function deleteUsers(
             ${userSearch.availableHours}::jsonb IS NULL
             OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours}::jsonb)))
         )
-        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${"%" + userSearch.bio + "%"})
+        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${`%${userSearch.bio}%`})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
         AND (
