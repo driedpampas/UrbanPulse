@@ -1,10 +1,11 @@
-import { ArrowLeft, Plus, Search, Send, User, Users, X } from 'lucide-preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { ArrowLeft, Plus, Search, Send, Trash2, User, Users, X } from 'lucide-preact';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import {
     connectChatWebSocket,
     disconnectChatWebSocket,
+    deleteChatMessage,
     fetchChats,
     sendMessage,
     startDirectConversation,
@@ -23,16 +24,30 @@ function timeAgo(ts: number) {
     return `${Math.floor(d / 86400000)}d`;
 }
 
-function upsertMessageById(messages: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+function upsertMessageById(
+    messages: ChatMessage[],
+    incoming: ChatMessage
+): { messages: ChatMessage[]; changed: boolean } {
     const existingIndex = messages.findIndex((message) => message.id === incoming.id);
 
     if (existingIndex >= 0) {
+        const existing = messages[existingIndex]!;
+        const unchanged =
+            existing.senderId === incoming.senderId &&
+            existing.senderName === incoming.senderName &&
+            existing.content === incoming.content &&
+            existing.timestamp === incoming.timestamp;
+
+        if (unchanged) {
+            return { messages, changed: false };
+        }
+
         const next = [...messages];
         next[existingIndex] = incoming;
-        return next;
+        return { messages: next, changed: true };
     }
 
-    return [...messages, incoming];
+    return { messages: [...messages, incoming], changed: true };
 }
 
 function uniqueMessagesById(messages: ChatMessage[]): ChatMessage[] {
@@ -44,7 +59,12 @@ function uniqueMessagesById(messages: ChatMessage[]): ChatMessage[] {
     return Array.from(map.values());
 }
 
+function removeMessageById(messages: ChatMessage[], messageId: string): ChatMessage[] {
+    return messages.filter((message) => message.id !== messageId);
+}
+
 export function Messages() {
+    const [location] = useLocation();
     const [threads, setThreads] = useState<ChatThread[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
@@ -56,6 +76,10 @@ export function Messages() {
     const [startingUserId, setStartingUserId] = useState<string | null>(null);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
+    const selectedThreadId =
+        typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('threadId')
+            : null;
 
     const handleThreadUpdate = (updated: ChatThread) => {
         setThreads((p) => p.map((t) => (t.id === updated.id ? updated : t)));
@@ -66,8 +90,15 @@ export function Messages() {
         fetchChats().then((data) => {
             setThreads(data);
             setLoading(false);
+
+            if (selectedThreadId) {
+                const target = data.find((thread) => thread.id === selectedThreadId);
+                if (target) {
+                    setActiveThread(target);
+                }
+            }
         });
-    }, []);
+    }, [location, selectedThreadId]);
 
     useEffect(() => {
         if (!showCompose) {
@@ -338,17 +369,43 @@ function ChatView({
     const [messages, setMessages] = useState<ChatMessage[]>(() => [...thread.messages]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
+    const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
     const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const threadRef = useRef(thread);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
     const directOtherUserId =
         !thread.isGroup ? thread.participants.find((participantId) => participantId !== currentUserId) : null;
 
+    const participantNameById = useMemo(() => {
+        const nameMap = new Map<string, string>();
+        thread.participants.forEach((participantId, index) => {
+            const candidate = thread.participantNames[index];
+            if (candidate && candidate.trim().length > 0) {
+                nameMap.set(participantId, candidate);
+            }
+        });
+        nameMap.set(currentUserId, currentUserName);
+        return nameMap;
+    }, [thread.participants, thread.participantNames, currentUserId, currentUserName]);
+
     useEffect(() => {
-        setMessages(uniqueMessagesById([...thread.messages]));
-    }, [thread.id, thread.messages]);
+        threadRef.current = thread;
+    }, [thread]);
+
+    useEffect(() => {
+        const normalized = uniqueMessagesById([...thread.messages]).map((message) => ({
+            ...message,
+            senderName:
+                participantNameById.get(message.senderId) ||
+                message.senderName ||
+                `Neighbor ${message.senderId.slice(0, 6)}`,
+        }));
+
+        setMessages(normalized);
+    }, [thread.id, thread.messages, participantNameById]);
 
     useEffect(() => {
         const handleChatSocket = (event: {
@@ -360,7 +417,27 @@ function ChatView({
                 content: string;
                 timestamp: number;
             };
+            messageId?: string;
         }) => {
+            if (event.event === 'message.deleted' && typeof event.messageId === 'string') {
+                setMessages((prev) => {
+                    const next = removeMessageById(prev, event.messageId!);
+                    if (next.length === prev.length) {
+                        return prev;
+                    }
+
+                    onThreadUpdate({
+                        ...threadRef.current,
+                        messages: next,
+                        lastMessage: next[next.length - 1],
+                    });
+
+                    return next;
+                });
+
+                return;
+            }
+
             if (event.event !== 'message.created' || !event.message) {
                 return;
             }
@@ -381,20 +458,24 @@ function ChatView({
                     isMe
                         ? currentUserName
                         : senderIndex >= 0
-                            ? thread.participantNames[senderIndex] || 'Neighbor'
-                            : 'Neighbor',
+                            ? thread.participantNames[senderIndex] || `Neighbor ${event.message.senderId.slice(0, 6)}`
+                            : `Neighbor ${event.message.senderId.slice(0, 6)}`,
                 content: event.message.content,
                 timestamp: Number(event.message.timestamp),
             };
 
             setMessages((prev) => {
-                const next = upsertMessageById(prev, mappedMessage);
-                if (next.length === prev.length) {
+                const merged = upsertMessageById(prev, mappedMessage);
+                if (!merged.changed) {
                     return prev;
                 }
 
-                onThreadUpdate({ ...thread, messages: next, lastMessage: mappedMessage });
-                return next;
+                onThreadUpdate({
+                    ...threadRef.current,
+                    messages: merged.messages,
+                    lastMessage: mappedMessage,
+                });
+                return merged.messages;
             });
         };
 
@@ -405,7 +486,7 @@ function ChatView({
             unsubscribeChatThread(thread.id);
             disconnectChatWebSocket(handleChatSocket);
         };
-    }, [thread, onThreadUpdate]);
+    }, [thread.id, onThreadUpdate, currentUserId, currentUserName, thread.participants, thread.participantNames]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -419,18 +500,68 @@ function ChatView({
         try {
             const msg = await sendMessage(thread.id, content);
             setMessages((prev) => {
-                const next = upsertMessageById(prev, msg);
-                if (next.length === prev.length) {
+                const mappedMessage: ChatMessage = {
+                    ...msg,
+                    senderName:
+                        participantNameById.get(msg.senderId) ||
+                        msg.senderName ||
+                        `Neighbor ${msg.senderId.slice(0, 6)}`,
+                };
+                const merged = upsertMessageById(prev, mappedMessage);
+                if (!merged.changed) {
                     return prev;
                 }
 
-                onThreadUpdate({ ...thread, messages: next, lastMessage: msg });
-                return next;
+                onThreadUpdate({
+                    ...threadRef.current,
+                    messages: merged.messages,
+                    lastMessage: mappedMessage,
+                });
+                return merged.messages;
             });
             setInput('');
         } finally {
             sendingRef.current = false;
             setSending(false);
+        }
+    };
+
+    const handleDeleteMessage = async (message: ChatMessage, scope: 'me' | 'everyone') => {
+        if (deletingMessageId) {
+            return;
+        }
+
+        const confirmationText =
+            scope === 'everyone'
+                ? 'Delete this message for everyone? This cannot be undone.'
+                : 'Delete this message for you?';
+
+        if (!window.confirm(confirmationText)) {
+            return;
+        }
+
+        setDeletingMessageId(message.id);
+        try {
+            await deleteChatMessage(thread.id, message.id, scope);
+
+            setMessages((prev) => {
+                const next = removeMessageById(prev, message.id);
+                if (next.length === prev.length) {
+                    return prev;
+                }
+
+                onThreadUpdate({
+                    ...threadRef.current,
+                    messages: next,
+                    lastMessage: next[next.length - 1],
+                });
+
+                return next;
+            });
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setDeletingMessageId(null);
         }
     };
 
@@ -507,6 +638,28 @@ function ChatView({
                                     </button>
                                 )}
                                 <p style="margin:0;">{msg.content}</p>
+                                <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteMessage(msg, 'me')}
+                                        disabled={deletingMessageId !== null}
+                                        style="display:inline-flex;align-items:center;gap:3px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.75;"
+                                    >
+                                        <Trash2 size={10} />
+                                        Delete for me
+                                    </button>
+                                    {isMe && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteMessage(msg, 'everyone')}
+                                            disabled={deletingMessageId !== null}
+                                            style="display:inline-flex;align-items:center;gap:3px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.75;"
+                                        >
+                                            <Trash2 size={10} />
+                                            Delete for everyone
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     );

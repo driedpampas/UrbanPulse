@@ -160,6 +160,7 @@ const createMessageSchema = z.strictObject({
 
 const deleteMessageSchema = z.strictObject({
     messageId: z.uuid(),
+    scope: z.enum(['me', 'everyone']).optional(),
 });
 
 const subscribeChatSocketSchema = z.strictObject({
@@ -780,6 +781,11 @@ bun.serve({
                                     return withCors(BAD_REQUEST);
                                 }
 
+                                const blocked = await db.isEitherUserBlocked(payload.id, otherUserId);
+                                if (blocked) {
+                                    return withCors(FORBIDDEN);
+                                }
+
                                 const existingThread = await db.findDirectChatId(
                                     payload.id,
                                     otherUserId
@@ -845,6 +851,25 @@ bun.serve({
                                 return withCors(FORBIDDEN);
                             }
 
+                            const chat = await db.selectChat(threadId, payload.id);
+                            if (!chat) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            const blockedCounterpartyIds = await db.selectBlockedCounterpartyIds(
+                                payload.id
+                            );
+                            const blockedSet = new Set(blockedCounterpartyIds);
+                            const blockedInThread = chat.participants.some(
+                                (participant) =>
+                                    participant.userId !== payload.id &&
+                                    blockedSet.has(participant.userId)
+                            );
+
+                            if (blockedInThread) {
+                                return withCors(FORBIDDEN);
+                            }
+
                             const message = await db.insertMessage(threadId, payload.id, body.content);
 
                             server.publish(
@@ -859,7 +884,7 @@ bun.serve({
                         })
                     )
                 ),
-            DELETE: async (req) =>
+            DELETE: async (req, server) =>
                 validate(req, async () =>
                     authorize(req, async (session) =>
                         caught(async () => {
@@ -882,6 +907,13 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
 
+                            const deleteScope = body.scope ?? 'everyone';
+
+                            if (deleteScope === 'me') {
+                                await db.hideMessageForUser(body.messageId, payload.id);
+                                return withCors(SUCCESS);
+                            }
+
                             const canDeleteMessage =
                                 payload.role === 'admin' ||
                                 payload.role === 'mod' ||
@@ -892,6 +924,83 @@ bun.serve({
                             }
 
                             await db.deleteMessage(body.messageId, payload.id);
+
+                            server.publish(
+                                `chat-${threadId}`,
+                                JSON.stringify({
+                                    event: 'message.deleted',
+                                    messageId: body.messageId,
+                                    scope: 'everyone',
+                                })
+                            );
+
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+        },
+        '/api/users/blocked': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const blockedUserIds = await db.selectBlockedCounterpartyIds(payload.id);
+                            return withCors(
+                                Response.json(
+                                    {
+                                        userIds: blockedUserIds,
+                                    },
+                                    { status: 200 }
+                                )
+                            );
+                        })
+                    )
+                ),
+        },
+        '/api/users/:id/block': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const parsedTargetId = z.uuid().safeParse(req.params.id);
+                            if (!parsedTargetId.success) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const payload = session as JwtPayload;
+                            if (payload.id === parsedTargetId.data) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const existingUsers = await db.selectExistingUserIds([
+                                payload.id,
+                                parsedTargetId.data,
+                            ]);
+                            if (existingUsers.length !== 2) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            await db.blockUser(payload.id, parsedTargetId.data);
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+            DELETE: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const parsedTargetId = z.uuid().safeParse(req.params.id);
+                            if (!parsedTargetId.success) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const payload = session as JwtPayload;
+                            if (payload.id === parsedTargetId.data) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            await db.unblockUser(payload.id, parsedTargetId.data);
                             return withCors(SUCCESS);
                         })
                     )

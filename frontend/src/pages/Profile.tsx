@@ -1,9 +1,10 @@
-import { CalendarDays, LogOut, MapPin, Moon, Pencil, Plus, Save, Trash2, X } from 'lucide-preact';
+import { Ban, CalendarDays, LogOut, MapPin, MessageSquare, Moon, Pencil, Plus, Save, Trash2, X } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
+import { blockUser, fetchBlockedUserIds, startDirectConversation, unblockUser } from '../lib/chatApi';
 import { useAuth } from '../lib/auth';
 import type { User } from '../lib/types';
 import { deleteAccount, fetchCurrentUser, fetchUserById, updateProfile } from '../lib/userApi';
@@ -58,6 +59,8 @@ export function Profile() {
     const [newSkill, setNewSkill] = useState('');
     const [saving, setSaving] = useState(false);
     const [showDel, setShowDel] = useState(false);
+    const [blocked, setBlocked] = useState(false);
+    const [actionBusy, setActionBusy] = useState(false);
 
     const selectedUserId =
         typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('userId') : null;
@@ -79,6 +82,11 @@ export function Profile() {
 
             setUser(loadedUser);
             setDraft(loadedUser);
+
+            if (!isOwnProfile && selectedUserId) {
+                const blockedUserIds = await fetchBlockedUserIds();
+                setBlocked(blockedUserIds.includes(selectedUserId));
+            }
         };
 
         void loadUser();
@@ -93,6 +101,45 @@ export function Profile() {
         setDraft(updated);
         setEditing(false);
         setSaving(false);
+    };
+
+    const handleMessageUser = async () => {
+        if (!selectedUserId || actionBusy) {
+            return;
+        }
+
+        setActionBusy(true);
+        try {
+            const result = await startDirectConversation(selectedUserId);
+            setLocation(`/messages?threadId=${encodeURIComponent(result.threadId)}`);
+        } catch (error) {
+            console.error(error);
+            window.alert('Could not open conversation.');
+        } finally {
+            setActionBusy(false);
+        }
+    };
+
+    const handleToggleBlock = async () => {
+        if (!selectedUserId || actionBusy) {
+            return;
+        }
+
+        setActionBusy(true);
+        try {
+            if (blocked) {
+                await unblockUser(selectedUserId);
+                setBlocked(false);
+            } else {
+                await blockUser(selectedUserId);
+                setBlocked(true);
+            }
+        } catch (error) {
+            console.error(error);
+            window.alert('Could not update block status.');
+        } finally {
+            setActionBusy(false);
+        }
     };
 
     const addSkill = () => {
@@ -221,6 +268,31 @@ export function Profile() {
                         )}
                     </div>
                 </div>
+
+                {!isOwnProfile && (
+                    <div style="display:flex;gap:8px;">
+                        <button
+                            type="button"
+                            class="btn-primary"
+                            onClick={handleMessageUser}
+                            disabled={actionBusy}
+                            style="flex:1;height:36px;"
+                        >
+                            <MessageSquare size={14} />
+                            Message
+                        </button>
+                        <button
+                            type="button"
+                            class="btn-ghost"
+                            onClick={handleToggleBlock}
+                            disabled={actionBusy}
+                            style="flex:1;height:36px;color:var(--danger);border-color:var(--danger-muted);"
+                        >
+                            <Ban size={14} />
+                            {blocked ? 'Unblock' : 'Block'}
+                        </button>
+                    </div>
+                )}
 
                 {/* Skills */}
                 <div style={S.section} class="animate-slide-up" style-animation-delay="50ms">

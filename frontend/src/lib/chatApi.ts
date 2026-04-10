@@ -12,6 +12,7 @@ export type ChatSocketMessage = {
 
 export type ChatSocketEvent =
     | { event: 'message.created'; message: ChatSocketMessage }
+    | { event: 'message.deleted'; messageId: string; scope: 'everyone' }
     | { event: 'chat.subscribed'; threadId: string }
     | { event: 'chat.unsubscribed'; threadId: string }
     | { event: 'chat.error'; threadId: string; reason: string };
@@ -22,6 +23,8 @@ export interface StartDirectConversationResult {
     threadId: string;
     existed: boolean;
 }
+
+export type DeleteMessageScope = 'me' | 'everyone';
 
 type BackendChatSummary = {
     id: string;
@@ -170,6 +173,17 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
             };
         }
 
+        if (
+            parsed.event === 'message.deleted' &&
+            typeof (parsed as { messageId?: unknown }).messageId === 'string'
+        ) {
+            return {
+                event: 'message.deleted',
+                messageId: (parsed as { messageId: string }).messageId,
+                scope: 'everyone',
+            };
+        }
+
         if (parsed.event === 'chat.unsubscribed' && typeof parsed.threadId === 'string') {
             return {
                 event: 'chat.unsubscribed',
@@ -305,6 +319,40 @@ export async function startDirectConversation(
     }
 
     return { threadId: payload.id, existed: false };
+}
+
+export async function deleteChatMessage(
+    threadId: string,
+    messageId: string,
+    scope: DeleteMessageScope
+): Promise<void> {
+    await request<void>(`/chats/${threadId}/messages`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messageId, scope }),
+    });
+}
+
+export async function fetchBlockedUserIds(): Promise<string[]> {
+    const payload = await request<{ userIds?: string[] }>('/users/blocked', {
+        method: 'GET',
+    });
+
+    return payload.userIds ?? [];
+}
+
+export async function blockUser(userId: string): Promise<void> {
+    await request<void>(`/users/${userId}/block`, {
+        method: 'POST',
+    });
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+    await request<void>(`/users/${userId}/block`, {
+        method: 'DELETE',
+    });
 }
 
 function sendSubscribe(threadId: string) {

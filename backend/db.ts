@@ -38,6 +38,8 @@ export interface Message {
     timestamp: number;
 }
 
+export type DeleteMessageScope = 'me' | 'everyone';
+
 export interface Chat {
     id: string;
     participants: {
@@ -320,7 +322,13 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
             SELECT id, thread_id, sender_id, content,
             ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
             FROM app.messages
-            WHERE thread_id = ${threadId};
+                        WHERE thread_id = ${threadId}
+                            AND NOT EXISTS (
+                                SELECT 1
+                                FROM app.hidden_messages AS hidden
+                                WHERE hidden.message_id = app.messages.id
+                                    AND hidden.user_id = ${currentUser}::uuid
+                            );
         `) as MessageRow[];
     })) as MessageRow[];
 
@@ -453,6 +461,62 @@ export async function deleteMessage(messageId: string, currentUser: string): Pro
             RETURNING id;
         `;
     });
+
+    return Boolean(deleted);
+}
+
+export async function hideMessageForUser(messageId: string, userId: string): Promise<boolean> {
+    const [hidden] = await sql`
+        INSERT INTO app.hidden_messages (message_id, user_id)
+        VALUES (${messageId}::uuid, ${userId}::uuid)
+        ON CONFLICT (message_id, user_id) DO NOTHING
+        RETURNING message_id;
+    `;
+
+    return Boolean(hidden);
+}
+
+export async function selectBlockedCounterpartyIds(userId: string): Promise<string[]> {
+    const rows = (await sql`
+        SELECT
+            CASE
+                WHEN blocker_id = ${userId}::uuid THEN blocked_id::text
+                ELSE blocker_id::text
+            END AS "otherUserId"
+        FROM app.blocked_users
+        WHERE blocker_id = ${userId}::uuid OR blocked_id = ${userId}::uuid
+    `) as { otherUserId: string }[];
+
+    return rows.map((row) => row.otherUserId);
+}
+
+export async function isEitherUserBlocked(userAId: string, userBId: string): Promise<boolean> {
+    const [row] = (await sql`
+        SELECT 1 AS blocked
+        FROM app.blocked_users
+        WHERE (blocker_id = ${userAId}::uuid AND blocked_id = ${userBId}::uuid)
+           OR (blocker_id = ${userBId}::uuid AND blocked_id = ${userAId}::uuid)
+        LIMIT 1;
+    `) as { blocked: number }[];
+
+    return Boolean(row);
+}
+
+export async function blockUser(blockerId: string, blockedId: string): Promise<void> {
+    await sql`
+        INSERT INTO app.blocked_users (blocker_id, blocked_id)
+        VALUES (${blockerId}::uuid, ${blockedId}::uuid)
+        ON CONFLICT (blocker_id, blocked_id) DO NOTHING;
+    `;
+}
+
+export async function unblockUser(blockerId: string, blockedId: string): Promise<boolean> {
+    const [deleted] = await sql`
+        DELETE FROM app.blocked_users
+        WHERE blocker_id = ${blockerId}::uuid
+          AND blocked_id = ${blockedId}::uuid
+        RETURNING blocker_id;
+    `;
 
     return Boolean(deleted);
 }
