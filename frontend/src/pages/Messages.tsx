@@ -1,5 +1,6 @@
 import { ArrowLeft, Plus, Search, Send, User, Users, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import {
     connectChatWebSocket,
@@ -333,6 +334,7 @@ function ChatView({
     onBack: () => void;
     onThreadUpdate: (t: ChatThread) => void;
 }) {
+    const [, setLocation] = useLocation();
     const [messages, setMessages] = useState<ChatMessage[]>(() => [...thread.messages]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
@@ -341,6 +343,8 @@ function ChatView({
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
+    const directOtherUserId =
+        !thread.isGroup ? thread.participants.find((participantId) => participantId !== currentUserId) : null;
 
     useEffect(() => {
         setMessages(uniqueMessagesById([...thread.messages]));
@@ -450,9 +454,21 @@ function ChatView({
                     <ArrowLeft size={18} />
                 </button>
                 <div style="flex:1;min-width:0;">
-                    <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        {title}
-                    </p>
+                    {directOtherUserId ? (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setLocation(`/profile?userId=${encodeURIComponent(directOtherUserId)}`)
+                            }
+                            style="font-size:14px;font-weight:700;color:var(--text);margin:0;padding:0;background:none;border:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                        >
+                            {title}
+                        </button>
+                    ) : (
+                        <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            {title}
+                        </p>
+                    )}
                     <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
                         {thread.participantNames.length} members
                     </p>
@@ -478,9 +494,17 @@ function ChatView({
                                 `}
                             >
                                 {!isMe && (
-                                    <p style="font-size:10px;font-weight:700;color:var(--accent);margin:0 0 3px;">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setLocation(
+                                                `/profile?userId=${encodeURIComponent(msg.senderId)}`
+                                            )
+                                        }
+                                        style="font-size:10px;font-weight:700;color:var(--accent);margin:0 0 3px;padding:0;background:none;border:none;cursor:pointer;"
+                                    >
                                         {msg.senderName}
-                                    </p>
+                                    </button>
                                 )}
                                 <p style="margin:0;">{msg.content}</p>
                             </div>
