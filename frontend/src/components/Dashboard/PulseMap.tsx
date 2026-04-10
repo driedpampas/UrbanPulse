@@ -167,7 +167,9 @@ export function PulseMap({
                 return;
             }
 
-            setPulses((current) => current.filter((pulse) => pulse.id !== event.pulseId));
+            if (event.event === 'pulse.deleted') {
+                setPulses((current) => current.filter((pulse) => pulse.id !== event.pulseId));
+            }
         };
 
         connectWebSocket(handleWS);

@@ -147,6 +147,7 @@ const createPulseSchema = z.strictObject({
         lat: z.number(),
         lng: z.number(),
     }),
+    requiredSkills: z.array(z.string()).optional(),
 });
 
 const createChatSchema = z.strictObject({
@@ -174,7 +175,16 @@ const unsubscribeChatSocketSchema = z.strictObject({
     threadId: z.uuid(),
 });
 
-const chatSocketMessageSchema = z.union([subscribeChatSocketSchema, unsubscribeChatSocketSchema]);
+const identifySocketSchema = z.strictObject({
+    action: z.literal('auth.identify'),
+    token: z.string().nonempty(),
+});
+
+const chatSocketMessageSchema = z.union([
+    subscribeChatSocketSchema,
+    unsubscribeChatSocketSchema,
+    identifySocketSchema,
+]);
 
 const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
@@ -289,7 +299,10 @@ function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
     };
 }
 
-async function handleSocketChatMessage(ws: bun.ServerWebSocket<unknown>, message: string) {
+    void handleSocketMessage(ws, message);
+}
+
+async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: string) {
     let parsedMessage: unknown;
     try {
         parsedMessage = JSON.parse(message);
@@ -299,6 +312,28 @@ async function handleSocketChatMessage(ws: bun.ServerWebSocket<unknown>, message
 
     const parsed = chatSocketMessageSchema.safeParse(parsedMessage);
     if (!parsed.success) {
+        return;
+    }
+
+    if (parsed.data.action === 'auth.identify') {
+        const payload = auth.verifyBearerToken(parsed.data.token);
+        if (!payload || typeof payload === 'string') {
+            ws.send(
+                JSON.stringify({
+                    event: 'auth.error',
+                    reason: 'unauthorized',
+                })
+            );
+            return;
+        }
+
+        ws.subscribe(`user-${payload.id}`);
+        ws.send(
+            JSON.stringify({
+                event: 'auth.identified',
+                userId: payload.id,
+            })
+        );
         return;
     }
 
@@ -662,12 +697,13 @@ bun.serve({
                                 const urgencyLevel =
                                     body.urgencyLevel ?? DEFAULT_PULSE_URGENCY[pulseType];
 
-                                const createdPulse = await db.insertPulse({
+                                 const createdPulse = await db.insertPulse({
                                     authorId: payload.id,
                                     type: pulseType,
                                     urgencyLevel,
                                     content: body.content,
                                     location: body.location,
+                                    requiredSkills: body.requiredSkills ?? [],
                                 });
 
                                 server.publish(
@@ -677,6 +713,18 @@ bun.serve({
                                         pulse: createdPulse,
                                     })
                                 );
+
+                                // Hero Alerts
+                                const heroes = await db.findHeroesForPulse(createdPulse.id);
+                                for (const heroId of heroes) {
+                                    server.publish(
+                                        `user-${heroId}`,
+                                        JSON.stringify({
+                                            event: 'hero.alert',
+                                            pulse: createdPulse,
+                                        })
+                                    );
+                                }
 
                                 return withCors(Response.json(createdPulse, { status: 201 }));
                             })
@@ -1038,13 +1086,9 @@ bun.serve({
         publishToSelf: true,
         open(ws) {
             ws.subscribe(PULSE_FEED_TOPIC);
-        },
         message(ws, message) {
-            if (typeof message !== 'string') {
-                return;
-            }
-
-            void handleSocketChatMessage(ws, message);
+            if (typeof message !== 'string') return;
+            void handleSocketMessage(ws, message);
         },
     },
 });

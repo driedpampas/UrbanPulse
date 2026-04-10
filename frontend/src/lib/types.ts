@@ -28,6 +28,7 @@ export interface Pulse {
     verified: boolean;
     confirmations: number;
     distance?: number;
+    requiredSkills?: string[];
 }
 
 export interface WeatherData {

@@ -3,6 +3,7 @@ import { useState } from 'preact/hooks';
 import { LiveFeed } from '../components/Dashboard/LiveFeed';
 import { PulseMap } from '../components/Dashboard/PulseMap';
 import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
+import { HeroAlert } from '../components/Dashboard/HeroAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 
@@ -166,6 +167,9 @@ export function Dashboard() {
 
                 {/* Weather */}
                 <WeatherAlert />
+
+                {/* Hero Alert Listener */}
+                <HeroAlert />
 
                 {/* Main view */}
                 {view === 'feed' ? (

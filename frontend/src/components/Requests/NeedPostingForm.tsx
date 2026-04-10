@@ -29,18 +29,33 @@ interface Props {
 export function NeedPostingForm({ onClose }: Props) {
     const [type, setType] = useState<Pulse['type']>('update');
     const [content, setContent] = useState('');
+    const [skillsString, setSkillsString] = useState('');
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const left = MAX - content.length;
+
+    const showSkills = type === 'need' || type === 'emergency' || type === 'skill';
 
     const handleSubmit = async (e: Event) => {
         e.preventDefault();
         if (!content.trim() || left < 0) return;
         setSending(true);
         setError(null);
+
+        const requiredSkills = skillsString
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0);
+
         try {
-            await postPulse({ type, content, lat: 40.7128, lng: -74.006 });
+            await postPulse({
+                type,
+                content,
+                lat: 40.7128,
+                lng: -74.006,
+                requiredSkills: requiredSkills.length > 0 ? requiredSkills : undefined,
+            });
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unable to post pulse.');
@@ -121,7 +136,7 @@ export function NeedPostingForm({ onClose }: Props) {
                     </div>
 
                     {/* Textarea */}
-                    <div style="position:relative;">
+                    <div style="position:relative; margin-bottom: 12px;">
                         <textarea
                             value={content}
                             onInput={(e) => setContent((e.target as HTMLTextAreaElement).value)}
@@ -129,16 +144,6 @@ export function NeedPostingForm({ onClose }: Props) {
                             class="input-field"
                             style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
                             maxLength={MAX + 20}
-                            onFocus={(e) => {
-                                const el = e.target as HTMLElement;
-                                el.style.borderColor = 'var(--border-focus)';
-                                el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
-                            }}
-                            onBlur={(e) => {
-                                const el = e.target as HTMLElement;
-                                el.style.borderColor = 'var(--border)';
-                                el.style.boxShadow = 'none';
-                            }}
                         />
                         <span
                             style={`
@@ -150,6 +155,22 @@ export function NeedPostingForm({ onClose }: Props) {
                             {left}
                         </span>
                     </div>
+
+                    {showSkills && (
+                        <div style="margin-bottom: 14px; animate-fade-in">
+                            <label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em;">
+                                Required Hero Skills (comma separated)
+                            </label>
+                            <input
+                                type="text"
+                                value={skillsString}
+                                onInput={(e) => setSkillsString((e.target as HTMLInputElement).value)}
+                                placeholder="e.g. medical, plumbing, first aid"
+                                class="input-field"
+                                style="height:34px;font-size:12px;padding:0 12px;background:var(--surface-raised);"
+                            />
+                        </div>
+                    )}
 
                     {/* Location note */}
                     <p style="font-size:11px;color:var(--text-tertiary);margin:8px 0 0;display:flex;align-items:center;gap:4px;">

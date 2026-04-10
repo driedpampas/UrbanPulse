@@ -28,6 +28,7 @@ export interface PulseFeedItem {
     verified: boolean;
     confirmations: number;
     urgencyLevel: number;
+    requiredSkills: string[];
 }
 
 export interface Message {
@@ -104,6 +105,7 @@ interface PulseCreateParams {
     location: Location;
     type: string;
     urgencyLevel: number;
+    requiredSkills: string[];
 }
 
 type PulseRow = {
@@ -120,6 +122,7 @@ type PulseRow = {
     urgencyLevel?: number | string | null;
     urgency_level?: number | string | null;
     type?: string | null;
+    required_skills?: string[] | null;
 };
 
 type UserRow = {
@@ -187,6 +190,7 @@ function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
         verified: Boolean(rawPulse.verified),
         confirmations: Number(rawPulse.confirmations ?? 0),
         urgencyLevel: Number(rawPulse.urgencyLevel ?? rawPulse.urgency_level ?? 1),
+        requiredSkills: rawPulse.required_skills ?? [],
     };
 }
 
@@ -222,7 +226,8 @@ export async function selectPulses(
         ST_X(pulses.location::geometry) AS lng,
         COALESCE(pulses.is_verified_info, false) AS verified,
         COALESCE(pulses.confirmation_count, 0) AS confirmations,
-        COALESCE(pulses.urgency_level, 1) AS "urgencyLevel"
+        COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+        COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
     WHERE (
@@ -256,7 +261,8 @@ export async function selectPulseById(id: string): Promise<PulseFeedItem | null>
         ST_X(pulses.location::geometry) AS lng,
         COALESCE(pulses.is_verified_info, false) AS verified,
         COALESCE(pulses.confirmation_count, 0) AS confirmations,
-        COALESCE(pulses.urgency_level, 1) AS "urgencyLevel"
+        COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+        COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
     WHERE pulses.id = ${id}
@@ -543,8 +549,8 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     const lng = params.location.lng;
 
     const [insertedPulse] = await sql`
-    INSERT INTO app.pulses (author_id, content, location, pulse_type, urgency_level)
-    VALUES (${params.authorId}, ${params.content}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${params.type}, ${params.urgencyLevel})
+    INSERT INTO app.pulses (author_id, content, location, pulse_type, urgency_level, required_skills)
+    VALUES (${params.authorId}, ${params.content}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${params.type}, ${params.urgencyLevel}, ${JSON.stringify(params.requiredSkills)}::jsonb)
     RETURNING id
     `;
 
@@ -559,6 +565,44 @@ export async function deletePulse(id: string): Promise<boolean> {
     `;
 
     return Boolean(deletedPulse);
+}
+
+export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
+    const [pulse] = (await sql`
+        SELECT 
+            author_id,
+            ST_Y(location::geometry) AS lat,
+            ST_X(location::geometry) AS lng,
+            required_skills
+        FROM app.pulses
+        WHERE id = ${pulseId}
+    `) as Array<{ author_id: string; lat: number; lng: number; required_skills: string[] }>;
+
+    if (!pulse || !pulse.required_skills || pulse.required_skills.length === 0) {
+        return [];
+    }
+
+    const heroes = (await sql`
+        SELECT u.id::text
+        FROM app.users u
+        WHERE u.id != ${pulse.author_id}::uuid
+          AND u.location IS NOT NULL
+          AND u.distance_limit_meters IS NOT NULL
+          AND u.skills_and_resources IS NOT NULL
+          AND u.skills_and_resources::jsonb ?| ${pulse.required_skills}
+          AND ST_DWithin(
+            u.location,
+            ST_SetSRID(ST_MakePoint(${pulse.lng}, ${pulse.lat}), 4326)::geography,
+            u.distance_limit_meters
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM app.blocked_users bu
+            WHERE (bu.blocker_id = u.id AND bu.blocked_id = ${pulse.author_id}::uuid)
+               OR (bu.blocker_id = ${pulse.author_id}::uuid AND bu.blocked_id = u.id)
+          )
+    `) as { id: string }[];
+
+    return heroes.map((h) => h.id);
 }
 
 export async function insertUser(email: string, hashedPass: string, displayname: string) {

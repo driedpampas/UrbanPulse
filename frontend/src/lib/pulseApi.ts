@@ -14,6 +14,7 @@ type BackendPulse = {
     verified: boolean;
     confirmations: number | string;
     urgencyLevel?: number;
+    requiredSkills?: string[];
 };
 
 type CreatePulseInput = {
@@ -22,13 +23,15 @@ type CreatePulseInput = {
     lat: number;
     lng: number;
     urgencyLevel?: number;
+    requiredSkills?: string[];
 };
 
 type PulseSocketHandler = (event: PulseSocketEvent) => void;
 
 export type PulseSocketEvent =
     | { event: 'pulse.created'; pulse: Pulse }
-    | { event: 'pulse.deleted'; pulseId: string };
+    | { event: 'pulse.deleted'; pulseId: string }
+    | { event: 'hero.alert'; pulse: Pulse };
 
 const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
     need: 4,
@@ -90,6 +93,7 @@ function mapBackendPulse(pulse: BackendPulse): Pulse {
         lng: Number(pulse.lng),
         verified: Boolean(pulse.verified),
         confirmations: Number(pulse.confirmations ?? 0),
+        requiredSkills: pulse.requiredSkills ?? [],
     };
 }
 
@@ -191,6 +195,16 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
                 pulse: mapBackendPulse(parsed as BackendPulse),
             };
         }
+
+        if (
+            parsed &&
+            typeof parsed === 'object' &&
+            'event' in parsed &&
+            parsed.event === 'hero.alert' &&
+            parsed.pulse
+        ) {
+            return { event: 'hero.alert', pulse: mapBackendPulse(parsed.pulse) };
+        }
     } catch {
         return null;
     }
@@ -223,6 +237,18 @@ function ensureSocket() {
 
     reconnectEnabled = true;
     socket = new WebSocket(PULSE_FEED_WS_URL);
+
+    socket.onopen = () => {
+        const session = readStoredAuthSession();
+        if (session?.token) {
+            socket?.send(
+                JSON.stringify({
+                    action: 'auth.identify',
+                    token: session.token,
+                })
+            );
+        }
+    };
 
     socket.onmessage = (event) => {
         if (typeof event.data !== 'string') {
@@ -282,6 +308,7 @@ export async function postPulse(input: CreatePulseInput): Promise<Pulse> {
             lat: input.lat,
             lng: input.lng,
         },
+        requiredSkills: input.requiredSkills ?? [],
     };
 
     const response = await request<BackendPulse>('/pulse', {

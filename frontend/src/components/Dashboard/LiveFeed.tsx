@@ -197,7 +197,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                         clearRef.current = null;
                     }, 2500);
                 }
-            } else {
+            } else if (event.event === 'pulse.deleted') {
                 setPulses((c) => c.filter((p) => p.id !== event.pulseId));
                 setNewId((c) => (c === event.pulseId ? null : c));
             }
