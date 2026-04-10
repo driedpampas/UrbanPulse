@@ -22,6 +22,27 @@ function timeAgo(ts: number) {
     return `${Math.floor(d / 86400000)}d`;
 }
 
+function upsertMessageById(messages: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+    const existingIndex = messages.findIndex((message) => message.id === incoming.id);
+
+    if (existingIndex >= 0) {
+        const next = [...messages];
+        next[existingIndex] = incoming;
+        return next;
+    }
+
+    return [...messages, incoming];
+}
+
+function uniqueMessagesById(messages: ChatMessage[]): ChatMessage[] {
+    const map = new Map<string, ChatMessage>();
+    for (const message of messages) {
+        map.set(message.id, message);
+    }
+
+    return Array.from(map.values());
+}
+
 export function Messages() {
     const [threads, setThreads] = useState<ChatThread[]>([]);
     const [loading, setLoading] = useState(true);
@@ -322,7 +343,7 @@ function ChatView({
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
 
     useEffect(() => {
-        setMessages([...thread.messages]);
+        setMessages(uniqueMessagesById([...thread.messages]));
     }, [thread.id, thread.messages]);
 
     useEffect(() => {
@@ -363,11 +384,11 @@ function ChatView({
             };
 
             setMessages((prev) => {
-                if (prev.some((existing) => existing.id === mappedMessage.id)) {
+                const next = upsertMessageById(prev, mappedMessage);
+                if (next.length === prev.length) {
                     return prev;
                 }
 
-                const next = [...prev, mappedMessage];
                 onThreadUpdate({ ...thread, messages: next, lastMessage: mappedMessage });
                 return next;
             });
@@ -394,10 +415,11 @@ function ChatView({
         try {
             const msg = await sendMessage(thread.id, content);
             setMessages((prev) => {
-                if (prev.some((existing) => existing.id === msg.id)) {
+                const next = upsertMessageById(prev, msg);
+                if (next.length === prev.length) {
                     return prev;
                 }
-                const next = [...prev, msg];
+
                 onThreadUpdate({ ...thread, messages: next, lastMessage: msg });
                 return next;
             });
