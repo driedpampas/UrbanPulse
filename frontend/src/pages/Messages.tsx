@@ -315,6 +315,7 @@ function ChatView({
     const [messages, setMessages] = useState<ChatMessage[]>(() => [...thread.messages]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
+    const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
@@ -386,18 +387,23 @@ function ChatView({
     }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim() || sending) return;
+        if (!input.trim() || sendingRef.current) return;
         const content = input.trim();
+        sendingRef.current = true;
         setSending(true);
         try {
             const msg = await sendMessage(thread.id, content);
             setMessages((prev) => {
+                if (prev.some((existing) => existing.id === msg.id)) {
+                    return prev;
+                }
                 const next = [...prev, msg];
                 onThreadUpdate({ ...thread, messages: next, lastMessage: msg });
                 return next;
             });
             setInput('');
         } finally {
+            sendingRef.current = false;
             setSending(false);
         }
     };
@@ -471,7 +477,11 @@ function ChatView({
                     <input
                         value={input}
                         onInput={(e) => setInput((e.target as HTMLInputElement).value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.repeat) {
+                                handleSend();
+                            }
+                        }}
                         placeholder="Message…"
                         style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                         onFocus={(e) => {
