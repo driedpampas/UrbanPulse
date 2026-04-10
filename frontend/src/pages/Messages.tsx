@@ -1,4 +1,4 @@
-import { ArrowLeft, Send, User, Users } from 'lucide-preact';
+import { ArrowLeft, Plus, Search, Send, User, Users, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import {
@@ -6,11 +6,13 @@ import {
     disconnectChatWebSocket,
     fetchChats,
     sendMessage,
+    startDirectConversation,
     subscribeChatThread,
     unsubscribeChatThread,
 } from '../lib/chatApi';
 import { readStoredAuthSession } from '../lib/auth';
-import type { ChatMessage, ChatThread } from '../lib/types';
+import type { ChatMessage, ChatThread, User as AppUser } from '../lib/types';
+import { fetchUsers } from '../lib/userApi';
 
 function timeAgo(ts: number) {
     const d = Date.now() - ts;
@@ -24,6 +26,12 @@ export function Messages() {
     const [threads, setThreads] = useState<ChatThread[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
+    const [showCompose, setShowCompose] = useState(false);
+    const [query, setQuery] = useState('');
+    const [queryResults, setQueryResults] = useState<AppUser[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [composeError, setComposeError] = useState<string | null>(null);
+    const [startingUserId, setStartingUserId] = useState<string | null>(null);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
 
@@ -39,6 +47,74 @@ export function Messages() {
         });
     }, []);
 
+    useEffect(() => {
+        if (!showCompose) {
+            return;
+        }
+
+        let cancelled = false;
+        setSearching(true);
+
+        fetchUsers({ displayName: query.trim() || undefined })
+            .then((users) => {
+                if (cancelled) {
+                    return;
+                }
+
+                const filtered = users.filter((user) => user.id !== currentUser?.id);
+                setQueryResults(filtered);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setComposeError('Failed to search users');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setSearching(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [showCompose, query, currentUser?.id]);
+
+    const openThreadById = async (threadId: string) => {
+        const existing = threads.find((thread) => thread.id === threadId);
+        if (existing) {
+            setActiveThread(existing);
+            return;
+        }
+
+        const refreshed = await fetchChats();
+        setThreads(refreshed);
+        const resolved = refreshed.find((thread) => thread.id === threadId);
+        if (resolved) {
+            setActiveThread(resolved);
+        }
+    };
+
+    const handleStartConversation = async (user: AppUser) => {
+        if (startingUserId) {
+            return;
+        }
+
+        setComposeError(null);
+        setStartingUserId(user.id);
+
+        try {
+            const result = await startDirectConversation(user.id);
+            await openThreadById(result.threadId);
+            setShowCompose(false);
+            setQuery('');
+        } catch (error) {
+            setComposeError(error instanceof Error ? error.message : 'Could not start conversation');
+        } finally {
+            setStartingUserId(null);
+        }
+    };
+
     if (activeThread) {
         return (
             <ChatView
@@ -50,7 +126,23 @@ export function Messages() {
     }
 
     return (
-        <AppLayout title="Messages">
+        <AppLayout
+            title="Messages"
+            headerRight={
+                <button
+                    type="button"
+                    class="btn-primary"
+                    onClick={() => {
+                        setComposeError(null);
+                        setShowCompose(true);
+                    }}
+                    style="height:30px;padding:0 10px;font-size:12px;gap:4px;"
+                >
+                    <Plus size={13} />
+                    New Chat
+                </button>
+            }
+        >
             <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
                 {loading ? (
                     [1, 2].map((i) => (
@@ -109,6 +201,104 @@ export function Messages() {
                     })
                 )}
             </div>
+
+            {showCompose && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    style="position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;padding:14px;background:rgba(15,17,23,0.48);backdrop-filter:blur(4px);"
+                >
+                    <div
+                        class="animate-slide-up"
+                        style="width:100%;max-width:640px;max-height:80dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;"
+                    >
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);">
+                            <p style="margin:0;font-size:13px;font-weight:700;color:var(--text);">
+                                Start a conversation
+                            </p>
+                            <button
+                                type="button"
+                                class="btn-icon"
+                                onClick={() => {
+                                    setShowCompose(false);
+                                    setComposeError(null);
+                                    setQuery('');
+                                }}
+                                aria-label="Close"
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+
+                        <div style="padding:12px 14px;border-bottom:1px solid var(--border);">
+                            <label
+                                for="chat-user-search"
+                                style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;"
+                            >
+                                Search users
+                            </label>
+                            <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:38px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);">
+                                <Search size={14} style="color:var(--text-tertiary);" />
+                                <input
+                                    id="chat-user-search"
+                                    value={query}
+                                    onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                                    placeholder="Type a name..."
+                                    style="flex:1;border:none;outline:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;"
+                                />
+                            </div>
+                            {composeError && (
+                                <p style="margin:8px 0 0;font-size:12px;color:var(--danger);">
+                                    {composeError}
+                                </p>
+                            )}
+                        </div>
+
+                        <div style="overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;">
+                            {searching ? (
+                                [1, 2, 3].map((i) => (
+                                    <div
+                                        key={i}
+                                        style="height:52px;border-radius:8px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                                    />
+                                ))
+                            ) : queryResults.length === 0 ? (
+                                <div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:12px;">
+                                    No users found
+                                </div>
+                            ) : (
+                                queryResults.map((user) => (
+                                    <button
+                                        type="button"
+                                        key={user.id}
+                                        onClick={() => handleStartConversation(user)}
+                                        disabled={startingUserId !== null}
+                                        class="card"
+                                        style="padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left;"
+                                    >
+                                        <img
+                                            src={user.avatar}
+                                            alt=""
+                                            style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);object-fit:cover;background:var(--bg-muted);"
+                                        />
+                                        <div style="flex:1;min-width:0;">
+                                            <p style="margin:0;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                {user.name}
+                                            </p>
+                                            <p style="margin:1px 0 0;font-size:11px;color:var(--text-tertiary);">
+                                                Trust {user.trustScore}
+                                            </p>
+                                        </div>
+                                        <span style="font-size:11px;font-weight:600;color:var(--accent);">
+                                            {startingUserId === user.id ? 'Opening...' : 'Chat'}
+                                        </span>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }

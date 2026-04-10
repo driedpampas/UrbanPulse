@@ -10,6 +10,7 @@ import {
     Wrench,
 } from 'lucide-preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useLocation } from 'wouter';
 import { useAuth } from '../../lib/auth';
 import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
@@ -57,6 +58,7 @@ interface Props {
 
 export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const { session } = useAuth();
+    const [, setLocation] = useLocation();
     const [pulses, setPulses] = useState<Pulse[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -226,9 +228,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
-                (session.user.id === p.userId ||
-                    session.user.role === 'admin' ||
-                    session.user.role === 'mod')
+            (session.user.id === p.userId ||
+                session.user.role === 'admin' ||
+                session.user.role === 'mod')
         );
 
     /* ── States ── */
@@ -314,19 +316,36 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     >
                         <div style="display:flex;gap:11px;align-items:flex-start;">
                             {/* Avatar */}
-                            <img
-                                src={pulse.userAvatar}
-                                alt=""
-                                style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;object-fit:cover;background:var(--bg-muted);"
-                            />
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setLocation(`/profile?userId=${encodeURIComponent(pulse.userId)}`)
+                                }
+                                style="padding:0;border:none;background:transparent;cursor:pointer;display:flex;"
+                                aria-label={`Open ${pulse.userName} profile`}
+                            >
+                                <img
+                                    src={pulse.userAvatar}
+                                    alt=""
+                                    style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;object-fit:cover;background:var(--bg-muted);"
+                                />
+                            </button>
 
                             <div style="flex:1;min-width:0;">
                                 {/* Row 1: name + badge + delete */}
                                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;">
                                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;">
-                                        <span style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setLocation(
+                                                    `/profile?userId=${encodeURIComponent(pulse.userId)}`
+                                                )
+                                            }
+                                            style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;padding:0;cursor:pointer;text-align:left;"
+                                        >
                                             {pulse.userName}
-                                        </span>
+                                        </button>
                                         {/* Type badge */}
                                         <span
                                             class="type-badge"

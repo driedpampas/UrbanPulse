@@ -107,6 +107,23 @@ function mapBackendUser(user: BackendUser): User {
     };
 }
 
+function buildUserQuery(params?: { displayName?: string; id?: string }): string {
+    if (!params) {
+        return '';
+    }
+
+    const query = new URLSearchParams();
+    if (params.displayName?.trim()) {
+        query.set('displayName', params.displayName.trim());
+    }
+    if (params.id?.trim()) {
+        query.set('id', params.id.trim());
+    }
+
+    const queryString = query.toString();
+    return queryString.length ? `?${queryString}` : '';
+}
+
 function getAuthHeaders(extraHeaders?: HeadersInit): Headers {
     const headers = new Headers(extraHeaders);
     const session = readStoredAuthSession();
@@ -219,7 +236,12 @@ export async function deleteAccount(): Promise<void> {
     await request<void>('/user', { method: 'DELETE' });
 }
 
-export async function fetchUsers(): Promise<User[]> {
-    const users = await request<BackendUser[]>('/users', { method: 'GET' });
+export async function fetchUsers(params?: { displayName?: string; id?: string }): Promise<User[]> {
+    const users = await request<BackendUser[]>(`/users${buildUserQuery(params)}`, { method: 'GET' });
     return users.map(mapBackendUser);
+}
+
+export async function fetchUserById(userId: string): Promise<User | null> {
+    const users = await fetchUsers({ id: userId });
+    return users[0] ?? null;
 }

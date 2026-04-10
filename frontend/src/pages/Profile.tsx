@@ -6,7 +6,7 @@ import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import { useAuth } from '../lib/auth';
 import type { User } from '../lib/types';
-import { deleteAccount, fetchCurrentUser, updateProfile } from '../lib/userApi';
+import { deleteAccount, fetchCurrentUser, fetchUserById, updateProfile } from '../lib/userApi';
 
 const DAYS = [
     { v: 0, s: 'Sun' },
@@ -50,8 +50,8 @@ const focusOff = (e: Event) => {
 };
 
 export function Profile() {
-    const [, setLocation] = useLocation();
-    const { logout, updateLocalUser } = useAuth();
+    const [location, setLocation] = useLocation();
+    const { logout, session, updateLocalUser } = useAuth();
     const [user, setUser] = useState<User | null>(null);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState<Partial<User>>({});
@@ -59,12 +59,30 @@ export function Profile() {
     const [saving, setSaving] = useState(false);
     const [showDel, setShowDel] = useState(false);
 
+    const selectedUserId =
+        typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('userId') : null;
+    const isOwnProfile = !selectedUserId || selectedUserId === session?.user.id;
+
     useEffect(() => {
-        fetchCurrentUser().then((u) => {
-            setUser(u);
-            setDraft(u);
-        });
-    }, []);
+        setEditing(false);
+        setShowDel(false);
+
+        const loadUser = async () => {
+            const loadedUser = isOwnProfile
+                ? await fetchCurrentUser()
+                : await fetchUserById(selectedUserId!);
+
+            if (!loadedUser) {
+                setUser(null);
+                return;
+            }
+
+            setUser(loadedUser);
+            setDraft(loadedUser);
+        };
+
+        void loadUser();
+    }, [location, isOwnProfile, selectedUserId]);
 
     const handleSave = async () => {
         if (!draft) return;
@@ -117,7 +135,7 @@ export function Profile() {
         <AppLayout
             title="Profile"
             headerRight={
-                !editing ? (
+                isOwnProfile && !editing ? (
                     <button
                         type="button"
                         id="edit-profile-btn"
@@ -252,12 +270,12 @@ export function Profile() {
                                         placeholder="Add skill…"
                                         style="width:100px;padding:3px 10px;border-radius:6px;border:1px dashed var(--border-strong);background:transparent;color:var(--text);font-size:12px;font-family:inherit;outline:none;"
                                         onFocus={(e) =>
-                                            ((e.target as HTMLElement).style.borderColor =
-                                                'var(--border-focus)')
+                                        ((e.target as HTMLElement).style.borderColor =
+                                            'var(--border-focus)')
                                         }
                                         onBlur={(e) =>
-                                            ((e.target as HTMLElement).style.borderColor =
-                                                'var(--border-strong)')
+                                        ((e.target as HTMLElement).style.borderColor =
+                                            'var(--border-strong)')
                                         }
                                     />
                                     <button
@@ -388,10 +406,9 @@ export function Profile() {
 												padding:4px 10px;border-radius:5px;border:1px solid;
 												font-size:12px;font-weight:500;cursor:${editing ? 'pointer' : 'default'};
 												transition:all 0.15s;
-												${
-                                                    active
-                                                        ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
-                                                        : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+												${active
+                                                    ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
+                                                    : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                                 }
 											`}
                                         >
@@ -405,7 +422,7 @@ export function Profile() {
                 </div>
 
                 {/* Edit action bar */}
-                {editing && (
+                {isOwnProfile && editing && (
                     <div class="animate-fade-in" style="display:flex;gap:8px;">
                         <button
                             type="button"
@@ -433,34 +450,38 @@ export function Profile() {
                 )}
 
                 {/* Sign out */}
-                <button
-                    type="button"
-                    id="sign-out-btn"
-                    class="btn-ghost"
-                    onClick={() => {
-                        logout();
-                        setLocation('/auth');
-                    }}
-                    style="height:38px;width:100%;font-size:13px;color:var(--text-secondary);"
-                >
-                    <LogOut size={14} />
-                    Sign Out
-                </button>
+                {isOwnProfile && (
+                    <>
+                        <button
+                            type="button"
+                            id="sign-out-btn"
+                            class="btn-ghost"
+                            onClick={() => {
+                                logout();
+                                setLocation('/auth');
+                            }}
+                            style="height:38px;width:100%;font-size:13px;color:var(--text-secondary);"
+                        >
+                            <LogOut size={14} />
+                            Sign Out
+                        </button>
 
-                {/* Delete account */}
-                <button
-                    type="button"
-                    id="delete-account-btn"
-                    onClick={() => setShowDel(true)}
-                    style="width:100%;height:32px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:500;color:var(--text-tertiary);background:none;border:none;cursor:pointer;"
-                >
-                    <Trash2 size={12} />
-                    Delete Account
-                </button>
+                        {/* Delete account */}
+                        <button
+                            type="button"
+                            id="delete-account-btn"
+                            onClick={() => setShowDel(true)}
+                            style="width:100%;height:32px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:500;color:var(--text-tertiary);background:none;border:none;cursor:pointer;"
+                        >
+                            <Trash2 size={12} />
+                            Delete Account
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* Delete confirm */}
-            {showDel && (
+            {isOwnProfile && showDel && (
                 <div
                     role="dialog"
                     aria-modal="true"

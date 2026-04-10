@@ -18,6 +18,11 @@ export type ChatSocketEvent =
 
 type ChatSocketHandler = (event: ChatSocketEvent) => void;
 
+export interface StartDirectConversationResult {
+    threadId: string;
+    existed: boolean;
+}
+
 type BackendChatSummary = {
     id: string;
     participants: Array<{
@@ -254,6 +259,52 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
         content: message.content,
         timestamp: Number(message.timestamp),
     };
+}
+
+export async function startDirectConversation(
+    otherUserId: string
+): Promise<StartDirectConversationResult> {
+    const response = await fetch(`${API_BASE_URL}/chats`, {
+        method: 'POST',
+        headers: getAuthHeaders({
+            'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+            isGroup: false,
+            participantIds: [otherUserId],
+        }),
+    });
+
+    if (response.status === 409) {
+        const payload = (await response.json()) as { chatId?: string };
+        if (payload.chatId) {
+            return { threadId: payload.chatId, existed: true };
+        }
+
+        throw new ChatApiError('Conversation already exists', 409);
+    }
+
+    if (!response.ok) {
+        let message = 'Request failed';
+
+        try {
+            const payload = (await response.json()) as { error?: string };
+            if (payload.error) {
+                message = payload.error;
+            }
+        } catch {
+            message = response.statusText || message;
+        }
+
+        throw new ChatApiError(message, response.status);
+    }
+
+    const payload = (await response.json()) as { id?: string };
+    if (!payload.id) {
+        throw new ChatApiError('Invalid chat response', 500);
+    }
+
+    return { threadId: payload.id, existed: false };
 }
 
 function sendSubscribe(threadId: string) {
