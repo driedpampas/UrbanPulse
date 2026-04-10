@@ -478,12 +478,40 @@
                     {
                         "name": "limit",
                         "in": "query",
+                        "description": "The number of pulses to return (default 50). Keywords: THE FIRST 50",
                         "schema": {
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 100
                         },
                         "example": 50
+                    },
+                    {
+                        "name": "lat",
+                        "in": "query",
+                        "description": "Latitude for spatial filtering center.",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 40.7128
+                    },
+                    {
+                        "name": "lng",
+                        "in": "query",
+                        "description": "Longitude for spatial filtering center.",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": -74.006
+                    },
+                    {
+                        "name": "radius",
+                        "in": "query",
+                        "description": "Radius in meters for filtering pulses around the center.",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "example": 500
                     }
                 ],
                 "responses": {

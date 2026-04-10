@@ -21,7 +21,12 @@ import {
 } from '../../lib/pulseApi';
 import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
-import { DEFAULT_PULSE_CENTER, distanceInMeters, isUsableCoordinates } from '../../lib/utils';
+import {
+    DEFAULT_PULSE_CENTER,
+    distanceInMeters,
+    getCurrentBrowserLocation,
+    isUsableCoordinates,
+} from '../../lib/utils';
 
 interface TypeDef {
     icon: typeof AlertTriangle;
