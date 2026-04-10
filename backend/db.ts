@@ -30,6 +30,33 @@ export interface PulseFeedItem {
     urgencyLevel: number;
 }
 
+export interface Message {
+    id: string;
+    threadId: string;
+    senderId: string;
+    content: string;
+    timestamp: number;
+}
+
+export interface Chat {
+    id: string;
+    participants: {
+        userId: string;
+    }[];
+    isGroup: boolean;
+    timestamp: number;
+}
+
+export interface ChatSummary {
+    id: string;
+    participants: {
+        userId: string;
+        displayName: string | null;
+    }[];
+    isGroup: boolean;
+    timestamp: number;
+}
+
 interface User {
     id: string;
     email?: string | null;
@@ -110,6 +137,31 @@ type UserRow = {
     bio?: string | null;
 };
 
+type MessageRow = {
+    id: string;
+    thread_id: string;
+    sender_id: string;
+    content: string;
+    timestamp: number | string | Date;
+};
+
+type ChatRow = {
+    thread_id: string;
+    user_id: string;
+    is_group: boolean;
+    timestamp: number | string | Date;
+};
+
+type ChatSummaryRow = {
+    id: string;
+    is_group: boolean;
+    timestamp: number | string | Date;
+    participants: Array<{
+        userId: string;
+        displayName: string | null;
+    }>;
+};
+
 function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
     const normalizedType = String(rawPulse.type ?? 'update').toLowerCase() as PulseType;
 
@@ -128,6 +180,16 @@ function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
         verified: Boolean(rawPulse.verified),
         confirmations: Number(rawPulse.confirmations ?? 0),
         urgencyLevel: Number(rawPulse.urgencyLevel ?? rawPulse.urgency_level ?? 1),
+    };
+}
+
+function mapMessageRow(rawMessage: MessageRow): Message {
+    return {
+        id: String(rawMessage.id),
+        threadId: String(rawMessage.thread_id),
+        senderId: String(rawMessage.sender_id),
+        content: String(rawMessage.content),
+        timestamp: Number(rawMessage.timestamp ?? Date.now()),
     };
 }
 
@@ -197,13 +259,208 @@ export async function selectPulseById(id: string): Promise<PulseFeedItem | null>
     return pulse ? mapPulseRow(pulse) : null;
 }
 
+export async function selectChats(userId: string): Promise<{ chatId: string }[]> {
+    const chats = await sql`
+        SELECT thread_id AS "chatId"
+        FROM app.chat_participants
+        WHERE user_id = ${userId}
+    `;
+
+    return chats as { chatId: string }[];
+}
+
+export async function selectChatSummaries(userId: string): Promise<ChatSummary[]> {
+    const chats = (await sql`
+        SELECT
+            cp.thread_id AS id,
+            BOOL_OR(cp.is_group) AS is_group,
+            ROUND(EXTRACT(EPOCH FROM MIN(cp.created_at)) * 1000)::bigint AS "timestamp",
+            jsonb_agg(
+                jsonb_build_object(
+                    'userId', cp.user_id::text,
+                    'displayName', NULLIF(users.display_name, '')
+                )
+                ORDER BY cp.created_at
+            ) AS participants
+        FROM app.chat_participants AS cp
+        LEFT JOIN app.users AS users ON users.id = cp.user_id
+        WHERE cp.thread_id IN (
+            SELECT thread_id
+            FROM app.chat_participants
+            WHERE user_id = ${userId}
+        )
+        GROUP BY cp.thread_id
+        ORDER BY "timestamp" DESC, cp.thread_id DESC
+    `) as ChatSummaryRow[];
+
+    return chats.map((chat) => ({
+        id: chat.id,
+        isGroup: chat.is_group,
+        timestamp: Number(chat.timestamp),
+        participants: chat.participants.map((participant) => ({
+            userId: participant.userId,
+            displayName: participant.displayName,
+        })),
+    }));
+}
+
+export async function selectMessages(threadId: string, currentUser: string): Promise<Message[]> {
+    const messages = (await sql`
+        BEGIN;
+
+        SET LOCAL app.current_user_id = ${currentUser};
+
+        SELECT id, thread_id, sender_id, content,
+        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
+        FROM app.messages
+        WHERE thread_id = ${threadId};
+
+        COMMIT;
+    `) as MessageRow[];
+
+    return messages.map((message) => mapMessageRow(message));
+}
+
+export async function selectMessage(messageId: string, currentUser: string): Promise<Message | null> {
+    const [message] = (await sql`
+        BEGIN;
+
+        SET LOCAL app.current_user_id = ${currentUser};
+
+        SELECT id, thread_id, sender_id, content,
+        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
+        FROM app.messages
+        WHERE id = ${messageId};
+
+        COMMIT;
+    `) as MessageRow[];
+
+    return message ? mapMessageRow(message) : null;
+}
+
+export async function selectChat(chatId: string, currentUser: string): Promise<Chat | null> {
+    const chatRows = (await sql`
+        BEGIN;
+
+        SET LOCAL app.current_user_id = ${currentUser};
+
+        SELECT thread_id, user_id, is_group,
+        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
+        FROM app.chat_participants
+        WHERE thread_id = ${chatId};
+
+        COMMIT;
+    `) as ChatRow[];
+
+    if (chatRows.length === 0) {
+        return null;
+    }
+
+    const participants = chatRows.map((row) => ({
+        userId: String(row.user_id),
+    }));
+
+    return {
+        id: chatId,
+        participants,
+        isGroup: chatRows[0]!.is_group,
+        timestamp: Number(chatRows[0]!.timestamp),
+    };
+}
+
+export async function selectExistingUserIds(userIds: string[]): Promise<string[]> {
+    if (userIds.length === 0) {
+        return [];
+    }
+
+    const rows = (await sql`
+        SELECT id::text AS id
+        FROM app.users
+        WHERE id = ANY(${userIds}::uuid[])
+    `) as { id: string }[];
+
+    return rows.map((row) => row.id);
+}
+
+export async function findDirectChatId(userAId: string, userBId: string): Promise<string | null> {
+    const [row] = (await sql`
+        SELECT cp.thread_id AS "chatId"
+        FROM app.chat_participants AS cp
+        WHERE cp.user_id IN (${userAId}::uuid, ${userBId}::uuid)
+        GROUP BY cp.thread_id
+        HAVING COUNT(*) = 2
+           AND COUNT(*) FILTER (WHERE cp.user_id = ${userAId}::uuid) = 1
+           AND COUNT(*) FILTER (WHERE cp.user_id = ${userBId}::uuid) = 1
+           AND BOOL_AND(cp.is_group = false)
+           AND (
+                SELECT COUNT(*)
+                FROM app.chat_participants AS all_cp
+                WHERE all_cp.thread_id = cp.thread_id
+           ) = 2
+        LIMIT 1
+    `) as { chatId: string }[];
+
+    return row ? row.chatId : null;
+}
+
+export async function insertChat(
+    participantIds: string[],
+    isGroup: boolean,
+    currentUser: string
+): Promise<Chat> {
+    const threadId = crypto.randomUUID();
+
+    await sql`
+        BEGIN;
+
+        SET LOCAL app.current_user_id = ${currentUser};
+
+        INSERT INTO app.chat_participants (thread_id, user_id, is_group)
+        SELECT ${threadId}::uuid, users.user_id::uuid, ${isGroup}
+        FROM unnest(${participantIds}::text[]) AS users(user_id);
+
+        COMMIT;
+    `;
+
+    return (await selectChat(threadId, currentUser))!;
+}
+
+export async function deleteMessage(messageId: string, currentUser: string): Promise<boolean> {
+    const [deleted] = await sql`
+        BEGIN;
+
+        SET LOCAL app.current_user_id = ${currentUser};
+
+        DELETE FROM app.messages
+        WHERE id = ${messageId}
+        RETURNING id;
+
+        COMMIT;
+    `;
+
+    return Boolean(deleted);
+}
+
+export async function insertMessage(threadId: string, senderId: string, content: string): Promise<Message> {
+    const [insertedMessage] = (await sql`
+        BEGIN;
+
+        SET LOCAL app.current_user_id = ${senderId};
+
+        INSERT INTO app.messages (thread_id, sender_id, content)
+        VALUES (${threadId}, ${senderId}, ${content})
+        RETURNING id, thread_id, sender_id, content,
+        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
+
+        COMMIT;
+    `) as MessageRow[];
+
+    return mapMessageRow(insertedMessage!);
+}
+
 export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedItem> {
     const lat = params.location.lat;
     const lng = params.location.lng;
-
-    if (lat === null || lat === undefined || lng === null || lng === undefined) {
-        throw new Error('Pulse location is required');
-    }
 
     const [insertedPulse] = await sql`
     INSERT INTO app.pulses (author_id, content, location, pulse_type, urgency_level)
@@ -211,16 +468,7 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     RETURNING id
     `;
 
-    if (!insertedPulse?.id) {
-        throw new Error('Failed to insert pulse');
-    }
-
-    const createdPulse = await selectPulseById(insertedPulse.id);
-    if (!createdPulse) {
-        throw new Error('Inserted pulse could not be loaded');
-    }
-
-    return createdPulse;
+    return (await selectPulseById(insertedPulse.id))!;
 }
 
 export async function deletePulse(id: string): Promise<boolean> {

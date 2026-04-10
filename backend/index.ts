@@ -149,6 +149,32 @@ const createPulseSchema = z.strictObject({
     }),
 });
 
+const createChatSchema = z.strictObject({
+    isGroup: z.boolean(),
+    participantIds: z.array(z.uuid()).min(1).max(50),
+});
+
+const createMessageSchema = z.strictObject({
+    content: z.string().trim().min(1).max(5000),
+});
+
+const deleteMessageSchema = z.strictObject({
+    messageId: z.uuid(),
+});
+
+const subscribeChatSocketSchema = z.strictObject({
+    action: z.literal('chat.subscribe'),
+    threadId: z.uuid(),
+    token: z.string().nonempty(),
+});
+
+const unsubscribeChatSocketSchema = z.strictObject({
+    action: z.literal('chat.unsubscribe'),
+    threadId: z.uuid(),
+});
+
+const chatSocketMessageSchema = z.union([subscribeChatSocketSchema, unsubscribeChatSocketSchema]);
+
 const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
     bio: z.string().optional(),
@@ -216,6 +242,9 @@ type UpdateUserBody = z.infer<typeof updateUserSchema>;
 type UpdatePassBody = z.infer<typeof updatePassSchema>;
 type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
 type CreatePulseBody = z.infer<typeof createPulseSchema>;
+type CreateChatBody = z.infer<typeof createChatSchema>;
+type CreateMessageBody = z.infer<typeof createMessageSchema>;
+type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
 
 function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
     return {
@@ -237,15 +266,15 @@ function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         radius: query.radius !== null && query.radius !== undefined ? String(query.radius) : null,
         location: query.location
             ? {
-                  lat:
-                      query.location.lat !== null && query.location.lat !== undefined
-                          ? String(query.location.lat)
-                          : null,
-                  lng:
-                      query.location.lng !== null && query.location.lng !== undefined
-                          ? String(query.location.lng)
-                          : null,
-              }
+                lat:
+                    query.location.lat !== null && query.location.lat !== undefined
+                        ? String(query.location.lat)
+                        : null,
+                lng:
+                    query.location.lng !== null && query.location.lng !== undefined
+                        ? String(query.location.lng)
+                        : null,
+            }
             : null,
         availableHours:
             query.availableHours && query.availableHours.length > 0 ? query.availableHours : null,
@@ -257,6 +286,65 @@ function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         skillsAndResources: query.skillres && query.skillres.length !== 0 ? query.skillres : null,
         anySkillRes: query.anyskillres ?? null,
     };
+}
+
+async function handleSocketChatMessage(ws: bun.ServerWebSocket<unknown>, message: string) {
+    let parsedMessage: unknown;
+    try {
+        parsedMessage = JSON.parse(message);
+    } catch {
+        return;
+    }
+
+    const parsed = chatSocketMessageSchema.safeParse(parsedMessage);
+    if (!parsed.success) {
+        return;
+    }
+
+    if (parsed.data.action === 'chat.unsubscribe') {
+        ws.unsubscribe(`chat-${parsed.data.threadId}`);
+        ws.send(
+            JSON.stringify({
+                event: 'chat.unsubscribed',
+                threadId: parsed.data.threadId,
+            })
+        );
+        return;
+    }
+
+    const payload = auth.verifyBearerToken(parsed.data.token);
+    if (!payload || typeof payload === 'string') {
+        ws.send(
+            JSON.stringify({
+                event: 'chat.error',
+                reason: 'unauthorized',
+                threadId: parsed.data.threadId,
+            })
+        );
+        return;
+    }
+
+    const chats = await db.selectChats(payload.id as string);
+    const isParticipant = chats.some((chat) => chat.chatId === parsed.data.threadId);
+
+    if (!isParticipant) {
+        ws.send(
+            JSON.stringify({
+                event: 'chat.error',
+                reason: 'forbidden',
+                threadId: parsed.data.threadId,
+            })
+        );
+        return;
+    }
+
+    ws.subscribe(`chat-${parsed.data.threadId}`);
+    ws.send(
+        JSON.stringify({
+            event: 'chat.subscribed',
+            threadId: parsed.data.threadId,
+        })
+    );
 }
 
 bun.serve({
@@ -474,9 +562,9 @@ bun.serve({
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                          lat: url.searchParams.get('lat'),
-                                          lng: url.searchParams.get('lng'),
-                                      }
+                                        lat: url.searchParams.get('lat'),
+                                        lng: url.searchParams.get('lng'),
+                                    }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -513,9 +601,9 @@ bun.serve({
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                              lat: url.searchParams.get('lat'),
-                                              lng: url.searchParams.get('lng'),
-                                          }
+                                            lat: url.searchParams.get('lat'),
+                                            lng: url.searchParams.get('lng'),
+                                        }
                                         : null,
                                 availableDays: url.searchParams.getAll('available_days'),
                                 availableHours: url.searchParams.getAll('available_hours'),
@@ -649,6 +737,189 @@ bun.serve({
                     )
                 ),
         },
+        '/api/chats': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const chats = await db.selectChatSummaries(payload.id);
+                            return withCors(Response.json(chats, { status: 200 }));
+                        })
+                    )
+                ),
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const body: CreateChatBody = await req
+                                .json()
+                                .then((raw) => createChatSchema.parse(raw));
+
+                            const participantIds = Array.from(
+                                new Set([...body.participantIds, payload.id])
+                            );
+
+                            if (!body.isGroup && participantIds.length !== 2) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            if (body.isGroup && participantIds.length < 2) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const existingUsers = await db.selectExistingUserIds(participantIds);
+                            if (existingUsers.length !== participantIds.length) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            if (!body.isGroup) {
+                                const otherUserId = participantIds.find((id) => id !== payload.id);
+                                if (!otherUserId) {
+                                    return withCors(BAD_REQUEST);
+                                }
+
+                                const existingThread = await db.findDirectChatId(
+                                    payload.id,
+                                    otherUserId
+                                );
+                                if (existingThread !== null) {
+                                    return withCors(
+                                        Response.json(
+                                            {
+                                                chatId: existingThread,
+                                            },
+                                            { status: 409 }
+                                        )
+                                    );
+                                }
+                            }
+
+                            const createdChat = await db.insertChat(
+                                participantIds,
+                                body.isGroup,
+                                payload.id
+                            );
+
+                            return withCors(Response.json(createdChat, { status: 201 }));
+                        })
+                    )
+                ),
+        },
+        '/api/chats/:id/messages': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const threadId = req.params.id;
+
+                            const chats = await db.selectChats(payload.id);
+                            const isParticipant = chats.some((chat) => chat.chatId === threadId);
+
+                            if (!isParticipant) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const messages = await db.selectMessages(threadId, payload.id);
+
+                            return withCors(Response.json(messages, { status: 200 }));
+                        })
+                    )
+                ),
+            POST: async (req, server) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const threadId = req.params.id;
+                            const body: CreateMessageBody = await req
+                                .json()
+                                .then((raw) => createMessageSchema.parse(raw));
+
+                            const chats = await db.selectChats(payload.id);
+                            const isParticipant = chats.some((chat) => chat.chatId === threadId);
+
+                            if (!isParticipant) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const message = await db.insertMessage(threadId, payload.id, body.content);
+
+                            server.publish(
+                                `chat-${threadId}`,
+                                JSON.stringify({
+                                    event: 'message.created',
+                                    message,
+                                })
+                            );
+
+                            return withCors(Response.json(message, { status: 201 }));
+                        })
+                    )
+                ),
+            DELETE: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const threadId = req.params.id;
+                            const body: DeleteMessageBody = await req
+                                .json()
+                                .then((raw) => deleteMessageSchema.parse(raw));
+
+                            const chats = await db.selectChats(payload.id);
+                            const isParticipant = chats.some((chat) => chat.chatId === threadId);
+
+                            if (!isParticipant) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const message = await db.selectMessage(body.messageId, payload.id);
+
+                            if (!message) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            const canDeleteMessage =
+                                payload.role === 'admin' ||
+                                payload.role === 'mod' ||
+                                payload.id === message.senderId;
+
+                            if (!canDeleteMessage) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            await db.deleteMessage(body.messageId, payload.id);
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+        },
+        '/api/chats/:id': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const threadId = req.params.id;
+
+                            const chats = await db.selectChats(payload.id);
+                            const isParticipant = chats.some((chat) => chat.chatId === threadId);
+                            if (!isParticipant) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const participants = await db.selectChat(threadId, payload.id);
+                            if (!participants) {
+                                return withCors(NOT_FOUND);
+                            }
+                            return withCors(Response.json(participants, { status: 200 }));
+                        })
+                    )
+                ),
+        },
         '/*': {
             OPTIONS: withCors(OPTIONS_RESPONSE),
         },
@@ -659,8 +930,12 @@ bun.serve({
         open(ws) {
             ws.subscribe(PULSE_FEED_TOPIC);
         },
-        message() {
-            // No-op: pulse feed is server-pushed only.
+        message(ws, message) {
+            if (typeof message !== 'string') {
+                return;
+            }
+
+            void handleSocketChatMessage(ws, message);
         },
     },
 });

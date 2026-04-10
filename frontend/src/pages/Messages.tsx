@@ -1,7 +1,15 @@
 import { ArrowLeft, Send, User, Users } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { fetchChats, sendMessage } from '../lib/mockApi';
+import {
+    connectChatWebSocket,
+    disconnectChatWebSocket,
+    fetchChats,
+    sendMessage,
+    subscribeChatThread,
+    unsubscribeChatThread,
+} from '../lib/chatApi';
+import { readStoredAuthSession } from '../lib/auth';
 import type { ChatMessage, ChatThread } from '../lib/types';
 
 function timeAgo(ts: number) {
@@ -16,6 +24,8 @@ export function Messages() {
     const [threads, setThreads] = useState<ChatThread[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
+    const currentUser = readStoredAuthSession()?.user;
+    const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
 
     const handleThreadUpdate = (updated: ChatThread) => {
         setThreads((p) => p.map((t) => (t.id === updated.id ? updated : t)));
@@ -59,7 +69,7 @@ export function Messages() {
                 ) : (
                     threads.map((thread, i) => {
                         const otherNames = thread.participantNames.filter(
-                            (n) => n !== 'Alex Rivera'
+                            (name) => name !== currentUserName
                         );
                         const displayName = thread.name || otherNames.join(', ');
                         const isGroup = thread.isGroup;
@@ -116,10 +126,71 @@ function ChatView({
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const currentUser = readStoredAuthSession()?.user;
+    const currentUserId = currentUser?.id ?? 'me';
+    const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
 
     useEffect(() => {
         setMessages([...thread.messages]);
     }, [thread.id, thread.messages]);
+
+    useEffect(() => {
+        const handleChatSocket = (event: {
+            event: string;
+            message?: {
+                id: string;
+                threadId: string;
+                senderId: string;
+                content: string;
+                timestamp: number;
+            };
+        }) => {
+            if (event.event !== 'message.created' || !event.message) {
+                return;
+            }
+
+            if (event.message.threadId !== thread.id) {
+                return;
+            }
+
+            const senderIndex = thread.participants.findIndex((participant) => {
+                return participant === event.message?.senderId;
+            });
+            const isMe = event.message.senderId === currentUserId;
+
+            const mappedMessage: ChatMessage = {
+                id: event.message.id,
+                senderId: event.message.senderId,
+                senderName:
+                    isMe
+                        ? currentUserName
+                        : senderIndex >= 0
+                            ? thread.participantNames[senderIndex] || 'Neighbor'
+                            : 'Neighbor',
+                content: event.message.content,
+                timestamp: Number(event.message.timestamp),
+            };
+
+            setMessages((prev) => {
+                if (prev.some((existing) => existing.id === mappedMessage.id)) {
+                    return prev;
+                }
+
+                const next = [...prev, mappedMessage];
+                onThreadUpdate({ ...thread, messages: next, lastMessage: mappedMessage });
+                return next;
+            });
+        };
+
+        connectChatWebSocket(handleChatSocket);
+        subscribeChatThread(thread.id);
+
+        return () => {
+            unsubscribeChatThread(thread.id);
+            disconnectChatWebSocket(handleChatSocket);
+        };
+    }, [thread, onThreadUpdate]);
+
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -141,7 +212,7 @@ function ChatView({
         }
     };
 
-    const otherNames = thread.participantNames.filter((n) => n !== 'Alex Rivera');
+    const otherNames = thread.participantNames.filter((name) => name !== currentUserName);
     const title = thread.name || otherNames.join(', ');
 
     return (
@@ -173,7 +244,7 @@ function ChatView({
             {/* Messages */}
             <div style="flex:1;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:8px;padding-bottom:72px;">
                 {messages.map((msg) => {
-                    const isMe = msg.senderId === 'me';
+                    const isMe = msg.senderId === currentUserId;
                     return (
                         <div
                             key={msg.id}
@@ -182,10 +253,9 @@ function ChatView({
                             <div
                                 style={`
                                     max-width:78%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;
-                                    ${
-                                        isMe
-                                            ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
-                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
+                                    ${isMe
+                                        ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
+                                        : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
                                     }
                                 `}
                             >

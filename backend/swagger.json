@@ -27,7 +27,9 @@
     "paths": {
         "/api/auth/register": {
             "post": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Register a new neighbor",
                 "description": "Creates a new user account and returns a session token.",
                 "requestBody": {
@@ -36,7 +38,11 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["email", "password", "displayName"],
+                                "required": [
+                                    "email",
+                                    "password",
+                                    "displayName"
+                                ],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -107,7 +113,9 @@
         },
         "/api/auth/login": {
             "post": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Login an existing neighbor",
                 "description": "Authenticates a user and returns a session token.",
                 "requestBody": {
@@ -116,7 +124,10 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["email", "password"],
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -179,7 +190,9 @@
         },
         "/api/user": {
             "patch": {
-                "tags": ["User"],
+                "tags": [
+                    "User"
+                ],
                 "summary": "Update existing user",
                 "description": "Updates the existing user, identified with the session token, with the provided parameters.",
                 "security": [
@@ -239,7 +252,10 @@
                                     },
                                     "quietDays": {
                                         "type": "array",
-                                        "example": [0, 6],
+                                        "example": [
+                                            0,
+                                            6
+                                        ],
                                         "items": {
                                             "type": "integer",
                                             "minimum": 0,
@@ -284,7 +300,9 @@
                 }
             },
             "get": {
-                "tags": ["User"],
+                "tags": [
+                    "User"
+                ],
                 "summary": "Get current user profile",
                 "description": "Returns the profile of the authenticated user.",
                 "security": [
@@ -365,7 +383,10 @@
                                                 "minimum": 0,
                                                 "maximum": 6
                                             },
-                                            "example": [0, 6]
+                                            "example": [
+                                                0,
+                                                6
+                                            ]
                                         },
                                         "skills_and_resources": {
                                             "type": "array",
@@ -373,7 +394,10 @@
                                                 "type": "string"
                                             },
                                             "nullable": true,
-                                            "example": ["first aid", "portable generator"]
+                                            "example": [
+                                                "first aid",
+                                                "portable generator"
+                                            ]
                                         },
                                         "bio": {
                                             "type": "string",
@@ -397,7 +421,9 @@
                 }
             },
             "delete": {
-                "tags": ["User"],
+                "tags": [
+                    "User"
+                ],
                 "summary": "Delete authenticated user",
                 "description": "Deletes the currently authenticated user account.",
                 "security": [
@@ -421,7 +447,9 @@
         },
         "/api/auth/password": {
             "patch": {
-                "tags": ["Authentication"],
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Update user password",
                 "description": "Updates the user's password, identified with the session token, with the provided parameters.",
                 "security": [
@@ -436,7 +464,10 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["newPassword", "oldPassword"],
+                                "required": [
+                                    "newPassword",
+                                    "oldPassword"
+                                ],
                                 "properties": {
                                     "newPassword": {
                                         "type": "string",
@@ -470,7 +501,9 @@
         },
         "/api/pulse": {
             "get": {
-                "tags": ["Pulse"],
+                "tags": [
+                    "Pulse"
+                ],
                 "summary": "List pulses",
                 "description": "Returns the most recent pulses for the live feed.",
                 "security": [],
@@ -534,9 +567,15 @@
                                     "items": {
                                         "type": "object",
                                         "properties": {
-                                            "id": { "type": "string" },
-                                            "userId": { "type": "string" },
-                                            "userName": { "type": "string" },
+                                            "id": {
+                                                "type": "string"
+                                            },
+                                            "userId": {
+                                                "type": "string"
+                                            },
+                                            "userName": {
+                                                "type": "string"
+                                            },
                                             "type": {
                                                 "type": "string",
                                                 "enum": [
@@ -548,13 +587,27 @@
                                                     "pet"
                                                 ]
                                             },
-                                            "content": { "type": "string" },
-                                            "timestamp": { "type": "number" },
-                                            "lat": { "type": "number" },
-                                            "lng": { "type": "number" },
-                                            "verified": { "type": "boolean" },
-                                            "confirmations": { "type": "number" },
-                                            "urgencyLevel": { "type": "number" }
+                                            "content": {
+                                                "type": "string"
+                                            },
+                                            "timestamp": {
+                                                "type": "number"
+                                            },
+                                            "lat": {
+                                                "type": "number"
+                                            },
+                                            "lng": {
+                                                "type": "number"
+                                            },
+                                            "verified": {
+                                                "type": "boolean"
+                                            },
+                                            "confirmations": {
+                                                "type": "number"
+                                            },
+                                            "urgencyLevel": {
+                                                "type": "number"
+                                            }
                                         }
                                     }
                                 }
@@ -570,7 +623,9 @@
                 }
             },
             "post": {
-                "tags": ["Pulse"],
+                "tags": [
+                    "Pulse"
+                ],
                 "summary": "Create a new pulse",
                 "description": "Creates a new pulse with the provided content and location. The author is the current logged in user",
                 "security": [
@@ -585,7 +640,11 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["type", "content", "location"],
+                                "required": [
+                                    "type",
+                                    "content",
+                                    "location"
+                                ],
                                 "properties": {
                                     "type": {
                                         "type": "string",
@@ -642,9 +701,15 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "id": { "type": "string" },
-                                        "userId": { "type": "string" },
-                                        "userName": { "type": "string" },
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "userId": {
+                                            "type": "string"
+                                        },
+                                        "userName": {
+                                            "type": "string"
+                                        },
                                         "type": {
                                             "type": "string",
                                             "enum": [
@@ -656,13 +721,27 @@
                                                 "pet"
                                             ]
                                         },
-                                        "content": { "type": "string" },
-                                        "timestamp": { "type": "number" },
-                                        "lat": { "type": "number" },
-                                        "lng": { "type": "number" },
-                                        "verified": { "type": "boolean" },
-                                        "confirmations": { "type": "number" },
-                                        "urgencyLevel": { "type": "number" }
+                                        "content": {
+                                            "type": "string"
+                                        },
+                                        "timestamp": {
+                                            "type": "number"
+                                        },
+                                        "lat": {
+                                            "type": "number"
+                                        },
+                                        "lng": {
+                                            "type": "number"
+                                        },
+                                        "verified": {
+                                            "type": "boolean"
+                                        },
+                                        "confirmations": {
+                                            "type": "number"
+                                        },
+                                        "urgencyLevel": {
+                                            "type": "number"
+                                        }
                                     }
                                 }
                             }
@@ -685,7 +764,9 @@
         },
         "/api/pulse/{id}": {
             "delete": {
-                "tags": ["Pulse"],
+                "tags": [
+                    "Pulse"
+                ],
                 "summary": "Delete a pulse",
                 "description": "Deletes a pulse if the current user is the author, a moderator, or an admin.",
                 "security": [
@@ -723,9 +804,488 @@
                 }
             }
         },
+        "/api/pulse/live": {
+            "get": {
+                "tags": [
+                    "Pulse",
+                    "Chats"
+                ],
+                "summary": "Pulse and chat websocket",
+                "description": "Upgrades the connection to WebSocket. Pulse events are broadcast automatically. For chat events, send JSON messages to subscribe or unsubscribe from thread topics.\n\nSubscribe payload: { \"action\": \"chat.subscribe\", \"threadId\": \"<uuid>\", \"token\": \"<jwt>\" }\nUnsubscribe payload: { \"action\": \"chat.unsubscribe\", \"threadId\": \"<uuid>\" }\n\nServer acknowledgements: chat.subscribed, chat.unsubscribed, chat.error. Chat messages are published as event: message.created.",
+                "responses": {
+                    "101": {
+                        "description": "WebSocket protocol upgrade successful"
+                    },
+                    "400": {
+                        "description": "Upgrade failed"
+                    },
+                    "403": {
+                        "description": "Forbidden origin"
+                    }
+                }
+            }
+        },
+        "/api/chats": {
+            "get": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "List your chats",
+                "description": "Returns the authenticated user's chat threads with participant metadata.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Chats fetched",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "participants": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "userId": {
+                                                            "type": "string",
+                                                            "format": "uuid"
+                                                        },
+                                                        "displayName": {
+                                                            "type": "string",
+                                                            "nullable": true
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "isGroup": {
+                                                "type": "boolean"
+                                            },
+                                            "timestamp": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Create a chat",
+                "description": "Creates either a direct chat or a group chat. The authenticated user is always added as a participant.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "isGroup",
+                                    "participantIds"
+                                ],
+                                "properties": {
+                                    "isGroup": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "participantIds": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 50,
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "example": [
+                                            "fbc4c2f8-22f9-445f-9fc2-4072393fcb17"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Chat created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "participants": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "userId": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "isGroup": {
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid body or invalid participant combination"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "One or more participants do not exist"
+                    },
+                    "409": {
+                        "description": "A direct chat between these users already exists"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}": {
+            "get": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Get a chat",
+                "description": "Returns chat participants and metadata for a thread if the user is a participant.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Chat fetched",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "participants": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "userId": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "isGroup": {
+                                            "type": "boolean"
+                                        },
+                                        "timestamp": {
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/messages": {
+            "get": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Get chat messages",
+                "description": "Returns all messages from a chat thread if the requester is a participant.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Messages fetched",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "threadId": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "senderId": {
+                                                "type": "string",
+                                                "format": "uuid"
+                                            },
+                                            "content": {
+                                                "type": "string"
+                                            },
+                                            "timestamp": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Post a message",
+                "description": "Creates a new message in a chat thread.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "content"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 5000,
+                                        "example": "Can you help me transport supplies?"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Message created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "threadId": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "senderId": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "content": {
+                                            "type": "string"
+                                        },
+                                        "timestamp": {
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid body"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Chats"
+                ],
+                "summary": "Delete a message",
+                "description": "Deletes a message if the requester is the sender, moderator, or admin.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "messageId"
+                                ],
+                                "properties": {
+                                    "messageId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Message deleted"
+                    },
+                    "400": {
+                        "description": "Invalid body"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
         "/api/users": {
             "get": {
-                "tags": ["User"],
+                "tags": [
+                    "User"
+                ],
                 "summary": "Search users",
                 "description": "Searches users with optional filters. Parameters that accept multiple values can be repeated.",
                 "parameters": [
@@ -761,7 +1321,10 @@
                         "description": "Set to true to match any listed skill/resource, false to require all.",
                         "schema": {
                             "type": "string",
-                            "enum": ["true", "false"]
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
                         },
                         "example": "true"
                     },
@@ -821,7 +1384,10 @@
                         "in": "query",
                         "schema": {
                             "type": "string",
-                            "enum": ["true", "false"]
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
                         },
                         "example": "true"
                     },
@@ -969,7 +1535,9 @@
                 }
             },
             "delete": {
-                "tags": ["User"],
+                "tags": [
+                    "User"
+                ],
                 "summary": "Delete users (admin)",
                 "description": "Deletes users that match the provided optional filters. This endpoint is restricted to admin users.",
                 "security": [
@@ -1011,7 +1579,10 @@
                         "description": "Set to true to match any listed skill/resource, false to require all.",
                         "schema": {
                             "type": "string",
-                            "enum": ["true", "false"]
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
                         },
                         "example": "true"
                     },
@@ -1071,7 +1642,10 @@
                         "in": "query",
                         "schema": {
                             "type": "string",
-                            "enum": ["true", "false"]
+                            "enum": [
+                                "true",
+                                "false"
+                            ]
                         },
                         "example": "true"
                     },

@@ -84,3 +84,12 @@ export function verifyToken(req: Request) {
         return null;
     }
 }
+
+export function verifyBearerToken(token: string) {
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        return decoded;
+    } catch {
+        return null;
+    }
+}
