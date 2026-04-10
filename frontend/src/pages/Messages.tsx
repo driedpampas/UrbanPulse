@@ -23,11 +23,20 @@ export function Messages() {
     };
 
     useEffect(() => {
-        fetchChats().then((data) => { setThreads(data); setLoading(false); });
+        fetchChats().then((data) => {
+            setThreads(data);
+            setLoading(false);
+        });
     }, []);
 
     if (activeThread) {
-        return <ChatView thread={activeThread} onBack={() => setActiveThread(null)} onThreadUpdate={handleThreadUpdate} />;
+        return (
+            <ChatView
+                thread={activeThread}
+                onBack={() => setActiveThread(null)}
+                onThreadUpdate={handleThreadUpdate}
+            />
+        );
     }
 
     return (
@@ -35,16 +44,23 @@ export function Messages() {
             <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
                 {loading ? (
                     [1, 2].map((i) => (
-                        <div key={i} style="height:64px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;" />
+                        <div
+                            key={i}
+                            style="height:64px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                        />
                     ))
                 ) : threads.length === 0 ? (
                     <div style="padding:56px 24px;text-align:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);">
                         <Users size={28} style="color:var(--text-tertiary);margin:0 auto 8px;" />
-                        <p style="font-size:13px;color:var(--text-secondary);margin:0;">No conversations yet</p>
+                        <p style="font-size:13px;color:var(--text-secondary);margin:0;">
+                            No conversations yet
+                        </p>
                     </div>
                 ) : (
                     threads.map((thread, i) => {
-                        const otherNames = thread.participantNames.filter((n) => n !== 'Alex Rivera');
+                        const otherNames = thread.participantNames.filter(
+                            (n) => n !== 'Alex Rivera'
+                        );
                         const displayName = thread.name || otherNames.join(', ');
                         const isGroup = thread.isGroup;
                         return (
@@ -57,14 +73,19 @@ export function Messages() {
                                 style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:background 0.15s;animation-delay:${i * 50}ms;`}
                             >
                                 {/* Avatar */}
-                                <div style={`width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'var(--accent-subtle)' : 'var(--type-item-bg)'};color:${isGroup ? 'var(--accent)' : 'var(--type-item-text)'};`}>
+                                <div
+                                    style={`width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'var(--accent-subtle)' : 'var(--type-item-bg)'};color:${isGroup ? 'var(--accent)' : 'var(--type-item-text)'};`}
+                                >
                                     {isGroup ? <Users size={16} /> : <User size={16} />}
                                 </div>
                                 <div style="flex:1;min-width:0;">
-                                    <p style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{displayName}</p>
+                                    <p style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        {displayName}
+                                    </p>
                                     {thread.lastMessage && (
                                         <p style="font-size:11px;color:var(--text-tertiary);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                            {thread.lastMessage.senderName}: {thread.lastMessage.content}
+                                            {thread.lastMessage.senderName}:{' '}
+                                            {thread.lastMessage.content}
                                         </p>
                                     )}
                                 </div>
@@ -96,8 +117,12 @@ function ChatView({
     const [sending, setSending] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => { setMessages([...thread.messages]); }, [thread.id, thread.messages]);
-    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+    useEffect(() => {
+        setMessages([...thread.messages]);
+    }, [thread.id, thread.messages]);
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     const handleSend = async () => {
         if (!input.trim() || sending) return;
@@ -136,8 +161,12 @@ function ChatView({
                     <ArrowLeft size={18} />
                 </button>
                 <div style="flex:1;min-width:0;">
-                    <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{title}</p>
-                    <p style="font-size:11px;color:var(--text-tertiary);margin:0;">{thread.participantNames.length} members</p>
+                    <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        {title}
+                    </p>
+                    <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
+                        {thread.participantNames.length} members
+                    </p>
                 </div>
             </header>
 
@@ -146,18 +175,24 @@ function ChatView({
                 {messages.map((msg) => {
                     const isMe = msg.senderId === 'me';
                     return (
-                        <div key={msg.id} style={`display:flex;justify-content:${isMe ? 'flex-end' : 'flex-start'};`}>
+                        <div
+                            key={msg.id}
+                            style={`display:flex;justify-content:${isMe ? 'flex-end' : 'flex-start'};`}
+                        >
                             <div
                                 style={`
                                     max-width:78%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;
-                                    ${isMe
-                                        ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
-                                        : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
+                                    ${
+                                        isMe
+                                            ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
+                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
                                     }
                                 `}
                             >
                                 {!isMe && (
-                                    <p style="font-size:10px;font-weight:700;color:var(--accent);margin:0 0 3px;">{msg.senderName}</p>
+                                    <p style="font-size:10px;font-weight:700;color:var(--accent);margin:0 0 3px;">
+                                        {msg.senderName}
+                                    </p>
                                 )}
                                 <p style="margin:0;">{msg.content}</p>
                             </div>
@@ -179,8 +214,15 @@ function ChatView({
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Message…"
                         style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
-                        onFocus={(e) => { (e.target as HTMLElement).style.borderColor = 'var(--border-focus)'; (e.target as HTMLElement).style.boxShadow = '0 0 0 3px var(--accent-muted)'; }}
-                        onBlur={(e) => { (e.target as HTMLElement).style.borderColor = 'var(--border)'; (e.target as HTMLElement).style.boxShadow = 'none'; }}
+                        onFocus={(e) => {
+                            (e.target as HTMLElement).style.borderColor = 'var(--border-focus)';
+                            (e.target as HTMLElement).style.boxShadow =
+                                '0 0 0 3px var(--accent-muted)';
+                        }}
+                        onBlur={(e) => {
+                            (e.target as HTMLElement).style.borderColor = 'var(--border)';
+                            (e.target as HTMLElement).style.boxShadow = 'none';
+                        }}
                     />
                     <button
                         type="button"

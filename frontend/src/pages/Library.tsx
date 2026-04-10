@@ -7,9 +7,11 @@ import type { LibraryItem } from '../lib/types';
 const TAB_BTN = (active: boolean) => `
     font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;border:none;
     cursor:pointer;font-family:inherit;transition:all 0.15s;
-    ${active
-        ? 'background:var(--accent-subtle);color:var(--accent);'
-        : 'background:transparent;color:var(--text-tertiary);'}
+    ${
+        active
+            ? 'background:var(--accent-subtle);color:var(--accent);'
+            : 'background:transparent;color:var(--text-tertiary);'
+    }
 `;
 
 export function Library() {
@@ -20,13 +22,20 @@ export function Library() {
     const [showAdd, setShowAdd] = useState(false);
 
     useEffect(() => {
-        fetchLibrary().then((data) => { setItems(data); setLoading(false); });
+        fetchLibrary().then((data) => {
+            setItems(data);
+            setLoading(false);
+        });
     }, []);
 
     const filtered = items.filter((i) => {
         if (filter !== 'all' && i.type !== filter) return false;
-        if (search && !i.title.toLowerCase().includes(search.toLowerCase()) &&
-            !i.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))) return false;
+        if (
+            search &&
+            !i.title.toLowerCase().includes(search.toLowerCase()) &&
+            !i.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+        )
+            return false;
         return true;
     });
 
@@ -41,7 +50,8 @@ export function Library() {
                     onClick={() => setShowAdd(true)}
                     style="height:30px;font-size:12px;"
                 >
-                    <Plus size={13} />Add
+                    <Plus size={13} />
+                    Add
                 </button>
             }
         >
@@ -85,7 +95,10 @@ export function Library() {
                 {loading ? (
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} style="height:88px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;" />
+                            <div
+                                key={i}
+                                style="height:88px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                            />
                         ))}
                     </div>
                 ) : filtered.length === 0 ? (
@@ -107,23 +120,33 @@ export function Library() {
                                 >
                                     <div style="display:flex;align-items:flex-start;gap:12px;">
                                         {/* Icon */}
-                                        <div style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isItem ? 'var(--type-item-bg)' : 'var(--type-skill-bg)'};color:${isItem ? 'var(--type-item-text)' : 'var(--type-skill-text)'};`}>
+                                        <div
+                                            style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isItem ? 'var(--type-item-bg)' : 'var(--type-skill-bg)'};color:${isItem ? 'var(--type-item-text)' : 'var(--type-skill-text)'};`}
+                                        >
                                             {isItem ? <Package size={16} /> : <Wrench size={16} />}
                                         </div>
 
                                         <div style="flex:1;min-width:0;">
                                             {/* Title row */}
                                             <div style="display:flex;align-items:center;gap:8px;">
-                                                <span style="font-size:13px;font-weight:600;color:var(--text);">{item.title}</span>
+                                                <span style="font-size:13px;font-weight:600;color:var(--text);">
+                                                    {item.title}
+                                                </span>
                                                 <span
-                                                    title={item.available ? 'Available' : 'Unavailable'}
+                                                    title={
+                                                        item.available ? 'Available' : 'Unavailable'
+                                                    }
                                                     style={`width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${item.available ? 'var(--success)' : 'var(--text-tertiary)'};`}
                                                 />
                                             </div>
                                             {/* Owner */}
-                                            <p style="font-size:11px;color:var(--text-tertiary);margin:2px 0 6px;">{item.userName}</p>
+                                            <p style="font-size:11px;color:var(--text-tertiary);margin:2px 0 6px;">
+                                                {item.userName}
+                                            </p>
                                             {/* Description */}
-                                            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 8px;line-height:1.5;">{item.description}</p>
+                                            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 8px;line-height:1.5;">
+                                                {item.description}
+                                            </p>
                                             {/* Tags */}
                                             <div style="display:flex;flex-wrap:wrap;gap:4px;">
                                                 {item.tags.map((tag) => (
@@ -131,7 +154,8 @@ export function Library() {
                                                         key={tag}
                                                         style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:var(--bg-muted);color:var(--text-tertiary);"
                                                     >
-                                                        <Tag size={8} />{tag}
+                                                        <Tag size={8} />
+                                                        {tag}
                                                     </span>
                                                 ))}
                                             </div>
@@ -147,14 +171,23 @@ export function Library() {
             {showAdd && (
                 <AddItemModal
                     onClose={() => setShowAdd(false)}
-                    onAdd={(item) => { setItems((p) => [...p, item]); setShowAdd(false); }}
+                    onAdd={(item) => {
+                        setItems((p) => [...p, item]);
+                        setShowAdd(false);
+                    }}
                 />
             )}
         </AppLayout>
     );
 }
 
-function AddItemModal({ onClose, onAdd }: { onClose: () => void; onAdd: (item: LibraryItem) => void }) {
+function AddItemModal({
+    onClose,
+    onAdd,
+}: {
+    onClose: () => void;
+    onAdd: (item: LibraryItem) => void;
+}) {
     const [type, setType] = useState<'item' | 'skill'>('item');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -166,18 +199,33 @@ function AddItemModal({ onClose, onAdd }: { onClose: () => void; onAdd: (item: L
         if (!title.trim()) return;
         setSubmitting(true);
         const item = await postLibraryItem({
-            userId: 'me', userName: 'Alex Rivera', type,
-            title: title.trim(), description: description.trim(),
-            tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+            userId: 'me',
+            userName: 'Alex Rivera',
+            type,
+            title: title.trim(),
+            description: description.trim(),
+            tags: tags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean),
             available: true,
         });
         onAdd(item);
         setSubmitting(false);
     };
 
-    const focusIn = (e: Event) => { const el = e.target as HTMLElement; el.style.borderColor = 'var(--border-focus)'; el.style.boxShadow = '0 0 0 3px var(--accent-muted)'; };
-    const focusOut = (e: Event) => { const el = e.target as HTMLElement; el.style.borderColor = 'var(--border)'; el.style.boxShadow = 'none'; };
-    const fieldStyle = 'width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s,box-shadow 0.15s;';
+    const focusIn = (e: Event) => {
+        const el = e.target as HTMLElement;
+        el.style.borderColor = 'var(--border-focus)';
+        el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
+    };
+    const focusOut = (e: Event) => {
+        const el = e.target as HTMLElement;
+        el.style.borderColor = 'var(--border)';
+        el.style.boxShadow = 'none';
+    };
+    const fieldStyle =
+        'width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s,box-shadow 0.15s;';
 
     return (
         <div
@@ -191,8 +239,16 @@ function AddItemModal({ onClose, onAdd }: { onClose: () => void; onAdd: (item: L
                 style="position:relative;width:100%;max-width:680px;background:var(--surface);border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;padding:20px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);"
             >
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                    <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">Add to Library</p>
-                    <button type="button" class="btn-icon" onClick={onClose} aria-label="Close" style="color:var(--text-secondary);">
+                    <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
+                        Add to Library
+                    </p>
+                    <button
+                        type="button"
+                        class="btn-icon"
+                        onClick={onClose}
+                        aria-label="Close"
+                        style="color:var(--text-secondary);"
+                    >
                         <X size={16} />
                     </button>
                 </div>
@@ -210,9 +266,30 @@ function AddItemModal({ onClose, onAdd }: { onClose: () => void; onAdd: (item: L
                             </button>
                         ))}
                     </div>
-                    <input value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} placeholder="Title" style={fieldStyle} onFocus={focusIn} onBlur={focusOut} />
-                    <textarea value={description} onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)} placeholder="Description" style={`${fieldStyle}height:80px;resize:none;`} onFocus={focusIn} onBlur={focusOut} />
-                    <input value={tags} onInput={(e) => setTags((e.target as HTMLInputElement).value)} placeholder="Tags, comma-separated" style={fieldStyle} onFocus={focusIn} onBlur={focusOut} />
+                    <input
+                        value={title}
+                        onInput={(e) => setTitle((e.target as HTMLInputElement).value)}
+                        placeholder="Title"
+                        style={fieldStyle}
+                        onFocus={focusIn}
+                        onBlur={focusOut}
+                    />
+                    <textarea
+                        value={description}
+                        onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+                        placeholder="Description"
+                        style={`${fieldStyle}height:80px;resize:none;`}
+                        onFocus={focusIn}
+                        onBlur={focusOut}
+                    />
+                    <input
+                        value={tags}
+                        onInput={(e) => setTags((e.target as HTMLInputElement).value)}
+                        placeholder="Tags, comma-separated"
+                        style={fieldStyle}
+                        onFocus={focusIn}
+                        onBlur={focusOut}
+                    />
                     <button
                         type="submit"
                         disabled={!title.trim() || submitting}

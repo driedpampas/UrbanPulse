@@ -16,15 +16,19 @@ export function PetMatch() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchPetMatches().then((data) => { setPets(data); setLoading(false); });
+        fetchPetMatches().then((data) => {
+            setPets(data);
+            setLoading(false);
+        });
     }, []);
 
-    const matches = pets.filter((p) => p.reportType === 'found' && p.matchConfidence && p.matchedWith);
+    const matches = pets.filter(
+        (p) => p.reportType === 'found' && p.matchConfidence && p.matchedWith
+    );
 
     return (
         <AppLayout title="Pet Guardian">
             <div style="padding:16px;display:flex;flex-direction:column;gap:20px;">
-
                 {/* AI Matches section */}
                 {matches.length > 0 && (
                     <section>
@@ -56,32 +60,55 @@ export function PetMatch() {
 
                                         {/* Progress bar */}
                                         <div style="height:4px;border-radius:2px;background:var(--bg-muted);margin-bottom:12px;overflow:hidden;">
-                                            <div style={`height:100%;border-radius:2px;background:var(--warning);width:${conf}%;transition:width 1s ease;`} />
+                                            <div
+                                                style={`height:100%;border-radius:2px;background:var(--warning);width:${conf}%;transition:width 1s ease;`}
+                                            />
                                         </div>
 
                                         {/* Lost / Found comparison */}
                                         <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;">
                                             <div style="padding:10px;border-radius:8px;background:var(--type-emergency-bg);border:1px solid var(--type-emergency-border);">
-                                                <span style="font-size:10px;font-weight:800;color:var(--type-emergency-text);letter-spacing:0.06em;">LOST</span>
-                                                <p style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px;">{lostPet.breed}</p>
-                                                <p style="font-size:11px;color:var(--text-secondary);margin:0 0 2px;">{lostPet.color}</p>
-                                                <p style="font-size:10px;color:var(--text-tertiary);margin:0 0 6px;font-style:italic;">"{lostPet.markings}"</p>
+                                                <span style="font-size:10px;font-weight:800;color:var(--type-emergency-text);letter-spacing:0.06em;">
+                                                    LOST
+                                                </span>
+                                                <p style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px;">
+                                                    {lostPet.breed}
+                                                </p>
+                                                <p style="font-size:11px;color:var(--text-secondary);margin:0 0 2px;">
+                                                    {lostPet.color}
+                                                </p>
+                                                <p style="font-size:10px;color:var(--text-tertiary);margin:0 0 6px;font-style:italic;">
+                                                    "{lostPet.markings}"
+                                                </p>
                                                 <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-tertiary);">
-                                                    <MapPin size={9} />{lostPet.location}
+                                                    <MapPin size={9} />
+                                                    {lostPet.location}
                                                 </span>
                                             </div>
 
                                             <div style="display:flex;align-items:center;justify-content:center;padding-top:20px;">
-                                                <ArrowRight size={14} style="color:var(--text-tertiary);" />
+                                                <ArrowRight
+                                                    size={14}
+                                                    style="color:var(--text-tertiary);"
+                                                />
                                             </div>
 
                                             <div style="padding:10px;border-radius:8px;background:var(--type-item-bg);border:1px solid var(--type-item-border);">
-                                                <span style="font-size:10px;font-weight:800;color:var(--type-item-text);letter-spacing:0.06em;">FOUND</span>
-                                                <p style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px;">{foundPet.breed}</p>
-                                                <p style="font-size:11px;color:var(--text-secondary);margin:0 0 2px;">{foundPet.color}</p>
-                                                <p style="font-size:10px;color:var(--text-tertiary);margin:0 0 6px;font-style:italic;">"{foundPet.markings}"</p>
+                                                <span style="font-size:10px;font-weight:800;color:var(--type-item-text);letter-spacing:0.06em;">
+                                                    FOUND
+                                                </span>
+                                                <p style="font-size:12px;font-weight:600;color:var(--text);margin:4px 0 2px;">
+                                                    {foundPet.breed}
+                                                </p>
+                                                <p style="font-size:11px;color:var(--text-secondary);margin:0 0 2px;">
+                                                    {foundPet.color}
+                                                </p>
+                                                <p style="font-size:10px;color:var(--text-tertiary);margin:0 0 6px;font-style:italic;">
+                                                    "{foundPet.markings}"
+                                                </p>
                                                 <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-tertiary);">
-                                                    <MapPin size={9} />{foundPet.location}
+                                                    <MapPin size={9} />
+                                                    {foundPet.location}
                                                 </span>
                                             </div>
                                         </div>
@@ -119,7 +146,10 @@ export function PetMatch() {
                     {loading ? (
                         <div style="display:flex;flex-direction:column;gap:8px;">
                             {[1, 2].map((i) => (
-                                <div key={i} style="height:68px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;" />
+                                <div
+                                    key={i}
+                                    style="height:68px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                                />
                             ))}
                         </div>
                     ) : (
@@ -133,7 +163,9 @@ export function PetMatch() {
                                         style={`padding:12px 14px;display:flex;align-items:center;gap:12px;animation-delay:${i * 40}ms;`}
                                     >
                                         {/* Icon */}
-                                        <div style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isLost ? 'var(--type-emergency-bg)' : 'var(--type-item-bg)'};color:${isLost ? 'var(--type-emergency-text)' : 'var(--type-item-text)'};`}>
+                                        <div
+                                            style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isLost ? 'var(--type-emergency-bg)' : 'var(--type-item-bg)'};color:${isLost ? 'var(--type-emergency-text)' : 'var(--type-item-text)'};`}
+                                        >
                                             <PawPrint size={16} />
                                         </div>
 
@@ -145,17 +177,24 @@ export function PetMatch() {
                                                 >
                                                     {isLost ? 'LOST' : 'FOUND'}
                                                 </span>
-                                                <span style="font-size:13px;font-weight:600;color:var(--text);">{pet.breed}</span>
+                                                <span style="font-size:13px;font-weight:600;color:var(--text);">
+                                                    {pet.breed}
+                                                </span>
                                             </div>
-                                            <p style="font-size:11px;color:var(--text-tertiary);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{pet.markings}</p>
+                                            <p style="font-size:11px;color:var(--text-tertiary);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                {pet.markings}
+                                            </p>
                                         </div>
 
                                         <div style="text-align:right;flex-shrink:0;">
                                             <span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
-                                                <Clock size={9} />{timeAgo(pet.timestamp)}
+                                                <Clock size={9} />
+                                                {timeAgo(pet.timestamp)}
                                             </span>
                                             {pet.matchConfidence && (
-                                                <p style="font-size:10px;color:var(--warning);font-weight:700;margin:2px 0 0;">{pet.matchConfidence}% match</p>
+                                                <p style="font-size:10px;color:var(--warning);font-weight:700;margin:2px 0 0;">
+                                                    {pet.matchConfidence}% match
+                                                </p>
                                             )}
                                         </div>
                                     </div>
