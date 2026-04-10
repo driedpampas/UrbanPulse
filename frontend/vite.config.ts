@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import preact from '@preact/preset-vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
@@ -74,7 +75,12 @@ function apiProxyPlugin(): Plugin {
     };
 }
 
+const commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+
 // https://vite.dev/config/
 export default defineConfig({
     plugins: [preact(), tailwindcss(), apiProxyPlugin()],
+    define: {
+        __COMMIT_HASH__: JSON.stringify(commitHash),
+    },
 });

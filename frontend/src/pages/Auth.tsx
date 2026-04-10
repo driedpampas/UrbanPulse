@@ -378,6 +378,13 @@ export function Auth() {
                     </div>
                 </div>
             </div>
+
+            {/* Version indicator */}
+            <div style="padding:12px;text-align:center;">
+                <span style="font-size:10px;color:var(--text-tertiary);letter-spacing:0.02em;">
+                    Version: {__COMMIT_HASH__}
+                </span>
+            </div>
         </div>
     );
 }

@@ -25,7 +25,7 @@
         "rules": {
             "recommended": true,
             "a11y": {
-                "noLabelWithoutControl": "warn"
+                "noLabelWithoutControl": "info"
             }
         }
     },

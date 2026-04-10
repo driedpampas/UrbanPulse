@@ -49,6 +49,15 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
             </main>
 
             {showNav && <BottomNav />}
+
+            {/* Version indicator */}
+            <div
+                style={`position:fixed;bottom:${showNav ? 'calc(var(--nav-h) + 4px)' : '8px'};right:8px;z-index:60;pointer-events:none;`}
+            >
+                <span style="font-size:9px;color:var(--text-tertiary);letter-spacing:0.02em;opacity:0.8;">
+                    {__COMMIT_HASH__}
+                </span>
+            </div>
         </div>
     );
 }
