@@ -311,53 +311,53 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
 }
 
 export async function selectMessages(threadId: string, currentUser: string): Promise<Message[]> {
-    const messages = (await sql`
-        BEGIN;
+    const messages = (await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${currentUser}, true);
+        `;
 
-        SET LOCAL app.current_user_id = ${currentUser};
-
-        SELECT id, thread_id, sender_id, content,
-        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-        FROM app.messages
-        WHERE thread_id = ${threadId};
-
-        COMMIT;
-    `) as MessageRow[];
+        return (await tx`
+            SELECT id, thread_id, sender_id, content,
+            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages
+            WHERE thread_id = ${threadId};
+        `) as MessageRow[];
+    })) as MessageRow[];
 
     return messages.map((message) => mapMessageRow(message));
 }
 
 export async function selectMessage(messageId: string, currentUser: string): Promise<Message | null> {
-    const [message] = (await sql`
-        BEGIN;
+    const [message] = (await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${currentUser}, true);
+        `;
 
-        SET LOCAL app.current_user_id = ${currentUser};
-
-        SELECT id, thread_id, sender_id, content,
-        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-        FROM app.messages
-        WHERE id = ${messageId};
-
-        COMMIT;
-    `) as MessageRow[];
+        return (await tx`
+            SELECT id, thread_id, sender_id, content,
+            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages
+            WHERE id = ${messageId};
+        `) as MessageRow[];
+    })) as MessageRow[];
 
     return message ? mapMessageRow(message) : null;
 }
 
 export async function selectChat(chatId: string, currentUser: string): Promise<Chat | null> {
-    const chatRows = (await sql`
-        BEGIN;
+    const chatRows = (await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${currentUser}, true);
+        `;
 
-        SET LOCAL app.current_user_id = ${currentUser};
-
-        SELECT cp.thread_id, cp.user_id, ct.is_group,
-        ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp"
-        FROM app.chat_threads AS ct
-        JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
-        WHERE ct.id = ${chatId};
-
-        COMMIT;
-    `) as Array<ChatParticipantRow & ChatThreadRow>;
+        return (await tx`
+            SELECT cp.thread_id, cp.user_id, ct.is_group,
+            ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.chat_threads AS ct
+            JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
+            WHERE ct.id = ${chatId};
+        `) as Array<ChatParticipantRow & ChatThreadRow>;
+    })) as Array<ChatParticipantRow & ChatThreadRow>;
 
     if (chatRows.length === 0) {
         return null;
@@ -380,10 +380,12 @@ export async function selectExistingUserIds(userIds: string[]): Promise<string[]
         return [];
     }
 
+    const csvUserIds = userIds.join(',');
+
     const rows = (await sql`
         SELECT id::text AS id
         FROM app.users
-        WHERE id = ANY(${userIds}::uuid[])
+        WHERE id = ANY(string_to_array(${csvUserIds}, ',')::uuid[])
     `) as { id: string }[];
 
     return rows.map((row) => row.id);
@@ -394,7 +396,7 @@ export async function findDirectChatId(userAId: string, userBId: string): Promis
         SELECT cp.thread_id AS "chatId"
         FROM app.chat_participants AS cp
         JOIN app.chat_threads AS ct ON ct.id = cp.thread_id
-        WHERE cp.user_id IN [${userAId}::uuid, ${userBId}::uuid]
+        WHERE cp.user_id IN (${userAId}::uuid, ${userBId}::uuid)
         GROUP BY cp.thread_id
         HAVING COUNT(*) = 2
            AND COUNT(*) FILTER (WHERE cp.user_id = ${userAId}::uuid) = 1
@@ -417,54 +419,57 @@ export async function insertChat(
     currentUser: string
 ): Promise<Chat> {
     const threadId = crypto.randomUUID();
+    const csvParticipantIds = participantIds.join(',');
 
-    await sql`
-        BEGIN;
+    await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${currentUser}, true);
+        `;
 
-        SET LOCAL app.current_user_id = ${currentUser};
+        await tx`
+            INSERT INTO app.chat_threads (id, is_group)
+            VALUES (${threadId}::uuid, ${isGroup});
+        `;
 
-        INSERT INTO app.chat_threads (id, is_group)
-        VALUES (${threadId}::uuid, ${isGroup});
-
-        INSERT INTO app.chat_participants (thread_id, user_id)
-        SELECT ${threadId}::uuid, users.user_id::uuid
-        FROM unnest(${participantIds}::text[]) AS users(user_id);
-
-        COMMIT;
-    `;
+        await tx`
+            INSERT INTO app.chat_participants (thread_id, user_id)
+            SELECT ${threadId}::uuid, users.user_id::uuid
+            FROM unnest(string_to_array(${csvParticipantIds}, ',')::uuid[]) AS users(user_id);
+        `;
+    });
 
     return (await selectChat(threadId, currentUser))!;
 }
 
 export async function deleteMessage(messageId: string, currentUser: string): Promise<boolean> {
-    const [deleted] = await sql`
-        BEGIN;
+    const [deleted] = await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${currentUser}, true);
+        `;
 
-        SET LOCAL app.current_user_id = ${currentUser};
-
-        DELETE FROM app.messages
-        WHERE id = ${messageId}
-        RETURNING id;
-
-        COMMIT;
-    `;
+        return await tx`
+            DELETE FROM app.messages
+            WHERE id = ${messageId}
+            RETURNING id;
+        `;
+    });
 
     return Boolean(deleted);
 }
 
 export async function insertMessage(threadId: string, senderId: string, content: string): Promise<Message> {
-    const [insertedMessage] = (await sql`
-        BEGIN;
+    const [insertedMessage] = (await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${senderId}, true);
+        `;
 
-        SET LOCAL app.current_user_id = ${senderId};
-
-        INSERT INTO app.messages (thread_id, sender_id, content)
-        VALUES (${threadId}, ${senderId}, ${content})
-        RETURNING id, thread_id, sender_id, content,
-        ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
-
-        COMMIT;
-    `) as MessageRow[];
+        return (await tx`
+            INSERT INTO app.messages (thread_id, sender_id, content)
+            VALUES (${threadId}, ${senderId}, ${content})
+            RETURNING id, thread_id, sender_id, content,
+            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
+        `) as MessageRow[];
+    })) as MessageRow[];
 
     return mapMessageRow(insertedMessage!);
 }
