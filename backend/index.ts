@@ -536,8 +536,21 @@ bun.serve({
                     caught(async () => {
                         const url = new URL(req.url);
                         const requestedLimit = Number(url.searchParams.get('limit') ?? '50');
+                        const lat = url.searchParams.get('lat')
+                            ? Number(url.searchParams.get('lat'))
+                            : null;
+                        const lng = url.searchParams.get('lng')
+                            ? Number(url.searchParams.get('lng'))
+                            : null;
+                        const radius = url.searchParams.get('radius')
+                            ? Number(url.searchParams.get('radius'))
+                            : null;
+
                         const pulses = await db.selectPulses(
-                            Number.isFinite(requestedLimit) ? requestedLimit : 50
+                            Number.isFinite(requestedLimit) ? requestedLimit : 50,
+                            lat,
+                            lng,
+                            radius
                         );
 
                         return withCors(Response.json(pulses, { status: 200 }));

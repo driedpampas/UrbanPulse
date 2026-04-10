@@ -2,6 +2,7 @@ import { AlertTriangle, RefreshCw, Thermometer } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { WeatherData } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
+import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation } from '../../lib/utils';
 import { fetchWeather } from '../../lib/weatherApi';
 
 export function WeatherAlert() {
@@ -17,14 +18,12 @@ export function WeatherAlert() {
 
             if (!lat || !lng) {
                 try {
-                    const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
-                    );
-                    lat = pos.coords.latitude;
-                    lng = pos.coords.longitude;
+                    const loc = await getCurrentBrowserLocation();
+                    lat = loc.lat;
+                    lng = loc.lng;
                 } catch {
-                    lat = 40.7128;
-                    lng = -74.006;
+                    lat = DEFAULT_PULSE_CENTER.lat;
+                    lng = DEFAULT_PULSE_CENTER.lng;
                 }
             }
 

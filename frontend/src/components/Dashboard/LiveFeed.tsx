@@ -60,12 +60,26 @@ export function LiveFeed({ radiusFilter }: Props) {
 
     useEffect(() => {
         let cancelled = false;
-        fetchCurrentUser()
-            .then((u) => {
-                if (!cancelled && isUsableCoordinates(u.lat, u.lng))
+        const initLocation = async () => {
+            try {
+                const u = await fetchCurrentUser();
+                if (!cancelled && isUsableCoordinates(u.lat, u.lng)) {
                     setFeedCenter({ lat: u.lat, lng: u.lng });
-            })
-            .catch(() => {});
+                    return;
+                }
+            } catch (e) {
+                // Profile might not exist or fetch failed
+            }
+
+            try {
+                const loc = await getCurrentBrowserLocation();
+                if (!cancelled) setFeedCenter(loc);
+            } catch (e) {
+                console.warn('Browser geolocation failed:', e);
+            }
+        };
+
+        initLocation();
         return () => {
             cancelled = true;
         };
@@ -75,9 +89,9 @@ export function LiveFeed({ radiusFilter }: Props) {
         let cancelled = false;
         setLoading(true);
         setLoadError(null);
-        fetchPulses()
+        fetchPulses(feedCenter.lat, feedCenter.lng, radiusFilter)
             .then((d) => {
-                if (!cancelled) setPulses((c) => mergePulses(c, d));
+                if (!cancelled) setPulses(d);
             })
             .catch((e: unknown) => {
                 if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load.');
@@ -88,22 +102,41 @@ export function LiveFeed({ radiusFilter }: Props) {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [radiusFilter, feedCenter]);
 
-    const handleWS = useCallback((event: PulseSocketEvent) => {
-        if (event.event === 'pulse.created') {
-            setPulses((c) => mergePulses(c, [event.pulse]));
-            setNewId(event.pulse.id);
-            if (clearRef.current) window.clearTimeout(clearRef.current);
-            clearRef.current = window.setTimeout(() => {
-                setNewId((c) => (c === event.pulse.id ? null : c));
-                clearRef.current = null;
-            }, 2500);
-        } else {
-            setPulses((c) => c.filter((p) => p.id !== event.pulseId));
-            setNewId((c) => (c === event.pulseId ? null : c));
-        }
-    }, []);
+    const handleWS = useCallback(
+        (event: PulseSocketEvent) => {
+            if (event.event === 'pulse.created') {
+                // If it's a new pulse, we might want to check if it's within radius on frontend
+                // for immediate feedback, OR we can just trust the socket gives us everything
+                // but the backend publishes to a global topic currently.
+                // To keep it simple and consistent with the requirement "frontend should trust that information",
+                // we should check distance here if we want to be strict, but the user said "frontend should trust that information".
+                // HOWEVER, the backend currently publishes ALL pulses to the topic.
+                // For now, I'll add a distance check here to avoid showing pulses outside radius that come via WS.
+                if (
+                    distanceInMeters(
+                        feedCenter.lat,
+                        feedCenter.lng,
+                        event.pulse.lat,
+                        event.pulse.lng
+                    ) <= radiusFilter
+                ) {
+                    setPulses((c) => mergePulses(c, [event.pulse]));
+                    setNewId(event.pulse.id);
+                    if (clearRef.current) window.clearTimeout(clearRef.current);
+                    clearRef.current = window.setTimeout(() => {
+                        setNewId((c) => (c === event.pulse.id ? null : c));
+                        clearRef.current = null;
+                    }, 2500);
+                }
+            } else {
+                setPulses((c) => c.filter((p) => p.id !== event.pulseId));
+                setNewId((c) => (c === event.pulseId ? null : c));
+            }
+        },
+        [feedCenter, radiusFilter]
+    );
 
     useEffect(() => {
         connectWebSocket(handleWS);
@@ -113,9 +146,7 @@ export function LiveFeed({ radiusFilter }: Props) {
         };
     }, [handleWS]);
 
-    const visible = pulses.filter(
-        (p) => distanceInMeters(feedCenter.lat, feedCenter.lng, p.lat, p.lng) <= radiusFilter
-    );
+    const visible = pulses;
 
     const handleDelete = async (id: string) => {
         if (!window.confirm('Delete this pulse?')) return;

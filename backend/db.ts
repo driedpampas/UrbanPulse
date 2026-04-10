@@ -131,7 +131,12 @@ function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
     };
 }
 
-export async function selectPulses(limit = 50): Promise<PulseFeedItem[]> {
+export async function selectPulses(
+    limit = 50,
+    lat?: number | null,
+    lng?: number | null,
+    radius?: number | null
+): Promise<PulseFeedItem[]> {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
 
     const pulses = (await sql`
@@ -149,6 +154,16 @@ export async function selectPulses(limit = 50): Promise<PulseFeedItem[]> {
         COALESCE(pulses.urgency_level, 1) AS "urgencyLevel"
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
+    WHERE (
+        ${lat}::double precision IS NULL OR 
+        ${lng}::double precision IS NULL OR 
+        ${radius}::double precision IS NULL OR
+        ST_DWithin(
+            pulses.location,
+            ST_SetSRID(ST_MakePoint(${lng}::double precision, ${lat}::double precision), 4326)::geography,
+            ${radius}::double precision
+        )
+    )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}
     `) as PulseRow[];

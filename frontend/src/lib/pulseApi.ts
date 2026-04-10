@@ -247,8 +247,24 @@ function ensureSocket() {
     };
 }
 
-export async function fetchPulses(): Promise<Pulse[]> {
-    const pulses = await request<BackendPulse[]>('/pulse', { method: 'GET' });
+export async function fetchPulses(
+    lat?: number,
+    lng?: number,
+    radius?: number
+): Promise<Pulse[]> {
+    let path = '/pulse';
+    const params = new URLSearchParams();
+
+    if (lat !== undefined) params.append('lat', lat.toString());
+    if (lng !== undefined) params.append('lng', lng.toString());
+    if (radius !== undefined) params.append('radius', radius.toString());
+
+    const queryString = params.toString();
+    if (queryString) {
+        path += `?${queryString}`;
+    }
+
+    const pulses = await request<BackendPulse[]>(path, { method: 'GET' });
     return pulses.map(mapBackendPulse);
 }
 

@@ -9,7 +9,15 @@ import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 export function Dashboard() {
     const [view, setView] = useState<'feed' | 'map'>('feed');
     const [showPostForm, setShowPostForm] = useState(false);
-    const [radius, setRadius] = useState(500);
+    const [radius, setRadius] = useState(() => {
+        const saved = localStorage.getItem('up_radius_filter');
+        return saved ? Number(saved) : 500;
+    });
+
+    const updateRadius = (val: number) => {
+        setRadius(val);
+        localStorage.setItem('up_radius_filter', val.toString());
+    };
     const [showFilters, setShowFilters] = useState(false);
 
     /* Segmented control tab */
@@ -109,7 +117,7 @@ export function Dashboard() {
                             max={2000}
                             step={100}
                             value={radius}
-                            onInput={(e) => setRadius(Number((e.target as HTMLInputElement).value))}
+                            onInput={(e) => updateRadius(Number((e.target as HTMLInputElement).value))}
                             style="width:100%;accent-color:var(--accent);"
                             aria-label={`Radius: ${radius} meters`}
                         />
