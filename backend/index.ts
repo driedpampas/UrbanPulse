@@ -247,6 +247,17 @@ const searchUsersSchema = z.strictObject({
     bio: z.string().nullish(),
 });
 
+const createLibraryItemSchema = z.strictObject({
+    type: z.enum(['item', 'skill']),
+    title: z.string().nonempty().max(255),
+    description: z.string().max(2000).optional(),
+    tags: z.array(z.string()).max(10),
+});
+
+const updateLibraryItemSchema = z.strictObject({
+    isAvailable: z.boolean(),
+});
+
 type RegisterUserBody = z.infer<typeof registerUserSchema>;
 type LoginUserBody = z.infer<typeof loginUserSchema>;
 type UpdateUserBody = z.infer<typeof updateUserSchema>;
@@ -256,6 +267,8 @@ type CreatePulseBody = z.infer<typeof createPulseSchema>;
 type CreateChatBody = z.infer<typeof createChatSchema>;
 type CreateMessageBody = z.infer<typeof createMessageSchema>;
 type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
+type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
+type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 
 function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
     return {
@@ -277,15 +290,15 @@ function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         radius: query.radius !== null && query.radius !== undefined ? String(query.radius) : null,
         location: query.location
             ? {
-                lat:
-                    query.location.lat !== null && query.location.lat !== undefined
-                        ? String(query.location.lat)
-                        : null,
-                lng:
-                    query.location.lng !== null && query.location.lng !== undefined
-                        ? String(query.location.lng)
-                        : null,
-            }
+                  lat:
+                      query.location.lat !== null && query.location.lat !== undefined
+                          ? String(query.location.lat)
+                          : null,
+                  lng:
+                      query.location.lng !== null && query.location.lng !== undefined
+                          ? String(query.location.lng)
+                          : null,
+              }
             : null,
         availableHours:
             query.availableHours && query.availableHours.length > 0 ? query.availableHours : null,
@@ -298,7 +311,6 @@ function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         anySkillRes: query.anyskillres ?? null,
     };
 }
-
 
 async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: string) {
     let parsedMessage: unknown;
@@ -335,12 +347,14 @@ async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: st
         return;
     }
 
+    const threadId = parsed.data.threadId;
+
     if (parsed.data.action === 'chat.unsubscribe') {
-        ws.unsubscribe(`chat-${parsed.data.threadId}`);
+        ws.unsubscribe(`chat-${threadId}`);
         ws.send(
             JSON.stringify({
                 event: 'chat.unsubscribed',
-                threadId: parsed.data.threadId,
+                threadId,
             })
         );
         return;
@@ -352,31 +366,31 @@ async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: st
             JSON.stringify({
                 event: 'chat.error',
                 reason: 'unauthorized',
-                threadId: parsed.data.threadId,
+                threadId,
             })
         );
         return;
     }
 
     const chats = await db.selectChats(payload.id as string);
-    const isParticipant = chats.some((chat) => chat.chatId === parsed.data.threadId);
+    const isParticipant = chats.some((chat) => chat.chatId === threadId);
 
     if (!isParticipant) {
         ws.send(
             JSON.stringify({
                 event: 'chat.error',
                 reason: 'forbidden',
-                threadId: parsed.data.threadId,
+                threadId,
             })
         );
         return;
     }
 
-    ws.subscribe(`chat-${parsed.data.threadId}`);
+    ws.subscribe(`chat-${threadId}`);
     ws.send(
         JSON.stringify({
             event: 'chat.subscribed',
-            threadId: parsed.data.threadId,
+            threadId,
         })
     );
 }
@@ -596,9 +610,9 @@ bun.serve({
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                        lat: url.searchParams.get('lat'),
-                                        lng: url.searchParams.get('lng'),
-                                    }
+                                          lat: url.searchParams.get('lat'),
+                                          lng: url.searchParams.get('lng'),
+                                      }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -635,9 +649,9 @@ bun.serve({
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                            lat: url.searchParams.get('lat'),
-                                            lng: url.searchParams.get('lng'),
-                                        }
+                                              lat: url.searchParams.get('lat'),
+                                              lng: url.searchParams.get('lng'),
+                                          }
                                         : null,
                                 availableDays: url.searchParams.getAll('available_days'),
                                 availableHours: url.searchParams.getAll('available_hours'),
@@ -695,7 +709,7 @@ bun.serve({
                                 const urgencyLevel =
                                     body.urgencyLevel ?? DEFAULT_PULSE_URGENCY[pulseType];
 
-                                 const createdPulse = await db.insertPulse({
+                                const createdPulse = await db.insertPulse({
                                     authorId: payload.id,
                                     type: pulseType,
                                     urgencyLevel,
@@ -827,7 +841,10 @@ bun.serve({
                                     return withCors(BAD_REQUEST);
                                 }
 
-                                const blocked = await db.isEitherUserBlocked(payload.id, otherUserId);
+                                const blocked = await db.isEitherUserBlocked(
+                                    payload.id,
+                                    otherUserId
+                                );
                                 if (blocked) {
                                     return withCors(FORBIDDEN);
                                 }
@@ -916,7 +933,11 @@ bun.serve({
                                 return withCors(FORBIDDEN);
                             }
 
-                            const message = await db.insertMessage(threadId, payload.id, body.content);
+                            const message = await db.insertMessage(
+                                threadId,
+                                payload.id,
+                                body.content
+                            );
 
                             server.publish(
                                 `chat-${threadId}`,
@@ -991,7 +1012,9 @@ bun.serve({
                     authorize(req, async (session) =>
                         caught(async () => {
                             const payload = session as JwtPayload;
-                            const blockedUserIds = await db.selectBlockedCounterpartyIds(payload.id);
+                            const blockedUserIds = await db.selectBlockedCounterpartyIds(
+                                payload.id
+                            );
                             return withCors(
                                 Response.json(
                                     {
@@ -1071,6 +1094,107 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
                             return withCors(Response.json(participants, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/library': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const user = await db.selectFullUser(payload.id);
+                            if (!user || !user.location) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const items = await db.selectLibraryItems(
+                                user.location.lat!,
+                                user.location.lng!,
+                                user.radius ?? 5000 // Default to 5km if not set
+                            );
+                            return withCors(Response.json(items, { status: 200 }));
+                        })
+                    )
+                ),
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const body: CreateLibraryItemBody = await req
+                                .json()
+                                .then((raw) => createLibraryItemSchema.parse(raw));
+
+                            const item = await db.insertLibraryItem({
+                                authorId: payload.id,
+                                type: body.type,
+                                title: body.title,
+                                description: body.description ?? '',
+                                tags: body.tags,
+                            });
+
+                            return withCors(Response.json(item, { status: 201 }));
+                        })
+                    )
+                ),
+        },
+        '/api/library/:id': {
+            PATCH: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const body: UpdateLibraryItemBody = await req
+                                .json()
+                                .then((raw) => updateLibraryItemSchema.parse(raw));
+
+                            const success = await db.updateLibraryItemAvailability(
+                                req.params.id,
+                                payload.id,
+                                body.isAvailable
+                            );
+
+                            return withCors(
+                                Response.json({ success }, { status: success ? 200 : 403 })
+                            );
+                        })
+                    )
+                ),
+            DELETE: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const success = await db.deleteLibraryItem(req.params.id, payload.id);
+
+                            return withCors(
+                                Response.json({ success }, { status: success ? 200 : 403 })
+                            );
+                        })
+                    )
+                ),
+        },
+        '/api/pulses/:id/confirm': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const result = await db.confirmPulse(req.params.id, payload.id);
+
+                            if (!result.success && result.alreadyConfirmed) {
+                                return withCors(
+                                    Response.json({ error: 'Already confirmed' }, { status: 409 })
+                                );
+                            }
+
+                            if (!result.success) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            return withCors(SUCCESS);
                         })
                     )
                 ),

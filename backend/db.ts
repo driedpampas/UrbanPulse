@@ -1,4 +1,36 @@
-import { sql } from 'bun';
+import { sql as drizzleSql } from 'drizzle-orm';
+import { db } from './drizzle/client';
+
+type SqlRunner = {
+    <T = any>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+    begin<T>(callback: (tx: SqlRunner) => Promise<T>): Promise<T>;
+};
+
+function createSqlRunner(client: {
+    execute: (query: ReturnType<typeof drizzleSql>) => Promise<any>;
+    transaction?: <T>(
+        callback: (tx: {
+            execute: (query: ReturnType<typeof drizzleSql>) => Promise<any>;
+        }) => Promise<T>
+    ) => Promise<T>;
+}): SqlRunner {
+    const runner = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = drizzleSql(strings, ...values);
+        return await client.execute(query);
+    }) as SqlRunner;
+
+    runner.begin = async <T>(callback: (tx: SqlRunner) => Promise<T>) => {
+        if (!client.transaction) {
+            throw new Error('Transactions are not supported by this database client.');
+        }
+
+        return await client.transaction(async (tx) => callback(createSqlRunner(tx)));
+    };
+
+    return runner;
+}
+
+const sql = createSqlRunner(db);
 
 const SEARCH_LIMIT = 50;
 
@@ -58,6 +90,18 @@ export interface ChatSummary {
     }[];
     isGroup: boolean;
     timestamp: number;
+}
+
+export interface LibraryItem {
+    id: string;
+    userId: string;
+    userName: string;
+    type: 'item' | 'skill';
+    title: string;
+    description: string;
+    tags: string[];
+    available: boolean;
+    createdAt: number;
 }
 
 interface User {
@@ -162,6 +206,18 @@ type ChatThreadRow = {
     timestamp: number | string | Date;
 };
 
+type LibraryItemRow = {
+    id: string;
+    author_id: string;
+    userName?: string | null;
+    item_type: string;
+    title: string;
+    description: string | null;
+    tags: string[] | null;
+    is_available: boolean;
+    created_at: Date | string | number;
+};
+
 type ChatSummaryRow = {
     id: string;
     is_group: boolean;
@@ -201,6 +257,20 @@ function mapMessageRow(rawMessage: MessageRow): Message {
         senderId: String(rawMessage.sender_id),
         content: String(rawMessage.content),
         timestamp: Number(rawMessage.timestamp ?? Date.now()),
+    };
+}
+
+function mapLibraryItemRow(row: LibraryItemRow): LibraryItem {
+    return {
+        id: row.id,
+        userId: row.author_id,
+        userName: row.userName ?? row.author_id,
+        type: row.item_type as 'item' | 'skill',
+        title: row.title,
+        description: row.description ?? '',
+        tags: row.tags ?? [],
+        available: row.is_available,
+        createdAt: Number(row.created_at ?? Date.now()),
     };
 }
 
@@ -341,7 +411,10 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
     return messages.map((message) => mapMessageRow(message));
 }
 
-export async function selectMessage(messageId: string, currentUser: string): Promise<Message | null> {
+export async function selectMessage(
+    messageId: string,
+    currentUser: string
+): Promise<Message | null> {
     const [message] = (await sql.begin(async (tx) => {
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
@@ -527,7 +600,11 @@ export async function unblockUser(blockerId: string, blockedId: string): Promise
     return Boolean(deleted);
 }
 
-export async function insertMessage(threadId: string, senderId: string, content: string): Promise<Message> {
+export async function insertMessage(
+    threadId: string,
+    senderId: string,
+    content: string
+): Promise<Message> {
     const [insertedMessage] = (await sql.begin(async (tx) => {
         await tx`
             SELECT set_config('app.current_user_id', ${senderId}, true);
@@ -896,4 +973,149 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
         )
         ) OR id = ${userSearch.id}))
     `;
+}
+
+export async function selectLibraryItems(
+    viewerLat: number,
+    viewerLng: number,
+    radiusMeters: number
+): Promise<LibraryItem[]> {
+    const rows = (await sql`
+        SELECT
+            li.id,
+            li.author_id,
+            COALESCE(u.display_name, li.author_id::text) AS "userName",
+            li.item_type,
+            li.title,
+            li.description,
+            li.tags,
+            li.is_available,
+            ROUND(EXTRACT(EPOCH FROM li.created_at) * 1000)::bigint AS created_at
+        FROM app.library_items li
+        JOIN app.users u ON u.id = li.author_id
+        WHERE ST_DWithin(
+            u.location,
+            ST_SetSRID(ST_MakePoint(${viewerLng}, ${viewerLat}), 4326)::geography,
+            ${radiusMeters}
+        )
+        ORDER BY li.created_at DESC
+    `) as LibraryItemRow[];
+
+    return rows.map(mapLibraryItemRow);
+}
+
+export async function insertLibraryItem(params: {
+    authorId: string;
+    type: 'item' | 'skill';
+    title: string;
+    description: string;
+    tags: string[];
+}): Promise<LibraryItem> {
+    const [row] = (await sql`
+        INSERT INTO app.library_items (author_id, item_type, title, description, tags)
+        VALUES (${params.authorId}, ${params.type}, ${params.title}, ${params.description}, ${JSON.stringify(params.tags)}::jsonb)
+        RETURNING id
+    `) as { id: string }[];
+
+    if (!row) {
+        throw new Error('Failed to insert library item.');
+    }
+
+    // Fetch full item with userName
+    const [fullRow] = (await sql`
+        SELECT
+            li.id,
+            li.author_id,
+            COALESCE(u.display_name, li.author_id::text) AS "userName",
+            li.item_type,
+            li.title,
+            li.description,
+            li.tags,
+            li.is_available,
+            ROUND(EXTRACT(EPOCH FROM li.created_at) * 1000)::bigint AS created_at
+        FROM app.library_items li
+        JOIN app.users u ON u.id = li.author_id
+        WHERE li.id = ${row.id}
+    `) as LibraryItemRow[];
+
+    return mapLibraryItemRow(fullRow!);
+}
+
+export async function updateLibraryItemAvailability(
+    itemId: string,
+    authorId: string,
+    available: boolean
+): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.library_items
+        SET is_available = ${available}
+        WHERE id = ${itemId} AND author_id = ${authorId}
+        RETURNING id
+    `;
+    return Boolean(updated);
+}
+
+export async function deleteLibraryItem(itemId: string, authorId: string): Promise<boolean> {
+    const [deleted] = await sql`
+        DELETE FROM app.library_items
+        WHERE id = ${itemId} AND (author_id = ${authorId} OR EXISTS (SELECT 1 FROM app.users WHERE id = ${authorId} AND role IN ('admin', 'mod')))
+        RETURNING id
+    `;
+    return Boolean(deleted);
+}
+
+export async function incrementTrustScore(userId: string, amount: number): Promise<void> {
+    await sql`
+        UPDATE app.users
+        SET trust_score = COALESCE(trust_score, 0) + ${amount}
+        WHERE id = ${userId}
+    `;
+}
+
+export async function confirmPulse(
+    pulseId: string,
+    userId: string
+): Promise<{ success: boolean; alreadyConfirmed: boolean }> {
+    return await sql.begin(async (tx) => {
+        // 1. Check if user already confirmed or is author
+        const [pulse] = await tx`
+            SELECT author_id, urgency_level
+            FROM app.pulses
+            WHERE id = ${pulseId}
+        `;
+
+        if (!pulse) return { success: false, alreadyConfirmed: false };
+        if (pulse.author_id === userId) return { success: false, alreadyConfirmed: false };
+
+        const [existing] = await tx`
+            SELECT 1 FROM app.pulse_confirmations
+            WHERE pulse_id = ${pulseId} AND user_id = ${userId}
+        `;
+
+        if (existing) return { success: false, alreadyConfirmed: true };
+
+        // 2. Record confirmation
+        await tx`
+            INSERT INTO app.pulse_confirmations (pulse_id, user_id)
+            VALUES (${pulseId}, ${userId})
+        `;
+
+        // 3. Increment pulse count
+        await tx`
+            UPDATE app.pulses
+            SET confirmation_count = COALESCE(confirmation_count, 0) + 1
+            WHERE id = ${pulseId}
+        `;
+
+        // 4. Award trust score to author
+        // High urgency (>= 4) gets +3, others +1
+        const trustAward = (pulse.urgency_level ?? 1) >= 4 ? 3 : 1;
+        await tx`
+            UPDATE app.users
+            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
+            WHERE id = ${pulse.author_id}
+        `;
+
+        return { success: true, alreadyConfirmed: false };
+    });
 }

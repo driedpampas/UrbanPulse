@@ -4,18 +4,26 @@
     "type": "module",
     "private": true,
     "scripts": {
-        "run": "bun index.ts"
+        "run": "bun index.ts",
+        "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
+        "db:migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+        "db:push": "drizzle-kit push --config=drizzle.config.ts",
+        "db:studio": "drizzle-kit studio --config=drizzle.config.ts",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
         "@types/bun": "latest",
-        "@types/jsonwebtoken": "^9.0.10"
+        "@types/jsonwebtoken": "^9.0.10",
+        "drizzle-kit": "^0.31.10"
     },
     "peerDependencies": {
         "typescript": "^5"
     },
     "dependencies": {
         "@biomejs/biome": "^2.4.6",
+        "drizzle-orm": "^0.45.2",
         "jsonwebtoken": "^9.0.3",
+        "postgres": "^3.4.9",
         "uuid": "^13.0.0",
         "zod": "^4.3.6"
     }
