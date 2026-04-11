@@ -1408,6 +1408,46 @@ bun.serve({
                         })
                     )
                 ),
+            DELETE: async (req, server) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const threadId = req.params.id;
+
+                            const chat = await db.selectChat(threadId, payload.id);
+                            if (!chat) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            if (!chat.isGroup) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const role = (
+                                await db.selectUserRole(payload.id as string)
+                            )?.toLowerCase();
+                            const isOwner = chat.ownerId === payload.id;
+                            const isAdminOrMod = role === 'admin' || role === 'mod';
+
+                            if (!isOwner && !isAdminOrMod) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            await db.deleteChat(threadId);
+
+                            server.publish(
+                                `chat-${threadId}`,
+                                JSON.stringify({
+                                    event: 'chat.deleted',
+                                    threadId,
+                                })
+                            );
+
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
         },
         '/api/chats/:id/participants': {
             POST: async (req, server) =>
@@ -1474,14 +1514,28 @@ bun.serve({
                                 req.params.id
                             );
                             const currentRoles = participantRoles[payload.id as string] ?? [];
-                            const canRemove =
-                                chat.ownerId === payload.id || currentRoles.includes('admin');
+                            const isOwner = chat.ownerId === payload.id;
+                            const isAdmin = currentRoles.includes('admin');
+                            const isSelfRemoval = participantId.data === payload.id;
+
+                            const canRemove = isOwner || isAdmin || isSelfRemoval;
                             if (!canRemove) {
                                 return withCors(FORBIDDEN);
                             }
 
-                            if (participantId.data === chat.ownerId) {
+                            if (participantId.data === chat.ownerId && !isSelfRemoval) {
                                 return withCors(FORBIDDEN);
+                            }
+
+                            if (participantId.data === chat.ownerId && isSelfRemoval) {
+                                // Owner cannot leave without deleting or transferring ownership
+                                // For now, let's just say they must delete the chat
+                                return withCors(
+                                    Response.json(
+                                        { error: 'Owner cannot leave. Delete the chat instead.' },
+                                        { status: 400 }
+                                    )
+                                );
                             }
 
                             const message = await db.removeChatParticipant(

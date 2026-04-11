@@ -22,6 +22,7 @@ import {
     connectChatWebSocket,
     createGroupChat,
     deleteChatMessage,
+    deleteGroupChat,
     disconnectChatWebSocket,
     fetchBlockedUserIds,
     fetchChats,
@@ -138,6 +139,11 @@ export function Messages() {
     const handleThreadUpdate = (updated: ChatThread) => {
         setThreads((p) => p.map((t) => (t.id === updated.id ? updated : t)));
         setActiveThread(updated);
+    };
+
+    const handleThreadDeleted = (threadId: string) => {
+        setThreads((p) => p.filter((t) => t.id !== threadId));
+        setActiveThread(null);
     };
 
     useEffect(() => {
@@ -274,6 +280,7 @@ export function Messages() {
                 thread={activeThread}
                 onBack={() => setActiveThread(null)}
                 onThreadUpdate={handleThreadUpdate}
+                onThreadDeleted={handleThreadDeleted}
             />
         );
     }
@@ -588,6 +595,7 @@ function ChatView({
     thread: ChatThread;
     onBack: () => void;
     onThreadUpdate: (t: ChatThread) => void;
+    onThreadDeleted: (id: string) => void;
 }) {
     const [, setLocation] = useLocation();
     const [messages, setMessages] = useState<ChatMessage[]>(() => [...thread.messages]);
@@ -743,6 +751,11 @@ function ChatView({
                     return next;
                 });
 
+                return;
+            }
+
+            if (event.event === 'chat.deleted' && event.threadId === thread.id) {
+                onThreadDeleted(thread.id);
                 return;
             }
 
@@ -1014,11 +1027,17 @@ function ChatView({
                                         <button
                                             type="button"
                                             onClick={(e) => {
-                                                if (isMe) handleContextMenu(e as any, msg.id);
+                                                const roles = thread.participantRoles?.[currentUserId] ?? [];
+                                                const canManage = thread.ownerId === currentUserId || roles.includes('admin');
+                                                if (isMe || canManage) handleContextMenu(e as any, msg.id);
                                             }}
-                                            onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
+                                            onContextMenu={(e) => {
+                                                const roles = thread.participantRoles?.[currentUserId] ?? [];
+                                                const canManage = thread.ownerId === currentUserId || roles.includes('admin');
+                                                if (isMe || canManage) handleContextMenu(e as any, msg.id);
+                                            }}
                                             style={`
-                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
+                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                                 ${
                                                     isMe
                                                         ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
@@ -1056,7 +1075,7 @@ function ChatView({
 
                                         <div 
                                             className="delete-trigger-container" 
-                                            style={`display:flex;align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
+                                            style={`display:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'flex' : 'none'};align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
                                         >
                                             <button
                                                 type="button"
@@ -1288,6 +1307,52 @@ function ChatView({
                                             />
                                         ))}
                                     </div>
+                                </div>
+
+                                <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
+                                    {isGroup && (
+                                        <>
+                                            {thread.ownerId === currentUserId ? (
+                                                <button
+                                                    type="button"
+                                                    class="btn-ghost"
+                                                    onClick={async () => {
+                                                        if (confirm('Are you sure you want to delete this group? This cannot be undone.')) {
+                                                            try {
+                                                                await deleteGroupChat(thread.id);
+                                                                onThreadDeleted(thread.id);
+                                                            } catch (err) {
+                                                                alert(err instanceof Error ? err.message : 'Failed to delete group');
+                                                            }
+                                                        }
+                                                    }}
+                                                    style="width:100%;height:38px;font-size:13px;color:var(--danger);justify-content:center;gap:8px;background:var(--danger-subtle);border-radius:8px;"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete Group
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    class="btn-ghost"
+                                                    onClick={async () => {
+                                                        if (confirm('Are you sure you want to leave this group?')) {
+                                                            try {
+                                                                await removeGroupChatParticipant(thread.id, currentUserId);
+                                                                onThreadDeleted(thread.id);
+                                                            } catch (err) {
+                                                                alert(err instanceof Error ? err.message : 'Failed to leave group');
+                                                            }
+                                                        }
+                                                    }}
+                                                    style="width:100%;height:38px;font-size:13px;justify-content:center;gap:8px;background:var(--bg-subtle);border-radius:8px;"
+                                                >
+                                                    <ArrowLeft size={14} />
+                                                    Leave Group
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ) : (

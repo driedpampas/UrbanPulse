@@ -474,6 +474,12 @@ export async function promoteGroupChatParticipant(threadId: string, participantI
     });
 }
 
+export async function deleteGroupChat(threadId: string) {
+    await request<void>(`/chats/${threadId}`, {
+        method: 'DELETE',
+    });
+}
+
 export async function deleteChatMessage(
     threadId: string,
     messageId: string,

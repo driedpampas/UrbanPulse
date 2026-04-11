@@ -855,6 +855,15 @@ export async function addChatParticipants(
     return messages;
 }
 
+export async function deleteChat(threadId: string): Promise<boolean> {
+    const [deleted] = await sql`
+        DELETE FROM app.chat_threads
+        WHERE id = ${threadId}::uuid
+        RETURNING id;
+    `;
+    return Boolean(deleted);
+}
+
 export async function removeChatParticipant(
     threadId: string,
     participantId: string,
