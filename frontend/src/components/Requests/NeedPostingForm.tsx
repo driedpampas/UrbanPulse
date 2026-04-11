@@ -164,7 +164,9 @@ export function NeedPostingForm({ onClose }: Props) {
                             <input
                                 type="text"
                                 value={skillsString}
-                                onInput={(e) => setSkillsString((e.target as HTMLInputElement).value)}
+                                onInput={(e) =>
+                                    setSkillsString((e.target as HTMLInputElement).value)
+                                }
                                 placeholder="e.g. medical, plumbing, first aid"
                                 class="input-field"
                                 style="height:34px;font-size:12px;padding:0 12px;background:var(--surface-raised);"

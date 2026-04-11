@@ -5,7 +5,6 @@ type ErrorResponse = {
     error: string;
 };
 
-
 export async function httpClient<T>(path: string, options: RequestInit = {}): Promise<T> {
     const session = readStoredAuthSession();
     const headers = new Headers(options.headers);
@@ -28,7 +27,7 @@ export async function httpClient<T>(path: string, options: RequestInit = {}): Pr
         try {
             errorBody = await response.json();
         } catch {
-            errorBody = {error: "Unknown error"};
+            errorBody = { error: 'Unknown error' };
         }
         throw new Error(errorBody.error || `Request failed with status ${response.status}`);
     }

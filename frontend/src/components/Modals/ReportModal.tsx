@@ -2,13 +2,7 @@ import { AlertTriangle, Send, X } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { createReport } from '../../lib/reportsApi';
 
-const REASONS = [
-    'Spam',
-    'Harassment',
-    'Inappropriate content',
-    'False information',
-    'Other',
-];
+const REASONS = ['Spam', 'Harassment', 'Inappropriate content', 'False information', 'Other'];
 
 interface Props {
     targetId: string;
@@ -101,7 +95,9 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                                         text-align:left;
                                     `}
                                 >
-                                    <div style={`width:12px;height:12px;border-radius:50%;border:2px solid ${reason === r ? 'var(--accent)' : 'var(--border-strong)'};background:${reason === r ? 'var(--accent)' : 'transparent'};box-shadow:${reason === r ? '0 0 0 2px var(--accent-subtle)' : 'none'};`} />
+                                    <div
+                                        style={`width:12px;height:12px;border-radius:50%;border:2px solid ${reason === r ? 'var(--accent)' : 'var(--border-strong)'};background:${reason === r ? 'var(--accent)' : 'transparent'};box-shadow:${reason === r ? '0 0 0 2px var(--accent-subtle)' : 'none'};`}
+                                    />
                                     {r}
                                 </button>
                             ))}
@@ -120,7 +116,9 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         class="btn-primary"
                         style="width:100%;height:42px;font-size:14px;background:var(--accent);color:white;border-radius:10px;margin-top:4px;"
                     >
-                        {sending ? 'Submitting…' : (
+                        {sending ? (
+                            'Submitting…'
+                        ) : (
                             <>
                                 <Send size={14} />
                                 Submit Report

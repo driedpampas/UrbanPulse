@@ -171,7 +171,7 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                     <span>ID: {report.targetId.slice(0, 8)}...</span>
                 </div>
             </div>
-            
+
             {report.status === 'pending' && (
                 <div style="display:flex;gap:6px;flex-shrink:0;">
                     <button
@@ -312,16 +312,20 @@ export function AdminDashboard() {
                         {section === 'reports' && (
                             <div style="display:flex;flex-direction:column;gap:10px;">
                                 {reports.length === 0 ? (
-                                    <div style={`${surfaceCard};padding:40px;text-align:center;color:var(--text-tertiary);`}>
+                                    <div
+                                        style={`${surfaceCard};padding:40px;text-align:center;color:var(--text-tertiary);`}
+                                    >
                                         <Flag size={32} style="margin:0 auto 12px;opacity:0.3;" />
-                                        <p style="margin:0;font-size:14px;font-weight:600;">No reports found</p>
+                                        <p style="margin:0;font-size:14px;font-weight:600;">
+                                            No reports found
+                                        </p>
                                     </div>
                                 ) : (
                                     reports.map((report) => (
-                                        <ReportRow 
-                                            key={report.id} 
-                                            report={report} 
-                                            onUpdate={loadData} 
+                                        <ReportRow
+                                            key={report.id}
+                                            report={report}
+                                            onUpdate={loadData}
                                         />
                                     ))
                                 )}

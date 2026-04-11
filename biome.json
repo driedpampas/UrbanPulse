@@ -29,6 +29,10 @@
             },
             "complexity": {
                 "noImportantStyles": "off"
+            },
+            "suspicious": {
+                "noDuplicateJsxProps": "info",
+                "noUnknownAtRules": "info"
             }
         }
     },
