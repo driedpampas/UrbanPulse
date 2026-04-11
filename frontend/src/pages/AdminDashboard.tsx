@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, LibraryBig, Shield, UsersRound } from 'lucide-preact';
+import { Activity, LibraryBig, UsersRound } from 'lucide-preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { useAuth } from '../lib/auth';
@@ -6,7 +6,7 @@ import { fetchAdminLibrary } from '../lib/libraryApi';
 import type { LibraryItem, User } from '../lib/types';
 import { fetchAdminOverview, fetchAdminUsers } from '../lib/userApi';
 
-type AdminSection = 'overview' | 'users' | 'library' | 'access';
+type AdminSection = 'overview' | 'users' | 'library';
 
 type AdminOverview = Awaited<ReturnType<typeof fetchAdminOverview>>;
 
@@ -14,11 +14,10 @@ const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'users', label: 'Users', icon: UsersRound },
     { id: 'library', label: 'Library', icon: LibraryBig },
-    { id: 'access', label: 'Access', icon: Shield },
 ];
 
 const surfaceCard =
-    'border:1px solid var(--border);background:linear-gradient(180deg,var(--surface),var(--bg-subtle));border-radius:18px;box-shadow:var(--shadow-sm);';
+    'border:1px solid var(--border);background:var(--surface);border-radius:12px;box-shadow:var(--shadow-sm);';
 
 function SectionButton({
     active,
@@ -54,10 +53,10 @@ function StatCard({
 }) {
     return (
         <div style={`${surfaceCard};padding:18px;display:flex;flex-direction:column;gap:8px;`}>
-            <span style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);">
                 {label}
             </span>
-            <span style="font-size:28px;font-weight:800;letter-spacing:-0.04em;color:var(--text);line-height:1;">
+            <span style="font-size:24px;font-weight:700;color:var(--text);line-height:1;">
                 {value}
             </span>
             {hint && <span style="font-size:12px;color:var(--text-secondary);">{hint}</span>}
@@ -136,12 +135,6 @@ export function AdminDashboard() {
     const [library, setLibrary] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const currentRole = useMemo(() => session?.user.role?.toLowerCase() ?? 'resident', [session]);
-    const elevatedCount = useMemo(
-        () =>
-            users.filter((user) => ['admin', 'mod'].includes((user.role ?? '').toLowerCase()))
-                .length,
-        [users]
-    );
 
     useEffect(() => {
         Promise.all([fetchAdminOverview(), fetchAdminUsers(), fetchAdminLibrary()])
@@ -157,29 +150,22 @@ export function AdminDashboard() {
         <AppLayout title="Admin" showNav={false}>
             <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
                 <div
-                    style={`${surfaceCard};padding:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;`}
+                    style={`${surfaceCard};padding:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;`}
                 >
                     <div style="min-width:0;">
-                        <p style="margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
-                            Admin console
-                        </p>
-                        <h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.04em;color:var(--text);">
-                            Operate UrbanPulse
+                        <h2 style="margin:0;font-size:20px;font-weight:700;color:var(--text);">
+                            Admin Dashboard
                         </h2>
-                        <p style="margin:8px 0 0;font-size:13px;color:var(--text-secondary);max-width:42rem;">
-                            Manage trusted users, inspect content, and keep the network healthy.
-                        </p>
-                        <p style="margin:10px 0 0;font-size:12px;color:var(--text-tertiary);">
-                            {elevatedCount} elevated accounts on record
+                        <p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary);">
+                            Internal management and network oversight.
                         </p>
                     </div>
-                    <span style="display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:999px;background:var(--success-subtle);color:var(--success);font-size:12px;font-weight:700;">
-                        <CheckCircle2 size={14} />
+                    <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;font-weight:600;">
                         {currentRole}
                     </span>
                 </div>
 
-                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
                     {SECTIONS.map((item) => (
                         <SectionButton
                             key={item.id}
@@ -210,19 +196,19 @@ export function AdminDashboard() {
                                     hint={`${overview.adminUsers} admins • ${overview.modUsers} mods`}
                                 />
                                 <StatCard
-                                    label="Verified users"
+                                    label="Verified"
                                     value={overview.verifiedUsers}
-                                    hint="Identity confirmed on the network"
+                                    hint="Confirmed identities"
                                 />
                                 <StatCard
                                     label="Pulses"
                                     value={overview.totalPulses}
-                                    hint={`${overview.verifiedPulses} verified updates`}
+                                    hint={`${overview.verifiedPulses} verified`}
                                 />
                                 <StatCard
                                     label="Library"
                                     value={overview.totalLibraryItems}
-                                    hint={`${overview.availableLibraryItems} available items`}
+                                    hint={`${overview.availableLibraryItems} available`}
                                 />
                             </div>
                         )}
@@ -240,23 +226,6 @@ export function AdminDashboard() {
                                 {library.map((item) => (
                                     <LibraryRow key={item.id} item={item} />
                                 ))}
-                            </div>
-                        )}
-
-                        {section === 'access' && (
-                            <div
-                                style={`${surfaceCard};padding:18px;display:flex;flex-direction:column;gap:10px;`}
-                            >
-                                <div style="display:flex;align-items:center;gap:10px;">
-                                    <CheckCircle2 size={18} />
-                                    <span style="font-size:14px;font-weight:700;color:var(--text);">
-                                        Server enforced
-                                    </span>
-                                </div>
-                                <p style="margin:0;font-size:13px;color:var(--text-secondary);">
-                                    Admin routes require a valid session and the backend re-checks
-                                    the stored user role before returning protected data.
-                                </p>
                             </div>
                         )}
                     </>
