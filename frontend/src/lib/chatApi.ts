@@ -81,6 +81,16 @@ const subscribedThreadIds = new Set<string>();
 let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 let reconnectEnabled = false;
+let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'disconnected';
+const statusHandlers = new Set<(status: 'connected' | 'connecting' | 'disconnected') => void>();
+
+function updateStatus(newStatus: typeof connectionStatus) {
+    if (connectionStatus === newStatus) return;
+    connectionStatus = newStatus;
+    for (const handler of statusHandlers) {
+        handler(newStatus);
+    }
+}
 
 function normalizeMessage(message: BackendChatMessage, senderName: string): ChatMessage {
     return {
@@ -555,10 +565,12 @@ function ensureSocket() {
         return;
     }
 
+    updateStatus('connecting');
     reconnectEnabled = true;
     socket = new WebSocket(PULSE_FEED_WS_URL);
 
     socket.onopen = () => {
+        updateStatus('connected');
         resubscribeAllThreads();
         const session = readStoredAuthSession();
         if (session?.token) {
@@ -585,7 +597,10 @@ function ensureSocket() {
     socket.onclose = () => {
         socket = null;
         if (wsHandlers.size > 0) {
+            updateStatus('connecting');
             scheduleReconnect();
+        } else {
+            updateStatus('disconnected');
         }
     };
 
@@ -631,4 +646,16 @@ export function subscribeChatThread(threadId: string) {
 export function unsubscribeChatThread(threadId: string) {
     subscribedThreadIds.delete(threadId);
     sendUnsubscribe(threadId);
+}
+
+export function onChatConnectionStatusChange(
+    handler: (status: 'connected' | 'connecting' | 'disconnected') => void
+) {
+    statusHandlers.add(handler);
+    handler(connectionStatus);
+    return () => statusHandlers.delete(handler);
+}
+
+export function getChatConnectionStatus() {
+    return connectionStatus;
 }

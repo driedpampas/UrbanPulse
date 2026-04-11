@@ -337,43 +337,75 @@ async function ensureSchema() {
     await sql.begin(async (tx) => {
         await tx`CREATE SCHEMA IF NOT EXISTS app`;
 
-        await tx`
-            ALTER TABLE app.chat_threads
-            ADD COLUMN IF NOT EXISTS owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
+        // Check chat_threads.owner_id
+        const ownerIdCol = await tx`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'app' AND table_name = 'chat_threads' AND column_name = 'owner_id'
+            LIMIT 1
         `;
+        if (ownerIdCol.length === 0) {
+            await tx`
+                ALTER TABLE app.chat_threads
+                ADD COLUMN owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
+            `;
+        }
 
-        await tx`
-            CREATE TABLE IF NOT EXISTS app.chat_participant_roles (
-                thread_id uuid NOT NULL REFERENCES app.chat_threads(id) ON DELETE CASCADE,
-                user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-                role text NOT NULL,
-                assigned_by uuid REFERENCES app.users(id) ON DELETE SET NULL,
-                assigned_at timestamptz NOT NULL DEFAULT now(),
-                PRIMARY KEY (thread_id, user_id, role)
-            )
+        // Check chat_participant_roles table
+        const rolesTable = await tx`
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'app' AND table_name = 'chat_participant_roles'
+            LIMIT 1
         `;
+        if (rolesTable.length === 0) {
+            await tx`
+                CREATE TABLE app.chat_participant_roles (
+                    thread_id uuid NOT NULL REFERENCES app.chat_threads(id) ON DELETE CASCADE,
+                    user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    role text NOT NULL,
+                    assigned_by uuid REFERENCES app.users(id) ON DELETE SET NULL,
+                    assigned_at timestamptz NOT NULL DEFAULT now(),
+                    PRIMARY KEY (thread_id, user_id, role)
+                )
+            `;
+        }
 
-        await tx`
-            CREATE TABLE IF NOT EXISTS app.pulse_confirmations (
-                pulse_id uuid NOT NULL REFERENCES app.pulses(id) ON DELETE CASCADE,
-                user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-                confirmed_at timestamptz NOT NULL DEFAULT now(),
-                PRIMARY KEY (pulse_id, user_id)
-            )
+        // Check pulse_confirmations table
+        const confirmationsTable = await tx`
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'app' AND table_name = 'pulse_confirmations'
+            LIMIT 1
         `;
+        if (confirmationsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.pulse_confirmations (
+                    pulse_id uuid NOT NULL REFERENCES app.pulses(id) ON DELETE CASCADE,
+                    user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    confirmed_at timestamptz NOT NULL DEFAULT now(),
+                    PRIMARY KEY (pulse_id, user_id)
+                )
+            `;
+        }
 
-        await tx`
-            CREATE TABLE IF NOT EXISTS app.reports (
-                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                target_id uuid NOT NULL,
-                target_type text NOT NULL,
-                reason text NOT NULL,
-                reported_by uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-                created_at timestamptz NOT NULL DEFAULT now(),
-                status text NOT NULL DEFAULT 'pending',
-                content text NOT NULL
-            )
+        // Check reports table
+        const reportsTable = await tx`
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'app' AND table_name = 'reports'
+            LIMIT 1
         `;
+        if (reportsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.reports (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    target_id uuid NOT NULL,
+                    target_type text NOT NULL,
+                    reason text NOT NULL,
+                    reported_by uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    status text NOT NULL DEFAULT 'pending',
+                    content text NOT NULL
+                )
+            `;
+        }
     });
 
     isSchemaEnsured = true;

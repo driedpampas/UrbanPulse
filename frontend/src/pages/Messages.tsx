@@ -26,6 +26,7 @@ import {
     fetchBlockedUserIds,
     fetchChats,
     fetchChatThread,
+    onChatConnectionStatusChange,
     promoteGroupChatParticipant,
     removeGroupChatParticipant,
     sendMessage,
@@ -611,6 +612,11 @@ function ChatView({
         if (typeof window === 'undefined') return false;
         return localStorage.getItem('wide-chat-view') === 'true';
     });
+    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>(() => 'connected');
+
+    useEffect(() => {
+        return onChatConnectionStatusChange(setConnectionStatus);
+    }, []);
 
     useEffect(() => {
         localStorage.setItem('wide-chat-view', wideChatView.toString());
@@ -954,6 +960,17 @@ function ChatView({
                 </button>
             </header>
 
+            {connectionStatus !== 'connected' && (
+                <div style="background:var(--warning-subtle);color:var(--warning);padding:8px 12px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px;border-bottom:1px solid var(--warning-muted);animation:pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;z-index:35;flex-shrink:0;">
+                    <div style="width:6px;height:6px;border-radius:50%;background:var(--warning);" />
+                    <span>
+                        {connectionStatus === 'connecting'
+                            ? 'Reconnecting to live updates…'
+                            : 'Live updates unavailable. Check your connection.'}
+                    </span>
+                </div>
+            )}
+
             <div style="flex:1;display:flex;overflow:hidden;position:relative;">
                 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;">
                     {/* Messages */}
@@ -1132,12 +1149,16 @@ function ChatView({
                                 value={input}
                                 onInput={(e) => setInput((e.target as HTMLInputElement).value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.repeat && !isBlockedConversation)
+                                    if (e.key === 'Enter' && !e.repeat && !isBlockedConversation && connectionStatus === 'connected')
                                         handleSend();
                                 }}
-                                disabled={isBlockedConversation}
+                                disabled={isBlockedConversation || connectionStatus !== 'connected'}
                                 placeholder={
-                                    isBlockedConversation ? 'You have blocked this user' : 'Message…'
+                                    isBlockedConversation 
+                                    ? 'You have blocked this user' 
+                                    : connectionStatus !== 'connected'
+                                        ? 'Connecting…'
+                                        : 'Message…'
                                 }
                                 style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                                 onFocus={(e) => {
