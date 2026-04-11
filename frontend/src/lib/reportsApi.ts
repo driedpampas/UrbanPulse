@@ -7,7 +7,7 @@ export async function createReport(params: {
     reason: string;
     content: string;
 }): Promise<AdminFlag> {
-    return httpClient<AdminFlag>('/api/reports', {
+    return httpClient<AdminFlag>('/reports', {
         method: 'POST',
         body: JSON.stringify(params),
     });
@@ -15,13 +15,16 @@ export async function createReport(params: {
 
 export async function fetchAdminReports(limit = 50, offset = 0): Promise<AdminFlag[]> {
     const data = await httpClient<{ reports: AdminFlag[] }>(
-        `/api/admin/reports?limit=${limit}&offset=${offset}`
+        `/admin/reports?limit=${limit}&offset=${offset}`
     );
     return data.reports;
 }
 
-export async function updateReportStatus(id: string, status: 'resolved' | 'dismissed'): Promise<void> {
-    await httpClient(`/api/admin/reports/${id}/status`, {
+export async function updateReportStatus(
+    id: string,
+    status: 'resolved' | 'dismissed'
+): Promise<void> {
+    await httpClient(`/admin/reports/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
     });
