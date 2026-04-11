@@ -5,7 +5,6 @@ export interface User {
     name: string;
     avatar: string;
     bio: string;
-    skills: string[];
     trustScore: number;
     verified: boolean;
     lat: number;

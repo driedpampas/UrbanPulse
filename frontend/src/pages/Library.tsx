@@ -1,7 +1,13 @@
-import { Package, Plus, Search, Tag, Wrench, X } from 'lucide-preact';
+import { Package, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { fetchLibrary, postLibraryItem } from '../lib/libraryApi';
+import { useAuth } from '../lib/auth';
+import {
+    deleteLibraryItem,
+    fetchLibrary,
+    postLibraryItem,
+    updateLibraryItem,
+} from '../lib/libraryApi';
 import type { LibraryItem } from '../lib/types';
 
 const TAB_BTN = (active: boolean) => `
@@ -15,17 +21,41 @@ const TAB_BTN = (active: boolean) => `
 `;
 
 export function Library() {
+    const { session } = useAuth();
     const [items, setItems] = useState<LibraryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'item' | 'skill'>('all');
     const [search, setSearch] = useState('');
     const [showAdd, setShowAdd] = useState(false);
+    const [editingItem, setEditingItem] = useState<LibraryItem | null>(null);
+    const [deletingItem, setDeletingItem] = useState<LibraryItem | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+    const [busyItemId, setBusyItemId] = useState<string | null>(null);
+
+    const currentUser = session?.user;
+    const canManageItem = (item: LibraryItem) => {
+        const role = currentUser?.role;
+        return Boolean(
+            currentUser &&
+                (currentUser.id === item.userId || role === 'admin' || role === 'mod')
+        );
+    };
+
+    const loadLibrary = async () => {
+        setLoading(true);
+        try {
+            const data = await fetchLibrary();
+            setItems(data);
+        } catch (error) {
+            console.error(error);
+            setActionError('Could not load library items.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        fetchLibrary().then((data) => {
-            setItems(data);
-            setLoading(false);
-        });
+        void loadLibrary();
     }, []);
 
     const filtered = items.filter((i) => {
@@ -56,6 +86,23 @@ export function Library() {
             }
         >
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                {actionError && (
+                    <div
+                        style="padding:10px 12px;border-radius:10px;border:1px solid var(--danger-muted);background:var(--danger-subtle);color:var(--danger);font-size:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;"
+                    >
+                        <span>{actionError}</span>
+                        <button
+                            type="button"
+                            class="btn-icon"
+                            onClick={() => setActionError(null)}
+                            aria-label="Dismiss error"
+                            style="width:20px;height:20px;color:var(--danger);"
+                        >
+                            <X size={12} />
+                        </button>
+                    </div>
+                )}
+
                 {/* Search */}
                 <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
                     <Search size={14} style="color:var(--text-tertiary);flex-shrink:0;" />
@@ -112,6 +159,7 @@ export function Library() {
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         {filtered.map((item, i) => {
                             const isItem = item.type === 'item';
+                            const canManage = canManageItem(item);
                             return (
                                 <div
                                     key={item.id}
@@ -128,16 +176,48 @@ export function Library() {
 
                                         <div style="flex:1;min-width:0;">
                                             {/* Title row */}
-                                            <div style="display:flex;align-items:center;gap:8px;">
-                                                <span style="font-size:13px;font-weight:600;color:var(--text);">
-                                                    {item.title}
-                                                </span>
-                                                <span
-                                                    title={
-                                                        item.available ? 'Available' : 'Unavailable'
-                                                    }
-                                                    style={`width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${item.available ? 'var(--success)' : 'var(--text-tertiary)'};`}
-                                                />
+                                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                                                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                                                    <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                                        {item.title}
+                                                    </span>
+                                                    <span
+                                                        title={
+                                                            item.available
+                                                                ? 'Available'
+                                                                : 'Unavailable'
+                                                        }
+                                                        style={`width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${item.available ? 'var(--success)' : 'var(--text-tertiary)'};`}
+                                                    />
+                                                </div>
+                                                {canManage && (
+                                                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                                                        <button
+                                                            type="button"
+                                                            class="btn-ghost"
+                                                            onClick={() => {
+                                                                setActionError(null);
+                                                                setEditingItem(item);
+                                                            }}
+                                                            style="height:26px;padding:0 9px;font-size:11px;gap:4px;"
+                                                        >
+                                                            <Pencil size={11} />
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn-ghost"
+                                                            onClick={() => {
+                                                                setActionError(null);
+                                                                setDeletingItem(item);
+                                                            }}
+                                                            style="height:26px;padding:0 9px;font-size:11px;gap:4px;color:var(--danger);border-color:var(--danger-muted);"
+                                                        >
+                                                            <Trash2 size={11} />
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                             {/* Owner */}
                                             <p style="font-size:11px;color:var(--text-tertiary);margin:2px 0 6px;">
@@ -171,10 +251,60 @@ export function Library() {
             {showAdd && (
                 <AddItemModal
                     onClose={() => setShowAdd(false)}
-                    onAdd={(item) => {
+                    onAdd={async (item) => {
                         setItems((p) => [...p, item]);
                         setShowAdd(false);
                     }}
+                />
+            )}
+
+            {editingItem && (
+                <EditItemModal
+                    item={editingItem}
+                    onClose={() => setEditingItem(null)}
+                    onSave={async (updates) => {
+                        setBusyItemId(editingItem.id);
+                        try {
+                            await updateLibraryItem(editingItem.id, updates);
+                            await loadLibrary();
+                            setEditingItem(null);
+                        } catch (error) {
+                            console.error(error);
+                            setActionError(
+                                error instanceof Error
+                                    ? error.message
+                                    : 'Could not update library item.'
+                            );
+                        } finally {
+                            setBusyItemId(null);
+                        }
+                    }}
+                    busy={busyItemId === editingItem.id}
+                />
+            )}
+
+            {deletingItem && (
+                <DeleteItemModal
+                    item={deletingItem}
+                    onClose={() => setDeletingItem(null)}
+                    onDelete={async () => {
+                        setBusyItemId(deletingItem.id);
+                        try {
+                            await deleteLibraryItem(deletingItem.id);
+                            await loadLibrary();
+                            setDeletingItem(null);
+                        } catch (error) {
+                            console.error(error);
+                            setActionError(
+                                error instanceof Error
+                                    ? error.message
+                                    : 'Could not delete library item.'
+                            );
+                        } finally {
+                            setBusyItemId(null);
+                        }
+                    }}
+                    busy={busyItemId === deletingItem.id}
                 />
             )}
         </AppLayout>
@@ -186,7 +316,7 @@ function AddItemModal({
     onAdd,
 }: {
     onClose: () => void;
-    onAdd: (item: LibraryItem) => void;
+    onAdd: (item: LibraryItem) => void | Promise<void>;
 }) {
     const [type, setType] = useState<'item' | 'skill'>('item');
     const [title, setTitle] = useState('');
@@ -207,7 +337,7 @@ function AddItemModal({
                 .map((t) => t.trim())
                 .filter(Boolean),
         });
-        onAdd(item);
+        await onAdd(item);
         setSubmitting(false);
     };
 
@@ -296,6 +426,208 @@ function AddItemModal({
                         {submitting ? 'Adding…' : 'Add to Library'}
                     </button>
                 </form>
+            </div>
+        </div>
+    );
+}
+
+function EditItemModal({
+    item,
+    onClose,
+    onSave,
+    busy,
+}: {
+    item: LibraryItem;
+    onClose: () => void;
+    onSave: (updates: {
+        title: string;
+        description: string;
+        tags: string[];
+        isAvailable: boolean;
+    }) => Promise<void>;
+    busy: boolean;
+}) {
+    const [title, setTitle] = useState(item.title);
+    const [description, setDescription] = useState(item.description);
+    const [tags, setTags] = useState(item.tags.join(', '));
+    const [isAvailable, setIsAvailable] = useState(item.available);
+    const [localError, setLocalError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: Event) => {
+        e.preventDefault();
+        const nextTitle = title.trim();
+        if (!nextTitle) {
+            setLocalError('Title is required.');
+            return;
+        }
+
+        setLocalError(null);
+        await onSave({
+            title: nextTitle,
+            description: description.trim(),
+            tags: tags
+                .split(',')
+                .map((tag) => tag.trim())
+                .filter(Boolean),
+            isAvailable,
+        });
+    };
+
+    const focusIn = (e: Event) => {
+        const el = e.target as HTMLElement;
+        el.style.borderColor = 'var(--border-focus)';
+        el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
+    };
+    const focusOut = (e: Event) => {
+        const el = e.target as HTMLElement;
+        el.style.borderColor = 'var(--border)';
+        el.style.boxShadow = 'none';
+    };
+    const fieldStyle =
+        'width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s,box-shadow 0.15s;';
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            style="position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);"
+        >
+            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+            <div
+                class="animate-slide-up"
+                style="position:relative;width:100%;max-width:680px;background:var(--surface);border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;padding:20px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);"
+            >
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                        <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
+                            Edit Library Item
+                        </p>
+                        <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
+                            Type stays {item.type}.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="btn-icon"
+                        onClick={onClose}
+                        aria-label="Close"
+                        style="color:var(--text-secondary);"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} style="display:flex;flex-direction:column;gap:10px;">
+                    <input
+                        value={title}
+                        onInput={(e) => setTitle((e.target as HTMLInputElement).value)}
+                        placeholder="Title"
+                        style={fieldStyle}
+                        onFocus={focusIn}
+                        onBlur={focusOut}
+                    />
+                    <textarea
+                        value={description}
+                        onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+                        placeholder="Description"
+                        style={`${fieldStyle}height:80px;resize:none;`}
+                        onFocus={focusIn}
+                        onBlur={focusOut}
+                    />
+                    <input
+                        value={tags}
+                        onInput={(e) => setTags((e.target as HTMLInputElement).value)}
+                        placeholder="Tags, comma-separated"
+                        style={fieldStyle}
+                        onFocus={focusIn}
+                        onBlur={focusOut}
+                    />
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);">
+                        <input
+                            type="checkbox"
+                            checked={isAvailable}
+                            onChange={(e) => setIsAvailable((e.target as HTMLInputElement).checked)}
+                        />
+                        Available
+                    </label>
+                    {localError && (
+                        <p style="margin:0;font-size:12px;color:var(--danger);">
+                            {localError}
+                        </p>
+                    )}
+                    <button
+                        type="submit"
+                        disabled={!title.trim() || busy}
+                        class="btn-primary"
+                        style="height:40px;background:var(--accent);border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
+                    >
+                        {busy ? 'Saving…' : 'Save changes'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function DeleteItemModal({
+    item,
+    onClose,
+    onDelete,
+    busy,
+}: {
+    item: LibraryItem;
+    onClose: () => void;
+    onDelete: () => Promise<void>;
+    busy: boolean;
+}) {
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);padding:16px;"
+        >
+            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+            <div
+                class="animate-slide-up"
+                style="position:relative;width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 18px 20px;box-shadow:var(--shadow-lg);"
+            >
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                        <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;">
+                            Delete item?
+                        </p>
+                        <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
+                            This will permanently remove <strong>{item.title}</strong> from the library.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="btn-icon"
+                        onClick={onClose}
+                        aria-label="Close"
+                        style="color:var(--text-secondary);"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button
+                        type="button"
+                        class="btn-ghost"
+                        onClick={onClose}
+                        style="height:36px;padding:0 12px;font-size:12px;"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="btn-primary"
+                        onClick={onDelete}
+                        disabled={busy}
+                        style="height:36px;padding:0 12px;font-size:12px;background:var(--danger);"
+                    >
+                        {busy ? 'Deleting…' : 'Delete'}
+                    </button>
+                </div>
             </div>
         </div>
     );

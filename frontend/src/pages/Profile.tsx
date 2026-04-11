@@ -8,7 +8,6 @@ import {
     MessageSquare,
     Moon,
     Pencil,
-    Plus,
     Save,
     Trash2,
     X,
@@ -116,7 +115,6 @@ export function Profile() {
     const [user, setUser] = useState<User | null>(null);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState<Partial<User>>({});
-    const [newSkill, setNewSkill] = useState('');
     const [saving, setSaving] = useState(false);
     const [showDel, setShowDel] = useState(false);
     const [blocked, setBlocked] = useState(false);
@@ -362,15 +360,6 @@ export function Profile() {
         }
     };
 
-    const addSkill = () => {
-        if (!newSkill.trim()) return;
-        setDraft((d) => ({ ...d, skills: [...(d.skills ?? []), newSkill.trim()] }));
-        setNewSkill('');
-    };
-
-    const removeSkill = (s: string) =>
-        setDraft((d) => ({ ...d, skills: (d.skills ?? []).filter((x) => x !== s) }));
-
     const toggleDay = (day: number) => {
         setDraft((d) => {
             const cur = normDays(d.quietDays === undefined ? user?.quietDays : d.quietDays);
@@ -520,77 +509,6 @@ export function Profile() {
                         </button>
                     </div>
                 )}
-
-                {/* Skills */}
-                <div style={S.section} class="animate-slide-up" style-animation-delay="50ms">
-                    <div style={S.sectionHead}>
-                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
-                            SKILLS & RESOURCES
-                        </p>
-                    </div>
-                    <div style={S.sectionBody}>
-                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                            {(editing ? draft.skills : user.skills)?.map((skill) => (
-                                <span
-                                    key={skill}
-                                    style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:500;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
-                                >
-                                    {skill}
-                                    {editing && (
-                                        <button
-                                            type="button"
-                                            onClick={() => removeSkill(skill)}
-                                            style="background:none;border:none;cursor:pointer;padding:0;color:var(--text-tertiary);display:flex;align-items:center;"
-                                            aria-label={`Remove ${skill}`}
-                                        >
-                                            <X size={11} />
-                                        </button>
-                                    )}
-                                </span>
-                            ))}
-                            {!(editing ? draft.skills : user.skills)?.length && !editing && (
-                                <span style="font-size:12px;color:var(--text-tertiary);font-style:italic;">
-                                    No skills listed.
-                                </span>
-                            )}
-                            {editing && (
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <input
-                                        value={newSkill}
-                                        onInput={(e) =>
-                                            setNewSkill((e.target as HTMLInputElement).value)
-                                        }
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                addSkill();
-                                            }
-                                        }}
-                                        placeholder="Add skill…"
-                                        style="width:100px;padding:3px 10px;border-radius:6px;border:1px dashed var(--border-strong);background:transparent;color:var(--text);font-size:12px;font-family:inherit;outline:none;"
-                                        onFocus={(e) =>
-                                            ((e.target as HTMLElement).style.borderColor =
-                                                'var(--border-focus)')
-                                        }
-                                        onBlur={(e) =>
-                                            ((e.target as HTMLElement).style.borderColor =
-                                                'var(--border-strong)')
-                                        }
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={addSkill}
-                                        class="btn-icon"
-                                        style="color:var(--accent);width:28px;height:28px;"
-                                        aria-label="Add skill"
-                                    >
-                                        <Plus size={14} />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
 
                 {/* Preferences */}
                 <div style={S.section} class="animate-slide-up" style-animation-delay="100ms">

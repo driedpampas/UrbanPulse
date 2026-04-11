@@ -9,7 +9,6 @@ type BackendUser = {
     role?: string;
     email?: string | null;
     displayName?: string | null;
-    skillsAndResources?: string[] | null;
     trustScore?: number | null;
     verified?: boolean;
     radius?: number | null;
@@ -105,7 +104,6 @@ function mapBackendUser(user: BackendUser): User {
         name: user.displayName || fallbackDisplayName(user.id),
         avatar: toAvatarUrl(user.displayName || user.id),
         bio: user.bio || 'No bio yet.',
-        skills: user.skillsAndResources || [],
         trustScore: Math.round(user.trustScore || 0),
         verified: Boolean(user.verified),
         lat: location?.lat ?? 0,
@@ -206,7 +204,6 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         location?: { lat: number; lng: number };
         quietHours?: Array<{ start: string; end: string }> | null;
         quietDays?: number[] | null;
-        skills_and_resources?: string[] | null;
     } = {};
 
     if (typeof updates.name === 'string') {
@@ -240,10 +237,6 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 
     if (updates.quietDays !== undefined) {
         patchBody.quietDays = normalizeQuietDays(updates.quietDays);
-    }
-
-    if (updates.skills) {
-        patchBody.skills_and_resources = updates.skills;
     }
 
     await request<void>('/user', {

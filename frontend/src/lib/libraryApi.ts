@@ -1,6 +1,13 @@
 import { httpClient } from './httpClient';
 import type { LibraryItem } from './types';
 
+export type LibraryItemUpdateInput = {
+    title?: string;
+    description?: string;
+    tags?: string[];
+    isAvailable?: boolean;
+};
+
 export async function fetchLibrary(): Promise<LibraryItem[]> {
     return httpClient<LibraryItem[]>('/library');
 }
@@ -24,6 +31,17 @@ export async function updateLibraryItemAvailability(
     const res = await httpClient<{ success: boolean }>(`/library/${itemId}`, {
         method: 'PATCH',
         body: JSON.stringify({ isAvailable: available }),
+    });
+    return res.success;
+}
+
+export async function updateLibraryItem(
+    itemId: string,
+    updates: LibraryItemUpdateInput
+): Promise<boolean> {
+    const res = await httpClient<{ success: boolean }>(`/library/${itemId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
     });
     return res.success;
 }
