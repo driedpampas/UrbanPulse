@@ -66,6 +66,11 @@ type BackendChatMessage = {
     timestamp: number | string;
 };
 
+type BackendAddParticipantsResponse = {
+    chat: BackendChatSummary;
+    messages: BackendChatMessage[];
+};
+
 class ChatApiError extends Error {
     status: number;
 
@@ -101,6 +106,33 @@ function normalizeMessage(message: BackendChatMessage, senderName: string): Chat
         type: (message.messageType as 'text' | 'notice') ?? 'text',
         timestamp: Number(message.timestamp),
     };
+}
+
+function participantNameMap(summary: BackendChatSummary): Map<string, string> {
+    return new Map(
+        summary.participants.map((participant) => [
+            participant.userId,
+            participant.displayName?.trim().length
+                ? participant.displayName
+                : `Neighbor ${participant.userId.slice(0, 6)}`,
+        ])
+    );
+}
+
+function normalizeThreadMessages(
+    summary: BackendChatSummary,
+    messages: BackendChatMessage[]
+): ChatMessage[] {
+    const names = participantNameMap(summary);
+
+    return sortMessagesByTimestamp(
+        messages.map((message) =>
+            normalizeMessage(
+                message,
+                names.get(message.senderId) || `Neighbor ${message.senderId.slice(0, 6)}`
+            )
+        )
+    );
 }
 
 function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): ChatThread {
@@ -298,16 +330,12 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
     return null;
 }
 
-async function fetchChatMessages(threadId: string): Promise<ChatMessage[]> {
+async function fetchChatMessages(threadId: string): Promise<BackendChatMessage[]> {
     const messages = await request<BackendChatMessage[]>(`/chats/${threadId}/messages`, {
         method: 'GET',
     });
 
-    return sortMessagesByTimestamp(
-        messages.map((message) =>
-            normalizeMessage(message, `Neighbor ${message.senderId.slice(0, 6)}`)
-        )
-    );
+    return messages;
 }
 
 export async function fetchChats(): Promise<ChatThread[]> {
@@ -316,23 +344,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
     const threads = await Promise.all(
         summaries.map(async (summary) => {
             const messages = await fetchChatMessages(summary.id);
-            const participantNames = new Map(
-                summary.participants.map((participant) => [
-                    participant.userId,
-                    participant.displayName?.trim().length
-                        ? participant.displayName
-                        : `Neighbor ${participant.userId.slice(0, 6)}`,
-                ])
-            );
-
-            const normalizedMessages = messages.map((message) => ({
-                ...message,
-                senderName:
-                    participantNames.get(message.senderId) ||
-                    `Neighbor ${message.senderId.slice(0, 6)}`,
-            }));
-
-            return normalizeChat(summary, sortMessagesByTimestamp(normalizedMessages));
+            return normalizeChat(summary, normalizeThreadMessages(summary, messages));
         })
     );
 
@@ -354,7 +366,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
 export async function fetchChatThread(threadId: string): Promise<ChatThread> {
     const summary = await request<BackendChatSummary>(`/chats/${threadId}`, { method: 'GET' });
     const messages = await fetchChatMessages(threadId);
-    return normalizeChat(summary, messages);
+    return normalizeChat(summary, normalizeThreadMessages(summary, messages));
 }
 
 export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
@@ -445,14 +457,22 @@ export async function createGroupChat(input: CreateGroupChatInput): Promise<Chat
     return thread;
 }
 
-export async function addGroupChatParticipants(threadId: string, participantIds: string[]) {
-    await request<void>(`/chats/${threadId}/participants`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ participantIds }),
-    });
+export async function addGroupChatParticipants(
+    threadId: string,
+    participantIds: string[]
+): Promise<ChatThread> {
+    const payload = await request<BackendAddParticipantsResponse>(
+        `/chats/${threadId}/participants`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ participantIds }),
+        }
+    );
+
+    return normalizeChat(payload.chat, normalizeThreadMessages(payload.chat, payload.messages));
 }
 
 export async function removeGroupChatParticipant(threadId: string, participantId: string) {

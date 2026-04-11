@@ -697,7 +697,12 @@ bun.serve({
 
                                 users = users.map((u) => {
                                     if (!isAdmin && u.id !== payload.id) {
-                                        const { email: _email, location: _loc, radius: _rad, ...rest } = u;
+                                        const {
+                                            email: _email,
+                                            location: _loc,
+                                            radius: _rad,
+                                            ...rest
+                                        } = u;
                                         return rest as any;
                                     }
                                     return u;
@@ -723,7 +728,12 @@ bun.serve({
                                 );
 
                                 users = users.map((u) => {
-                                    const { email: _email, location: _loc, radius: _rad, ...rest } = u;
+                                    const {
+                                        email: _email,
+                                        location: _loc,
+                                        radius: _rad,
+                                        ...rest
+                                    } = u;
                                     return rest as any;
                                 });
 
@@ -1478,6 +1488,14 @@ bun.serve({
                                 payload.id
                             );
 
+                            const chatSummary = await db.selectChatSummary(
+                                req.params.id,
+                                payload.id
+                            );
+                            if (!chatSummary) {
+                                return withCors(NOT_FOUND);
+                            }
+
                             if (server) {
                                 for (const message of messages) {
                                     server.publish(
@@ -1489,7 +1507,10 @@ bun.serve({
                                     );
                                 }
                             }
-                            return withCors(SUCCESS);
+
+                            return withCors(
+                                Response.json({ chat: chatSummary, messages }, { status: 200 })
+                            );
                         })
                     )
                 ),
@@ -1641,16 +1662,12 @@ bun.serve({
                                 .json()
                                 .then((raw) => updateLibraryItemSchema.parse(raw));
 
-                            const success = await db.updateLibraryItem(
-                                req.params.id,
-                                payload.id,
-                                {
-                                    title: body.title,
-                                    description: body.description,
-                                    tags: body.tags,
-                                    isAvailable: body.isAvailable,
-                                }
-                            );
+                            const success = await db.updateLibraryItem(req.params.id, payload.id, {
+                                title: body.title,
+                                description: body.description,
+                                tags: body.tags,
+                                isAvailable: body.isAvailable,
+                            });
 
                             return withCors(
                                 Response.json({ success }, { status: success ? 200 : 403 })

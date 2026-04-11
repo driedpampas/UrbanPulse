@@ -1485,66 +1485,65 @@ function ChatView({
                                 </div>
 
                                 <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
-                                    {isGroup && (
-                                        thread.ownerId === currentUserId ? (
-                                                <button
-                                                    type="button"
-                                                    class="btn-ghost"
-                                                    onClick={async () => {
-                                                        if (
-                                                            confirm(
-                                                                'Are you sure you want to delete this group? This cannot be undone.'
-                                                            )
-                                                        ) {
-                                                            try {
-                                                                await deleteGroupChat(thread.id);
-                                                                onThreadDeleted(thread.id);
-                                                            } catch (err) {
-                                                                alert(
-                                                                    err instanceof Error
-                                                                        ? err.message
-                                                                        : 'Failed to delete group'
-                                                                );
-                                                            }
+                                    {isGroup &&
+                                        (thread.ownerId === currentUserId ? (
+                                            <button
+                                                type="button"
+                                                class="btn-ghost"
+                                                onClick={async () => {
+                                                    if (
+                                                        confirm(
+                                                            'Are you sure you want to delete this group? This cannot be undone.'
+                                                        )
+                                                    ) {
+                                                        try {
+                                                            await deleteGroupChat(thread.id);
+                                                            onThreadDeleted(thread.id);
+                                                        } catch (err) {
+                                                            alert(
+                                                                err instanceof Error
+                                                                    ? err.message
+                                                                    : 'Failed to delete group'
+                                                            );
                                                         }
-                                                    }}
-                                                    style="width:100%;height:38px;font-size:13px;color:var(--danger);justify-content:center;gap:8px;background:var(--danger-subtle);border-radius:8px;"
-                                                >
-                                                    <Trash2 size={14} />
-                                                    Delete Group
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    class="btn-ghost"
-                                                    onClick={async () => {
-                                                        if (
-                                                            confirm(
-                                                                'Are you sure you want to leave this group?'
-                                                            )
-                                                        ) {
-                                                            try {
-                                                                await removeGroupChatParticipant(
-                                                                    thread.id,
-                                                                    currentUserId
-                                                                );
-                                                                onThreadDeleted(thread.id);
-                                                            } catch (err) {
-                                                                alert(
-                                                                    err instanceof Error
-                                                                        ? err.message
-                                                                        : 'Failed to leave group'
-                                                                );
-                                                            }
+                                                    }
+                                                }}
+                                                style="width:100%;height:38px;font-size:13px;color:var(--danger);justify-content:center;gap:8px;background:var(--danger-subtle);border-radius:8px;"
+                                            >
+                                                <Trash2 size={14} />
+                                                Delete Group
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                class="btn-ghost"
+                                                onClick={async () => {
+                                                    if (
+                                                        confirm(
+                                                            'Are you sure you want to leave this group?'
+                                                        )
+                                                    ) {
+                                                        try {
+                                                            await removeGroupChatParticipant(
+                                                                thread.id,
+                                                                currentUserId
+                                                            );
+                                                            onThreadDeleted(thread.id);
+                                                        } catch (err) {
+                                                            alert(
+                                                                err instanceof Error
+                                                                    ? err.message
+                                                                    : 'Failed to leave group'
+                                                            );
                                                         }
-                                                    }}
-                                                    style="width:100%;height:38px;font-size:13px;justify-content:center;gap:8px;background:var(--bg-subtle);border-radius:8px;"
-                                                >
-                                                    <ArrowLeft size={14} />
-                                                    Leave Group
-                                                </button>
-                                            )
-                                    )}
+                                                    }
+                                                }}
+                                                style="width:100%;height:38px;font-size:13px;justify-content:center;gap:8px;background:var(--bg-subtle);border-radius:8px;"
+                                            >
+                                                <ArrowLeft size={14} />
+                                                Leave Group
+                                            </button>
+                                        ))}
                                 </div>
                             </div>
                         ) : (
@@ -1624,16 +1623,13 @@ function ChatView({
                                         participantNameById.get(participantId) ||
                                         `Neighbor ${participantId.slice(0, 6)}`;
                                     const avatar = profile?.avatar || getAvatarUrl(participantId);
-                                            const roles = thread.participantRoles?.[participantId] ?? [];
+                                    const roles = thread.participantRoles?.[participantId] ?? [];
                                     const isOwner =
                                         thread.ownerId === participantId || roles.includes('owner');
                                     const isAdmin = roles.includes('admin');
                                     const isSelf = participantId === currentUserId;
                                     return (
-                                        <div
-                                            key={participantId}
-                                            class="participant-card"
-                                        >
+                                        <div key={participantId} class="participant-card">
                                             <button
                                                 type="button"
                                                 onClick={() => openProfile(participantId)}
