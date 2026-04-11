@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { fetchPetMatches } from '../lib/mockApi';
 import type { PetMatch as PetMatchType } from '../lib/types';
+import { HoverButton } from '../components/ui/HoverButton';
 
 function timeAgo(ts: number) {
     const d = Date.now() - ts;
@@ -115,7 +116,7 @@ export function PetMatch() {
 
                                         {/* Actions */}
                                         <div style="display:flex;gap:8px;margin-top:12px;">
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 class="btn-primary"
                                                 style="flex:1;height:36px;font-size:12px;background:var(--accent);"
@@ -129,8 +130,8 @@ export function PetMatch() {
                                                 }
                                             >
                                                 Contact Finder
-                                            </button>
-                                            <button
+                                            </HoverButton>
+                                            <HoverButton
                                                 type="button"
                                                 class="btn-ghost"
                                                 style="height:36px;padding:0 14px;font-size:12px;"
@@ -144,7 +145,7 @@ export function PetMatch() {
                                                 }
                                             >
                                                 Not a match
-                                            </button>
+                                            </HoverButton>
                                         </div>
                                     </div>
                                 );

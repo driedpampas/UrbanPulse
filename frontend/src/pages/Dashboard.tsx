@@ -6,6 +6,7 @@ import { PulseMap } from '../components/Dashboard/PulseMap';
 import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
+import { HoverButton } from '../components/ui/HoverButton';
 
 export function Dashboard() {
     const [view, setView] = useState<'feed' | 'map'>('feed');
@@ -43,7 +44,7 @@ export function Dashboard() {
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                         {/* View toggle */}
                         <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
-                            <button
+                            <HoverButton
                                 type="button"
                                 id="view-feed-btn"
                                 style={tabStyle(view === 'feed')}
@@ -58,8 +59,8 @@ export function Dashboard() {
                             >
                                 <List size={13} />
                                 Feed
-                            </button>
-                            <button
+                            </HoverButton>
+                            <HoverButton
                                 type="button"
                                 id="view-map-btn"
                                 style={tabStyle(view === 'map')}
@@ -74,12 +75,12 @@ export function Dashboard() {
                             >
                                 <MapIcon size={13} />
                                 Map
-                            </button>
+                            </HoverButton>
                         </div>
 
                         {/* Actions */}
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <button
+                            <HoverButton
                                 type="button"
                                 id="toggle-filters-btn"
                                 class="btn-icon"
@@ -95,8 +96,8 @@ export function Dashboard() {
                                 }
                             >
                                 <SlidersHorizontal size={15} />
-                            </button>
-                            <button
+                            </HoverButton>
+                            <HoverButton
                                 type="button"
                                 id="post-pulse-btn"
                                 class="btn-primary"
@@ -113,7 +114,7 @@ export function Dashboard() {
                             >
                                 <Plus size={14} strokeWidth={2.4} />
                                 New Pulse
-                            </button>
+                            </HoverButton>
                         </div>
                     </div>
 

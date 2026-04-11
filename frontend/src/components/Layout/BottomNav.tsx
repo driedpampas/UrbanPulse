@@ -10,6 +10,7 @@ import {
 import { useLocation } from 'wouter';
 import { useAuth } from '../../lib/auth';
 import { useUnreadChatCount } from '../../lib/chatNotifications';
+import { HoverButton } from '../ui/HoverButton';
 
 const tabs = [
     { path: '/', icon: Home, label: 'Feed' },
@@ -46,7 +47,7 @@ export function BottomNav() {
                     const Icon = tab.icon;
                     const showUnreadBadge = tab.path === '/messages' && unreadChatCount > 0;
                     return (
-                        <button
+                        <HoverButton
                             type="button"
                             key={tab.path}
                             id={`nav-${tab.label.toLowerCase()}`}
@@ -78,7 +79,7 @@ export function BottomNav() {
                             >
                                 {tab.label}
                             </span>
-                        </button>
+                        </HoverButton>
                     );
                 })}
             </div>

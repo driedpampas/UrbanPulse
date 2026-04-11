@@ -9,6 +9,7 @@ import {
     updateLibraryItem,
 } from '../lib/libraryApi';
 import type { LibraryItem } from '../lib/types';
+import { HoverButton } from '../components/ui/HoverButton';
 
 const TAB_BTN = (active: boolean) => `
     font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;border:none;
@@ -70,7 +71,7 @@ export function Library() {
         <AppLayout
             title="Library"
             headerRight={
-                <button
+                <HoverButton
                     type="button"
                     id="add-library-btn"
                     class="btn-primary"
@@ -83,14 +84,14 @@ export function Library() {
                 >
                     <Plus size={13} />
                     Add
-                </button>
+                </HoverButton>
             }
         >
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
                 {actionError && (
                     <div style="padding:10px 12px;border-radius:10px;border:1px solid var(--danger-muted);background:var(--danger-subtle);color:var(--danger);font-size:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
                         <span>{actionError}</span>
-                        <button
+                        <HoverButton
                             type="button"
                             class="btn-icon"
                             onClick={() => setActionError(null)}
@@ -102,7 +103,7 @@ export function Library() {
                             onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             <X size={12} />
-                        </button>
+                        </HoverButton>
                     </div>
                 )}
 
@@ -116,7 +117,7 @@ export function Library() {
                         style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:var(--text);font-family:inherit;"
                     />
                     {search && (
-                        <button
+                        <HoverButton
                             type="button"
                             onClick={() => setSearch('')}
                             class="btn-icon"
@@ -127,14 +128,14 @@ export function Library() {
                             onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             <X size={12} />
-                        </button>
+                        </HoverButton>
                     )}
                 </div>
 
                 {/* Filter tabs */}
                 <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);align-self:flex-start;">
                     {(['all', 'item', 'skill'] as const).map((f) => (
-                        <button
+                        <HoverButton
                             key={f}
                             type="button"
                             onClick={() => setFilter(f)}
@@ -145,7 +146,7 @@ export function Library() {
                             onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             {f === 'all' ? 'All' : f === 'item' ? '📦 Items' : '🛠️ Skills'}
-                        </button>
+                        </HoverButton>
                     ))}
                 </div>
 
@@ -203,7 +204,7 @@ export function Library() {
                                                 </div>
                                                 {canManage && (
                                                     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                                                        <button
+                                                        <HoverButton
                                                             type="button"
                                                             class="btn-ghost"
                                                             onClick={() => {
@@ -225,8 +226,8 @@ export function Library() {
                                                         >
                                                             <Pencil size={11} />
                                                             Edit
-                                                        </button>
-                                                        <button
+                                                        </HoverButton>
+                                                        <HoverButton
                                                             type="button"
                                                             class="btn-ghost"
                                                             onClick={() => {
@@ -248,7 +249,7 @@ export function Library() {
                                                         >
                                                             <Trash2 size={11} />
                                                             Delete
-                                                        </button>
+                                                        </HoverButton>
                                                     </div>
                                                 )}
                                             </div>
@@ -402,7 +403,7 @@ function AddItemModal({
                     <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
                         Add to Library
                     </p>
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-icon"
                         onClick={onClose}
@@ -414,13 +415,13 @@ function AddItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
-                    </button>
+                    </HoverButton>
                 </div>
                 <form onSubmit={handleSubmit} style="display:flex;flex-direction:column;gap:10px;">
                     {/* Type */}
                     <div style="display:flex;gap:6px;">
                         {(['item', 'skill'] as const).map((t) => (
-                            <button
+                            <HoverButton
                                 key={t}
                                 type="button"
                                 onClick={() => setType(t)}
@@ -436,7 +437,7 @@ function AddItemModal({
                                 }}
                             >
                                 {t === 'item' ? '📦 Item' : '🛠️ Skill'}
-                            </button>
+                            </HoverButton>
                         ))}
                     </div>
                     <input
@@ -463,7 +464,7 @@ function AddItemModal({
                         onFocus={focusIn}
                         onBlur={focusOut}
                     />
-                    <button
+                    <HoverButton
                         type="submit"
                         disabled={!title.trim() || submitting}
                         class="btn-primary"
@@ -474,7 +475,7 @@ function AddItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {submitting ? 'Adding…' : 'Add to Library'}
-                    </button>
+                    </HoverButton>
                 </form>
             </div>
         </div>
@@ -556,7 +557,7 @@ function EditItemModal({
                             Type stays {item.type}.
                         </p>
                     </div>
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-icon"
                         onClick={onClose}
@@ -568,7 +569,7 @@ function EditItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
-                    </button>
+                    </HoverButton>
                 </div>
                 <form onSubmit={handleSubmit} style="display:flex;flex-direction:column;gap:10px;">
                     <input
@@ -606,7 +607,7 @@ function EditItemModal({
                     {localError && (
                         <p style="margin:0;font-size:12px;color:var(--danger);">{localError}</p>
                     )}
-                    <button
+                    <HoverButton
                         type="submit"
                         disabled={!title.trim() || busy}
                         class="btn-primary"
@@ -617,7 +618,7 @@ function EditItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {busy ? 'Saving…' : 'Save changes'}
-                    </button>
+                    </HoverButton>
                 </form>
             </div>
         </div>
@@ -656,7 +657,7 @@ function DeleteItemModal({
                             library.
                         </p>
                     </div>
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-icon"
                         onClick={onClose}
@@ -668,10 +669,10 @@ function DeleteItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
-                    </button>
+                    </HoverButton>
                 </div>
                 <div style="display:flex;gap:8px;justify-content:flex-end;">
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-ghost"
                         onClick={onClose}
@@ -682,8 +683,8 @@ function DeleteItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Cancel
-                    </button>
-                    <button
+                    </HoverButton>
+                    <HoverButton
                         type="button"
                         class="btn-primary"
                         onClick={onDelete}
@@ -695,7 +696,7 @@ function DeleteItemModal({
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {busy ? 'Deleting…' : 'Delete'}
-                    </button>
+                    </HoverButton>
                 </div>
             </div>
         </div>

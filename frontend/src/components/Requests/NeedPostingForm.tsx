@@ -15,6 +15,7 @@ import { fetchPulseResourceCatalog, matchPulseHeroes, postPulse } from '../../li
 import type { HeroMatchUser, Pulse, ResourceCatalogEntry } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
 import { DEFAULT_PULSE_CENTER, isUsableCoordinates } from '../../lib/utils';
+import { HoverButton } from '../ui/HoverButton';
 
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
@@ -248,7 +249,7 @@ export function NeedPostingForm({ onClose }: Props) {
                     <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
                         Post a Pulse
                     </p>
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-icon"
                         onClick={onClose}
@@ -260,7 +261,7 @@ export function NeedPostingForm({ onClose }: Props) {
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
-                    </button>
+                    </HoverButton>
                 </div>
 
                 <form onSubmit={handleSubmit}>
@@ -270,7 +271,7 @@ export function NeedPostingForm({ onClose }: Props) {
                             const Icon = t.icon;
                             const active = type === t.val;
                             return (
-                                <button
+                                <HoverButton
                                     key={t.val}
                                     type="button"
                                     onClick={() => setType(t.val)}
@@ -297,7 +298,7 @@ export function NeedPostingForm({ onClose }: Props) {
                                 >
                                     <Icon size={11} />
                                     {t.label}
-                                </button>
+                                </HoverButton>
                             );
                         })}
                     </div>
@@ -356,7 +357,7 @@ export function NeedPostingForm({ onClose }: Props) {
                                         );
 
                                         return (
-                                            <button
+                                            <HoverButton
                                                 key={`${resource.type}:${resource.value}`}
                                                 type="button"
                                                 onClick={() => toggleResource(resource.value)}
@@ -377,7 +378,7 @@ export function NeedPostingForm({ onClose }: Props) {
                                                     {resource.value}
                                                 </span>
                                                 {isSelected && <Check size={12} />}
-                                            </button>
+                                            </HoverButton>
                                         );
                                     })
                                 )}
@@ -386,7 +387,7 @@ export function NeedPostingForm({ onClose }: Props) {
                             {selectedResources.length > 0 && (
                                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                                     {selectedResources.map((resource) => (
-                                        <button
+                                        <HoverButton
                                             key={resource}
                                             type="button"
                                             onClick={() => toggleResource(resource)}
@@ -394,7 +395,7 @@ export function NeedPostingForm({ onClose }: Props) {
                                         >
                                             {resource}
                                             <X size={10} />
-                                        </button>
+                                        </HoverButton>
                                     ))}
                                 </div>
                             )}
@@ -437,7 +438,7 @@ export function NeedPostingForm({ onClose }: Props) {
                         </p>
                     )}
 
-                    <button
+                    <HoverButton
                         type="submit"
                         id="post-pulse-submit"
                         disabled={!content.trim() || sending || left < 0}
@@ -450,7 +451,7 @@ export function NeedPostingForm({ onClose }: Props) {
                     >
                         <Send size={13} />
                         {sending ? 'Posting…' : 'Post Pulse'}
-                    </button>
+                    </HoverButton>
                 </form>
             </div>
         </div>

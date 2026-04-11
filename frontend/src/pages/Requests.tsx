@@ -8,6 +8,7 @@ import {
     fetchPulseInteractions,
 } from '../lib/pulseApi';
 import type { AcceptedInteraction, AuthorPulseRequest, PulseInteraction } from '../lib/types';
+import { HoverButton } from '../components/ui/HoverButton';
 
 function timeAgo(ts: number): string {
     const s = Math.floor((Date.now() - ts) / 1000);
@@ -180,13 +181,13 @@ export function Requests() {
                                                 <Clock size={10} />
                                                 {timeAgo(pulse.timestamp)}
                                             </span>
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 onClick={() => void togglePulseDetails(pulse.id)}
                                                 style="margin-left:auto;font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;"
                                             >
                                                 {expanded ? 'Hide helpers' : 'View helpers'}
-                                            </button>
+                                            </HoverButton>
                                         </div>
 
                                         {expanded && (
@@ -221,7 +222,7 @@ export function Requests() {
                                                         </div>
 
                                                         {interaction.status === 'accepted' ? (
-                                                            <button
+                                                            <HoverButton
                                                                 type="button"
                                                                 onClick={() =>
                                                                     void handleConfirmHelper(
@@ -240,7 +241,7 @@ export function Requests() {
                                                                 interaction.id
                                                                     ? 'Confirming...'
                                                                     : 'Mark Success'}
-                                                            </button>
+                                                            </HoverButton>
                                                         ) : (
                                                             <span style="font-size:11px;font-weight:700;color:var(--success);white-space:nowrap;">
                                                                 Successful

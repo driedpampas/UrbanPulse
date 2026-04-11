@@ -44,6 +44,7 @@ import {
     updateProfile,
 } from '../lib/userApi';
 import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation, isUsableCoordinates } from '../lib/utils';
+import { HoverButton } from '../components/ui/HoverButton';
 
 const DAYS = [
     { v: 0, s: 'Sun' },
@@ -437,7 +438,7 @@ export function Profile() {
             title="Profile"
             headerRight={
                 isOwnProfile && !editing ? (
-                    <button
+                    <HoverButton
                         type="button"
                         id="edit-profile-btn"
                         class="btn-ghost"
@@ -449,7 +450,7 @@ export function Profile() {
                     >
                         <Pencil size={12} />
                         Edit
-                    </button>
+                    </HoverButton>
                 ) : undefined
             }
         >
@@ -532,7 +533,7 @@ export function Profile() {
 
                 {!isOwnProfile && (
                     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-                        <button
+                        <HoverButton
                             type="button"
                             class="btn-primary"
                             onClick={handleMessageUser}
@@ -541,8 +542,8 @@ export function Profile() {
                         >
                             <MessageSquare size={14} />
                             Message
-                        </button>
-                        <button
+                        </HoverButton>
+                        <HoverButton
                             type="button"
                             class="btn-ghost"
                             onClick={handleToggleBlock}
@@ -551,8 +552,8 @@ export function Profile() {
                         >
                             <Ban size={14} />
                             {blocked ? 'Unblock' : 'Ban'}
-                        </button>
-                        <button
+                        </HoverButton>
+                        <HoverButton
                             type="button"
                             class="btn-ghost"
                             onClick={() => setShowReportUserModal(true)}
@@ -561,13 +562,13 @@ export function Profile() {
                         >
                             <Flag size={14} />
                             Report
-                        </button>
+                        </HoverButton>
                     </div>
                 )}
 
                 {isAdmin && !isOwnProfile && (
                     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-                        <button
+                        <HoverButton
                             type="button"
                             class="btn-ghost"
                             onClick={() =>
@@ -580,8 +581,8 @@ export function Profile() {
                         >
                             <ShieldCheck size={14} />
                             {user.role?.toLowerCase() === 'admin' ? 'Demote' : 'Promote'}
-                        </button>
-                        <button
+                        </HoverButton>
+                        <HoverButton
                             type="button"
                             class="btn-ghost"
                             onClick={handleDeleteProfile}
@@ -590,7 +591,7 @@ export function Profile() {
                         >
                             <Trash2 size={14} />
                             Delete
-                        </button>
+                        </HoverButton>
                     </div>
                 )}
 
@@ -616,7 +617,7 @@ export function Profile() {
                                         </span>
                                     </div>
                                     {editing && (
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             class="btn-ghost"
                                             onClick={async () => {
@@ -658,7 +659,7 @@ export function Profile() {
                                         >
                                             <Crosshair size={12} />
                                             Use current location
-                                        </button>
+                                        </HoverButton>
                                     )}
                                 </div>
 
@@ -711,7 +712,7 @@ export function Profile() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <button
+                                                    <HoverButton
                                                         type="button"
                                                         onClick={() => setMapError(null)}
                                                         style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
@@ -729,7 +730,7 @@ export function Profile() {
                                                         aria-label="Clear error"
                                                     >
                                                         <X size={14} />
-                                                    </button>
+                                                    </HoverButton>
                                                 </div>
                                                 {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
                                                     <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
@@ -865,7 +866,7 @@ export function Profile() {
                                     const sel = selDays.includes(d.v);
                                     const active = editing ? sel : user.quietDays?.includes(d.v);
                                     return (
-                                        <button
+                                        <HoverButton
                                             key={d.v}
                                             type="button"
                                             onClick={editing ? () => toggleDay(d.v) : undefined}
@@ -883,7 +884,7 @@ export function Profile() {
 											`}
                                         >
                                             {d.s}
-                                        </button>
+                                        </HoverButton>
                                     );
                                 })}
                             </div>
@@ -894,7 +895,7 @@ export function Profile() {
                 {/* Edit action bar */}
                 {isOwnProfile && editing && (
                     <div class="animate-fade-in" style="display:flex;gap:8px;">
-                        <button
+                        <HoverButton
                             type="button"
                             id="save-profile-btn"
                             class="btn-primary"
@@ -908,8 +909,8 @@ export function Profile() {
                                 : isSetupMode && !selectedLocation
                                   ? 'Choose a location'
                                   : 'Save Changes'}
-                        </button>
-                        <button
+                        </HoverButton>
+                        <HoverButton
                             type="button"
                             class="btn-ghost"
                             onClick={() => {
@@ -919,14 +920,14 @@ export function Profile() {
                             style="height:40px;padding:0 16px;"
                         >
                             Cancel
-                        </button>
+                        </HoverButton>
                     </div>
                 )}
 
                 {/* Sign out */}
                 {isOwnProfile && (
                     <>
-                        <button
+                        <HoverButton
                             type="button"
                             id="sign-out-btn"
                             class="btn-ghost"
@@ -938,10 +939,10 @@ export function Profile() {
                         >
                             <LogOut size={14} />
                             Sign Out
-                        </button>
+                        </HoverButton>
 
                         {/* Delete account */}
-                        <button
+                        <HoverButton
                             type="button"
                             id="delete-account-btn"
                             onClick={() => setShowDel(true)}
@@ -949,7 +950,7 @@ export function Profile() {
                         >
                             <Trash2 size={12} />
                             Delete Account
-                        </button>
+                        </HoverButton>
                     </>
                 )}
             </div>
@@ -972,7 +973,7 @@ export function Profile() {
                             This is permanent. All your pulses and profile data will be removed.
                         </p>
                         <div style="display:flex;gap:8px;">
-                            <button
+                            <HoverButton
                                 type="button"
                                 onClick={() => {
                                     deleteAccount();
@@ -982,15 +983,15 @@ export function Profile() {
                                 style="flex:1;height:38px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-size:13px;font-weight:600;cursor:pointer;"
                             >
                                 Delete
-                            </button>
-                            <button
+                            </HoverButton>
+                            <HoverButton
                                 type="button"
                                 class="btn-ghost"
                                 onClick={() => setShowDel(false)}
                                 style="flex:1;height:38px;"
                             >
                                 Cancel
-                            </button>
+                            </HoverButton>
                         </div>
                     </div>
                 </div>

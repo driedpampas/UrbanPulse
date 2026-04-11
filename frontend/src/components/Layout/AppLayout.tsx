@@ -2,6 +2,7 @@ import { Moon, Sun } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { useTheme } from '../../lib/theme';
 import { BottomNav } from './BottomNav';
+import { HoverButton } from '../ui/HoverButton';
 
 interface Props {
     children: ComponentChildren;
@@ -26,7 +27,7 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                     </h1>
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                         {headerRight}
-                        <button
+                        <HoverButton
                             type="button"
                             id="theme-toggle"
                             onClick={toggle}
@@ -44,7 +45,7 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                             }}
                         >
                             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                        </button>
+                        </HoverButton>
                     </div>
                 </header>
             )}

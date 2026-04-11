@@ -1,6 +1,7 @@
 import { AlertTriangle, Send, X } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { createReport } from '../../lib/reportsApi';
+import { HoverButton } from '../ui/HoverButton';
 
 const REASONS = ['Spam', 'Harassment', 'Inappropriate content', 'False information', 'Other'];
 
@@ -55,7 +56,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         <AlertTriangle size={18} style="color:var(--warning);" />
                         Report Content
                     </h2>
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-icon"
                         onClick={onClose}
@@ -67,7 +68,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={18} />
-                    </button>
+                    </HoverButton>
                 </div>
 
                 <div style="padding:12px;border-radius:8px;background:var(--bg-muted);border:1px solid var(--border);">
@@ -86,7 +87,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         </label>
                         <div style="display:flex;flex-direction:column;gap:6px;">
                             {REASONS.map((r) => (
-                                <button
+                                <HoverButton
                                     key={r}
                                     type="button"
                                     onClick={() => setReason(r)}
@@ -110,7 +111,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                                         style={`width:12px;height:12px;border-radius:50%;border:2px solid ${reason === r ? 'var(--accent)' : 'var(--border-strong)'};background:${reason === r ? 'var(--accent)' : 'transparent'};box-shadow:${reason === r ? '0 0 0 2px var(--accent-subtle)' : 'none'};`}
                                     />
                                     {r}
-                                </button>
+                                </HoverButton>
                             ))}
                         </div>
                     </div>
@@ -121,7 +122,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         </p>
                     )}
 
-                    <button
+                    <HoverButton
                         type="submit"
                         disabled={sending}
                         class="btn-primary"
@@ -139,7 +140,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                                 Submit Report
                             </>
                         )}
-                    </button>
+                    </HoverButton>
                 </form>
             </div>
         </div>

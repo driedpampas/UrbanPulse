@@ -13,6 +13,7 @@ import { useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AuthApiError, useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
+import { HoverButton } from '../components/ui/HoverButton';
 
 type AuthMode = 'login' | 'register';
 type FormErrors = Partial<{
@@ -105,7 +106,7 @@ export function Auth() {
                 <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.02em;">
                     UrbanPulse
                 </p>
-                <button
+                <HoverButton
                     type="button"
                     class="btn-icon"
                     onClick={toggle}
@@ -117,7 +118,7 @@ export function Auth() {
                     onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                </button>
+                </HoverButton>
             </div>
 
             {/* Centered card */}
@@ -138,7 +139,7 @@ export function Auth() {
                     {/* Tab strip */}
                     <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:20px;background:var(--bg-subtle);">
                         {(['login', 'register'] as AuthMode[]).map((m) => (
-                            <button
+                            <HoverButton
                                 key={m}
                                 type="button"
                                 id={`auth-tab-${m}`}
@@ -166,7 +167,7 @@ export function Auth() {
                             >
                                 {m === 'login' ? <LogIn size={13} /> : <UserPlus size={13} />}
                                 {m === 'login' ? 'Sign In' : 'Register'}
-                            </button>
+                            </HoverButton>
                         ))}
                     </div>
 
@@ -270,7 +271,7 @@ export function Auth() {
                                         (e.target as HTMLElement).style.boxShadow = 'none';
                                     }}
                                 />
-                                <button
+                                <HoverButton
                                     type="button"
                                     onClick={() => setShowPw((v) => !v)}
                                     style={eyeBtn}
@@ -284,7 +285,7 @@ export function Auth() {
                                     }
                                 >
                                     {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                                </button>
+                                </HoverButton>
                             </div>
                             {errors.password && (
                                 <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
@@ -326,7 +327,7 @@ export function Auth() {
                                             (e.target as HTMLElement).style.boxShadow = 'none';
                                         }}
                                     />
-                                    <button
+                                    <HoverButton
                                         type="button"
                                         onClick={() => setShowCPw((v) => !v)}
                                         style={eyeBtn}
@@ -340,7 +341,7 @@ export function Auth() {
                                         }
                                     >
                                         {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                                    </button>
+                                    </HoverButton>
                                 </div>
                                 {errors.confirmPassword && (
                                     <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
@@ -362,7 +363,7 @@ export function Auth() {
                             </div>
                         )}
 
-                        <button
+                        <HoverButton
                             type="submit"
                             id="auth-submit-btn"
                             disabled={loading}
@@ -388,7 +389,7 @@ export function Auth() {
                                     {mode === 'login' ? 'Sign In' : 'Create Account'}
                                 </>
                             )}
-                        </button>
+                        </HoverButton>
                     </form>
 
                     {/* Switch mode */}
@@ -396,7 +397,7 @@ export function Auth() {
                         <span style="font-size:12px;color:var(--text-secondary);">
                             {mode === 'login' ? 'No account?' : 'Already registered?'}
                         </span>
-                        <button
+                        <HoverButton
                             type="button"
                             onClick={() => reset(mode === 'login' ? 'register' : 'login')}
                             style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;"
@@ -407,7 +408,7 @@ export function Auth() {
                         >
                             {mode === 'login' ? 'Register' : 'Sign In'}
                             <ArrowRight size={12} />
-                        </button>
+                        </HoverButton>
                     </div>
                 </div>
             </div>

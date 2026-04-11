@@ -2,6 +2,7 @@ import { Bell, CheckCircle, ShieldAlert, X } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { acceptPulseRequest, connectWebSocket, disconnectWebSocket } from '../../lib/pulseApi';
 import type { Pulse } from '../../lib/types';
+import { HoverButton } from '../ui/HoverButton';
 
 export function HeroAlert() {
     const [activeAlert, setActiveAlert] = useState<Pulse | null>(null);
@@ -79,7 +80,7 @@ export function HeroAlert() {
                             Get alerted instantly when your skills are needed.
                         </p>
                     </div>
-                    <button
+                    <HoverButton
                         type="button"
                         onClick={requestNotificationPermission}
                         class="btn-primary"
@@ -90,7 +91,7 @@ export function HeroAlert() {
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Enable
-                    </button>
+                    </HoverButton>
                 </div>
             );
         }
@@ -118,7 +119,7 @@ export function HeroAlert() {
                             Hero Alert
                         </span>
                     </div>
-                    <button
+                    <HoverButton
                         type="button"
                         onClick={() => setActiveAlert(null)}
                         style="background:rgba(0,0,0,0.1);border:none;color:var(--text);padding:4px;border-radius:50%;cursor:pointer;display:flex;"
@@ -128,7 +129,7 @@ export function HeroAlert() {
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
-                    </button>
+                    </HoverButton>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:12px;margin-bottom:12px;">
@@ -165,7 +166,7 @@ export function HeroAlert() {
                 </div>
 
                 <div style="display:flex;gap:12px;">
-                    <button
+                    <HoverButton
                         type="button"
                         onClick={handleAcceptRequest}
                         disabled={accepting}
@@ -178,7 +179,7 @@ export function HeroAlert() {
                     >
                         <CheckCircle size={14} />
                         {accepting ? 'Accepting...' : 'Accept Request'}
-                    </button>
+                    </HoverButton>
                 </div>
             </div>
 

@@ -29,6 +29,7 @@ import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
 import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { ReportModal } from '../Modals/ReportModal';
+import { HoverButton } from '../ui/HoverButton';
 
 interface TypeDef {
     icon: typeof AlertTriangle;
@@ -511,7 +512,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     >
                         <div style="display:flex;gap:11px;align-items:flex-start;">
                             {/* Avatar */}
-                            <button
+                            <HoverButton
                                 type="button"
                                 onClick={() =>
                                     setLocation(
@@ -535,13 +536,13 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                     alt=""
                                     style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;object-fit:cover;background:var(--bg-muted);"
                                 />
-                            </button>
+                            </HoverButton>
 
                             <div style="flex:1;min-width:0;">
                                 {/* Row 1: name + badge + delete */}
                                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;">
                                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;">
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             onClick={() =>
                                                 setLocation(
@@ -558,7 +559,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             }
                                         >
                                             {pulse.userName}
-                                        </button>
+                                        </HoverButton>
                                         {/* Type badge */}
                                         <span
                                             class="type-badge"
@@ -575,7 +576,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                         )}
                                     </div>
                                     {mayDelete && (
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             onClick={() => handleDelete(pulse.id)}
                                             style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
@@ -590,7 +591,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             }
                                         >
                                             <Trash2 size={11} />
-                                        </button>
+                                        </HoverButton>
                                     )}
                                 </div>
 
@@ -612,7 +613,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                         </span>
                                     )}
                                     {session && session.user.id !== pulse.userId && (
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             onClick={() => handleConfirm(pulse.id)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
@@ -626,10 +627,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                         >
                                             <CheckCircle size={10} />
                                             Confirm
-                                        </button>
+                                        </HoverButton>
                                     )}
                                     {canAcceptRequest && (
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             onClick={() => handleAcceptRequest(pulse.id)}
                                             disabled={acceptingPulseId === pulse.id}
@@ -639,7 +640,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             {acceptingPulseId === pulse.id
                                                 ? 'Accepting...'
                                                 : 'Accept Request'}
-                                        </button>
+                                        </HoverButton>
                                     )}
                                     {hasAcceptedRequest && (
                                         <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--success);font-weight:700;">
@@ -648,7 +649,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                         </span>
                                     )}
                                     {session && session.user.id !== pulse.userId && (
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             onClick={() => setReportingPulse(pulse)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
@@ -663,7 +664,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                         >
                                             <Flag size={10} />
                                             Report
-                                        </button>
+                                        </HoverButton>
                                     )}
                                 </div>
                             </div>

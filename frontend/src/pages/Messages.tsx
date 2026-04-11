@@ -44,6 +44,7 @@ import {
 } from '../lib/chatNotifications';
 import type { User as AppUser, ChatMessage, ChatThread } from '../lib/types';
 import { fetchUsers } from '../lib/userApi';
+import { HoverButton } from '../components/ui/HoverButton';
 
 function timeAgo(ts: number) {
     const d = Date.now() - ts;
@@ -320,7 +321,7 @@ export function Messages() {
             title="Messages"
             headerRight={
                 <div style="display:flex;gap:8px;">
-                    <button
+                    <HoverButton
                         type="button"
                         class="btn-primary"
                         onClick={() => {
@@ -332,8 +333,8 @@ export function Messages() {
                     >
                         <Plus size={13} />
                         New Chat
-                    </button>
-                    <button
+                    </HoverButton>
+                    <HoverButton
                         type="button"
                         class="btn-ghost"
                         onClick={() => {
@@ -345,7 +346,7 @@ export function Messages() {
                     >
                         <Users size={13} />
                         Create Group Chat
-                    </button>
+                    </HoverButton>
                 </div>
             }
         >
@@ -376,7 +377,7 @@ export function Messages() {
                         const isGroup = thread.isGroup;
                         const isUnread = unreadThreadIds.includes(thread.id);
                         return (
-                            <button
+                            <HoverButton
                                 type="button"
                                 key={thread.id}
                                 id={`thread-${thread.id}`}
@@ -437,7 +438,7 @@ export function Messages() {
                                     )}
                                     <ChevronRight size={13} style="color:var(--text-tertiary);" />
                                 </div>
-                            </button>
+                            </HoverButton>
                         );
                     })
                 )}
@@ -472,7 +473,7 @@ export function Messages() {
                                         : 'Search a neighbor to start chatting.'}
                                 </p>
                             </div>
-                            <button
+                            <HoverButton
                                 type="button"
                                 class="btn-icon"
                                 onClick={resetCompose}
@@ -480,27 +481,27 @@ export function Messages() {
                                 style="color:var(--text-secondary);"
                             >
                                 <X size={15} />
-                            </button>
+                            </HoverButton>
                         </div>
 
                         <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
                             <div style="display:flex;gap:8px;margin-bottom:10px;">
-                                <button
+                                <HoverButton
                                     type="button"
                                     class="btn-ghost"
                                     onClick={() => setComposeMode('direct')}
                                     style={`height:30px;padding:0 10px;font-size:12px;${composeMode === 'direct' ? 'background:var(--accent-subtle);color:var(--accent);' : ''}`}
                                 >
                                     Direct
-                                </button>
-                                <button
+                                </HoverButton>
+                                <HoverButton
                                     type="button"
                                     class="btn-ghost"
                                     onClick={() => setComposeMode('group')}
                                     style={`height:30px;padding:0 10px;font-size:12px;${composeMode === 'group' ? 'background:var(--accent-subtle);color:var(--accent);' : ''}`}
                                 >
                                     Group
-                                </button>
+                                </HoverButton>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);">
                                 <Search
@@ -536,7 +537,7 @@ export function Messages() {
                                 </div>
                             ) : (
                                 queryResults.map((user) => (
-                                    <button
+                                    <HoverButton
                                         type="button"
                                         key={user.id}
                                         onClick={() => {
@@ -597,23 +598,23 @@ export function Messages() {
                                                 <ChevronRight size={12} />
                                             </span>
                                         )}
-                                    </button>
+                                    </HoverButton>
                                 ))
                             )}
                         </div>
                         {composeMode === 'group' && (
                             <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
-                                <button type="button" class="btn-ghost" onClick={resetCompose}>
+                                <HoverButton type="button" class="btn-ghost" onClick={resetCompose}>
                                     Cancel
-                                </button>
-                                <button
+                                </HoverButton>
+                                <HoverButton
                                     type="button"
                                     class="btn-primary"
                                     onClick={handleCreateGroupChat}
                                     disabled={creatingGroup || selectedComposeIds.length < 1}
                                 >
                                     {creatingGroup ? 'Creating…' : 'Create Group Chat'}
-                                </button>
+                                </HoverButton>
                             </div>
                         )}
                     </div>
@@ -1021,7 +1022,7 @@ function ChatView({
                 class="header-bar"
                 style="position:relative;z-index:40;height:var(--header-h);display:flex;align-items:center;gap:10px;padding:0 12px;flex-shrink:0;"
             >
-                <button
+                <HoverButton
                     type="button"
                     class="btn-icon"
                     onClick={() => onBack()}
@@ -1030,7 +1031,7 @@ function ChatView({
                     id="chat-back-btn"
                 >
                     <ArrowLeft size={18} />
-                </button>
+                </HoverButton>
                 <div
                     style={`width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;background:var(--bg-muted);`}
                 >
@@ -1059,7 +1060,7 @@ function ChatView({
                         </p>
                     )}
                 </div>
-                <button
+                <HoverButton
                     type="button"
                     class="btn-icon"
                     onClick={() => {
@@ -1070,7 +1071,7 @@ function ChatView({
                     style={`color:${showSidebar && sidebarTab === 'info' ? 'var(--accent)' : 'var(--text-secondary)'};`}
                 >
                     <Info size={16} />
-                </button>
+                </HoverButton>
             </header>
 
             {connectionStatus !== 'connected' && (
@@ -1126,7 +1127,7 @@ function ChatView({
                                                 />
                                             </div>
                                         )}
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             onClick={(e) => {
                                                 const roles =
@@ -1157,7 +1158,7 @@ function ChatView({
                                         >
                                             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
                                                 {!isMe ? (
-                                                    <button
+                                                    <HoverButton
                                                         type="button"
                                                         onClick={() =>
                                                             setLocation(
@@ -1167,7 +1168,7 @@ function ChatView({
                                                         style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;"
                                                     >
                                                         {msg.senderName}
-                                                    </button>
+                                                    </HoverButton>
                                                 ) : (
                                                     <span style="font-size:11px;font-weight:600;opacity:0.8;">
                                                         You
@@ -1183,13 +1184,13 @@ function ChatView({
                                             <p style="margin:0;word-break:break-word;">
                                                 {msg.content}
                                             </p>
-                                        </button>
+                                        </HoverButton>
 
                                         <div
                                             className="delete-trigger-container"
                                             style={`display:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'flex' : 'none'};align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
                                         >
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 className="delete-btn-hover"
                                                 onClick={(e) => handleContextMenu(e as any, msg.id)}
@@ -1197,12 +1198,12 @@ function ChatView({
                                                 aria-label="More options"
                                             >
                                                 <Trash2 size={14} />
-                                            </button>
+                                            </HoverButton>
                                         </div>
 
                                         {isContextMenuOpen && contextMenuPosition && (
                                             <>
-                                                <button
+                                                <HoverButton
                                                     type="button"
                                                     aria-label="Close menu"
                                                     style="position:fixed;inset:0;z-index:49;background:none;border:none;padding:0;width:100%;height:100%;cursor:default;"
@@ -1220,7 +1221,7 @@ function ChatView({
                                                     style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
                                                     role="menu"
                                                 >
-                                                    <button
+                                                    <HoverButton
                                                         type="button"
                                                         onClick={() =>
                                                             handleDeleteMessage(msg, 'me')
@@ -1242,7 +1243,7 @@ function ChatView({
                                                     >
                                                         <Trash2 size={14} />
                                                         Delete for me
-                                                    </button>
+                                                    </HoverButton>
                                                     {(isMe ||
                                                         (thread.isGroup &&
                                                             (thread.ownerId === currentUserId ||
@@ -1251,7 +1252,7 @@ function ChatView({
                                                                 ]?.includes('admin')))) && (
                                                         <>
                                                             <div style="height:1px;background:var(--border);" />
-                                                            <button
+                                                            <HoverButton
                                                                 type="button"
                                                                 onClick={() =>
                                                                     handleDeleteMessage(
@@ -1279,7 +1280,7 @@ function ChatView({
                                                             >
                                                                 <Trash2 size={14} />
                                                                 Delete for everyone
-                                                            </button>
+                                                            </HoverButton>
                                                         </>
                                                     )}
                                                 </div>
@@ -1334,7 +1335,7 @@ function ChatView({
                                     (e.target as HTMLElement).style.boxShadow = 'none';
                                 }}
                             />
-                            <button
+                            <HoverButton
                                 type="button"
                                 id="send-message-btn"
                                 onClick={handleSend}
@@ -1344,7 +1345,7 @@ function ChatView({
                                 aria-label="Send"
                             >
                                 <Send size={15} />
-                            </button>
+                            </HoverButton>
                         </div>
                     </div>
                 </div>
@@ -1360,14 +1361,14 @@ function ChatView({
                                     {sidebarTab === 'info' ? 'Chat Info' : 'Participants'}
                                 </p>
                             </div>
-                            <button
+                            <HoverButton
                                 type="button"
                                 class="btn-icon"
                                 onClick={() => setShowSidebar(false)}
                                 aria-label="Close sidebar"
                             >
                                 <X size={14} />
-                            </button>
+                            </HoverButton>
                         </div>
 
                         {sidebarTab === 'info' ? (
@@ -1378,7 +1379,7 @@ function ChatView({
                                             <div style="display:flex;align-items:center;justify-content:center;">
                                                 {groupPreviewParticipants.map(
                                                     (participant, index) => (
-                                                        <button
+                                                        <HoverButton
                                                             key={participant.id}
                                                             type="button"
                                                             onClick={() =>
@@ -1392,7 +1393,7 @@ function ChatView({
                                                                 alt=""
                                                                 style="width:100%;height:100%;object-fit:cover;"
                                                             />
-                                                        </button>
+                                                        </HoverButton>
                                                     )
                                                 )}
                                                 {thread.participants.length > 4 && (
@@ -1402,7 +1403,7 @@ function ChatView({
                                                 )}
                                             </div>
                                         ) : (
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 onClick={() =>
                                                     directCounterpartId &&
@@ -1422,7 +1423,7 @@ function ChatView({
                                                     alt=""
                                                     style="width:100%;height:100%;object-fit:cover;"
                                                 />
-                                            </button>
+                                            </HoverButton>
                                         )}
                                     </div>
                                     <div style="text-align:center;">
@@ -1436,7 +1437,7 @@ function ChatView({
                                         </p>
                                     </div>
                                     {!isGroup && directCounterpartId && (
-                                        <button
+                                        <HoverButton
                                             type="button"
                                             class="btn-secondary"
                                             onClick={() => openProfile(directCounterpartId)}
@@ -1444,12 +1445,12 @@ function ChatView({
                                         >
                                             View profile
                                             <ChevronRight size={13} />
-                                        </button>
+                                        </HoverButton>
                                     )}
                                 </div>
 
                                 {isGroup && (
-                                    <button
+                                    <HoverButton
                                         type="button"
                                         class="btn-secondary"
                                         onClick={() => setSidebarTab('participants')}
@@ -1457,7 +1458,7 @@ function ChatView({
                                     >
                                         <Users size={14} />
                                         View Members ({thread.participants.length})
-                                    </button>
+                                    </HoverButton>
                                 )}
 
                                 <div style="border-top:1px solid var(--border);padding-top:20px;">
@@ -1502,7 +1503,7 @@ function ChatView({
                                             '#14b8a6', // teal
                                             '#22c55e', // green
                                         ].map((color) => (
-                                            <button
+                                            <HoverButton
                                                 key={color}
                                                 type="button"
                                                 onClick={() => setSelectedColor(color)}
@@ -1525,7 +1526,7 @@ function ChatView({
                                 <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
                                     {isGroup &&
                                         (thread.ownerId === currentUserId ? (
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 class="btn-ghost"
                                                 onClick={async () => {
@@ -1550,9 +1551,9 @@ function ChatView({
                                             >
                                                 <Trash2 size={14} />
                                                 Delete Group
-                                            </button>
+                                            </HoverButton>
                                         ) : (
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 class="btn-ghost"
                                                 onClick={async () => {
@@ -1580,29 +1581,29 @@ function ChatView({
                                             >
                                                 <ArrowLeft size={14} />
                                                 Leave Group
-                                            </button>
+                                            </HoverButton>
                                         ))}
                                 </div>
                             </div>
                         ) : (
                             <div style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                                    <button
+                                    <HoverButton
                                         type="button"
                                         class="btn-icon"
                                         onClick={() => setSidebarTab('info')}
                                         style="width:28px;height:28px;"
                                     >
                                         <ArrowLeft size={14} />
-                                    </button>
-                                    <button
+                                    </HoverButton>
+                                    <HoverButton
                                         type="button"
                                         class="btn-ghost"
                                         onClick={() => setShowAddMembers((current) => !current)}
                                         style="height:30px;padding:0 10px;font-size:11px;"
                                     >
                                         Add members
-                                    </button>
+                                    </HoverButton>
                                 </div>
 
                                 {showAddMembers && (
@@ -1623,7 +1624,7 @@ function ChatView({
                                             </div>
                                         ) : (
                                             addMemberResults.slice(0, 5).map((user) => (
-                                                <button
+                                                <HoverButton
                                                     key={user.id}
                                                     type="button"
                                                     class="btn-ghost"
@@ -1645,7 +1646,7 @@ function ChatView({
                                                 >
                                                     <span>{user.name}</span>
                                                     <span>+</span>
-                                                </button>
+                                                </HoverButton>
                                             ))
                                         )}
                                     </div>
@@ -1665,7 +1666,7 @@ function ChatView({
                                     const isSelf = participantId === currentUserId;
                                     return (
                                         <div key={participantId} class="participant-card">
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 onClick={() => openProfile(participantId)}
                                                 style="background:none;border:none;padding:0;display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;text-align:left;"
@@ -1705,10 +1706,10 @@ function ChatView({
                                                             : 'Open profile'}
                                                     </div>
                                                 </div>
-                                            </button>
+                                            </HoverButton>
                                             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
                                                 {thread.ownerId === currentUserId && !isOwner && (
-                                                    <button
+                                                    <HoverButton
                                                         type="button"
                                                         class="btn-ghost"
                                                         disabled={
@@ -1736,7 +1737,7 @@ function ChatView({
                                                         style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
                                                     >
                                                         <ShieldCheck size={14} />
-                                                    </button>
+                                                    </HoverButton>
                                                 )}
                                                 {(thread.ownerId === currentUserId ||
                                                     (thread.participantRoles?.[
@@ -1744,7 +1745,7 @@ function ChatView({
                                                     ]?.includes('admin') ??
                                                         false)) &&
                                                     !isOwner && (
-                                                        <button
+                                                        <HoverButton
                                                             type="button"
                                                             class="btn-ghost"
                                                             disabled={
@@ -1775,7 +1776,7 @@ function ChatView({
                                                             style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-subtle);color:var(--danger);border:1px solid var(--danger-muted);"
                                                         >
                                                             <UserMinus size={14} />
-                                                        </button>
+                                                        </HoverButton>
                                                     )}
                                             </div>
                                         </div>

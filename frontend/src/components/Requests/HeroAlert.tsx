@@ -1,3 +1,4 @@
+import { HoverButton } from '../ui/HoverButton';
 interface Props {
     type: 'skill' | 'need' | 'emergency';
     userName: string;
@@ -29,7 +30,7 @@ export function HeroAlert({ type, userName, skill, onRespond, onDismiss }: Props
                 {userName} needs someone with <span class="font-bold">{skill}</span> skills!
             </p>
             <div class="flex gap-2 mt-3">
-                <button
+                <HoverButton
                     type="button"
                     onClick={onRespond}
                     class="flex-1 bg-linear-to-r from-primary to-primary-dark text-white text-xs py-2 rounded-xl font-semibold"
@@ -39,8 +40,8 @@ export function HeroAlert({ type, userName, skill, onRespond, onDismiss }: Props
                     onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     I can help!
-                </button>
-                <button
+                </HoverButton>
+                <HoverButton
                     type="button"
                     onClick={onDismiss}
                     class="px-4 text-xs text-text-secondary border border-border rounded-xl hover:bg-surface-dim transition-colors"
@@ -50,7 +51,7 @@ export function HeroAlert({ type, userName, skill, onRespond, onDismiss }: Props
                     onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     Later
-                </button>
+                </HoverButton>
             </div>
         </div>
     );

@@ -8,6 +8,7 @@ import {
     isUsableCoordinates,
 } from '../../lib/utils';
 import { fetchWeather } from '../../lib/weatherApi';
+import { HoverButton } from '../ui/HoverButton';
 
 export function WeatherAlert() {
     const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -69,7 +70,7 @@ export function WeatherAlert() {
                             {weather.warning}
                         </p>
                     )}
-                    <button
+                    <HoverButton
                         type="button"
                         onClick={load}
                         style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;opacity:0.7;"
@@ -80,7 +81,7 @@ export function WeatherAlert() {
                     >
                         <RefreshCw size={10} />
                         Refresh
-                    </button>
+                    </HoverButton>
                 </div>
             </div>
         );

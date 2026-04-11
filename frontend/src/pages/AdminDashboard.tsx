@@ -22,6 +22,7 @@ import {
     fetchAdminUsers,
     updateAdminUserRole,
 } from '../lib/userApi';
+import { HoverButton } from '../components/ui/HoverButton';
 
 type AdminSection = 'overview' | 'users' | 'pulses' | 'library' | 'reports';
 
@@ -50,7 +51,7 @@ function SectionButton({
     onClick: () => void;
 }) {
     return (
-        <button
+        <HoverButton
             type="button"
             onClick={onClick}
             style={`display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid ${active ? 'var(--border-strong)' : 'var(--border)'};background:${active ? 'var(--surface-raised)' : 'var(--bg-subtle)'};color:${active ? 'var(--text)' : 'var(--text-tertiary)'};font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s ease;`}
@@ -61,7 +62,7 @@ function SectionButton({
         >
             <Icon size={13} />
             {label}
-        </button>
+        </HoverButton>
     );
 }
 
@@ -129,7 +130,7 @@ function UserRow({ user }: { user: User }) {
                 </div>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;">
-                <button
+                <HoverButton
                     type="button"
                     disabled={busy || role === 'admin'}
                     onClick={() => setRole('admin')}
@@ -137,8 +138,8 @@ function UserRow({ user }: { user: User }) {
                     aria-label="Promote user"
                 >
                     <Shield size={14} />
-                </button>
-                <button
+                </HoverButton>
+                <HoverButton
                     type="button"
                     disabled={busy || role === 'banned'}
                     onClick={() => setRole('banned')}
@@ -146,8 +147,8 @@ function UserRow({ user }: { user: User }) {
                     aria-label="Ban user"
                 >
                     <Ban size={14} />
-                </button>
-                <button
+                </HoverButton>
+                <HoverButton
                     type="button"
                     disabled={busy || role === 'resident'}
                     onClick={() => setRole('resident')}
@@ -155,8 +156,8 @@ function UserRow({ user }: { user: User }) {
                     aria-label="Restore user"
                 >
                     <CheckCircle size={14} />
-                </button>
-                <button
+                </HoverButton>
+                <HoverButton
                     type="button"
                     disabled={busy}
                     onClick={async () => {
@@ -174,7 +175,7 @@ function UserRow({ user }: { user: User }) {
                     title="Delete user"
                 >
                     <Trash2 size={14} />
-                </button>
+                </HoverButton>
             </div>
         </div>
     );
@@ -222,14 +223,14 @@ function PulseRow({
                     <span>ID: {pulse.id}</span>
                 </div>
             </div>
-            <button
+            <HoverButton
                 type="button"
                 disabled={busy}
                 onClick={handleDelete}
                 style="padding:6px 10px;border-radius:8px;border:none;background:var(--danger-subtle);color:var(--danger);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;"
             >
                 Delete
-            </button>
+            </HoverButton>
         </div>
     );
 }
@@ -309,7 +310,7 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
 
             {report.status === 'pending' && (
                 <div style="display:flex;gap:6px;flex-shrink:0;">
-                    <button
+                    <HoverButton
                         type="button"
                         disabled={updating}
                         onClick={() => handleAction('resolved')}
@@ -320,8 +321,8 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Resolve
-                    </button>
-                    <button
+                    </HoverButton>
+                    <HoverButton
                         type="button"
                         disabled={updating}
                         onClick={() => handleAction('dismissed')}
@@ -332,7 +333,7 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Dismiss
-                    </button>
+                    </HoverButton>
                 </div>
             )}
         </div>
@@ -477,21 +478,21 @@ export function AdminDashboard() {
                                         placeholder="Search pulse by ID"
                                         style="flex:1;min-width:240px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;"
                                     />
-                                    <button
+                                    <HoverButton
                                         type="button"
                                         disabled={pulseSearchLoading}
                                         onClick={searchPulse}
                                         style="padding:9px 12px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;"
                                     >
                                         Search
-                                    </button>
-                                    <button
+                                    </HoverButton>
+                                    <HoverButton
                                         type="button"
                                         onClick={loadData}
                                         style="padding:9px 12px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:12px;font-weight:700;cursor:pointer;"
                                     >
                                         Reset
-                                    </button>
+                                    </HoverButton>
                                 </div>
                                 {pulses.map((pulse) => (
                                     <PulseRow key={pulse.id} pulse={pulse} onDelete={loadData} />
