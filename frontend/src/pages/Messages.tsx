@@ -25,6 +25,7 @@ import {
     disconnectChatWebSocket,
     fetchBlockedUserIds,
     fetchChats,
+    fetchChatThread,
     promoteGroupChatParticipant,
     removeGroupChatParticipant,
     sendMessage,
@@ -1076,6 +1077,8 @@ function ChatView({
                                                         await addGroupChatParticipants(thread.id, [
                                                             user.id,
                                                         ]);
+                                                        const updated = await fetchChatThread(thread.id);
+                                                        onThreadUpdate(updated);
                                                         setShowAddMembers(false);
                                                     } finally {
                                                         setAddingMembers(false);
@@ -1147,6 +1150,8 @@ function ChatView({
                                                             thread.id,
                                                             participantId
                                                         );
+                                                        const updated = await fetchChatThread(thread.id);
+                                                        onThreadUpdate(updated);
                                                     } finally {
                                                         setParticipantActionBusy(null);
                                                     }
@@ -1173,6 +1178,8 @@ function ChatView({
                                                                 thread.id,
                                                                 participantId
                                                             );
+                                                            const updated = await fetchChatThread(thread.id);
+                                                            onThreadUpdate(updated);
                                                             // We don't close sidebar here because someone else might still be there
                                                         } finally {
                                                             setParticipantActionBusy(null);
