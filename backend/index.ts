@@ -2,6 +2,7 @@ import * as bun from 'bun';
 import type { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
 import * as auth from './auth';
+import type { AuthTokenPayload } from './auth';
 import type { PulseType, Timerange, UserSearchParams } from './db';
 import * as db from './db';
 import swaggerDoc from './swagger.json';
@@ -34,8 +35,13 @@ const FORBIDDEN = new Response(null, { status: 403 });
 const NOT_FOUND = new Response(null, { status: 404 });
 const SERVER_ERROR = new Response(null, { status: 500 });
 
+type AuthorizationContext = {
+    session: AuthTokenPayload;
+    role: string | null;
+};
+
 function withCors(response: Response): Response {
-    var res = new Response(response.body, {
+    const res = new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers,
@@ -53,10 +59,10 @@ async function caught(handler: () => Promise<Response>): Promise<Response> {
         return await handler();
     } catch (err) {
         if (err instanceof z.ZodError) {
-            return BAD_REQUEST;
+            return withCors(BAD_REQUEST);
         }
-        console.log(err);
-        return SERVER_ERROR;
+        console.error(err);
+        return withCors(SERVER_ERROR);
     }
 }
 
@@ -81,48 +87,42 @@ function isAllowedOrigin(origin: string): boolean {
 
 async function authorize(
     request: Request,
-    handler: (payload: string | JwtPayload) => Response | Promise<Response>,
+    handler: (payload: AuthTokenPayload) => Response | Promise<Response>,
     fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
 ): Promise<Response> {
-    const session = auth.verifyToken(request);
+    const authContext = await getAuthorizationContext(request);
 
-    if (session === null) {
+    if (authContext === null) {
         return await fallback();
     }
 
-    const payload = session as JwtPayload;
-    const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
-
-    if (role === 'banned') {
+    if (authContext.role === 'banned') {
         return withCors(FORBIDDEN);
     }
 
-    return await handler(session);
+    return await handler(authContext.session);
 }
 
 async function adminAuthorize(
     request: Request,
-    handler: (payload: string | JwtPayload) => Response | Promise<Response>,
+    handler: (payload: AuthTokenPayload) => Response | Promise<Response>,
     fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
 ): Promise<Response> {
-    const session = auth.verifyToken(request);
+    const authContext = await getAuthorizationContext(request);
 
-    if (session === null) {
+    if (authContext === null) {
         return await fallback();
     }
 
-    const payload = session as JwtPayload;
-    const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
-
-    if (role === 'banned') {
+    if (authContext.role === 'banned') {
         return withCors(FORBIDDEN);
     }
 
-    if (role !== 'admin' && role !== 'mod') {
+    if (authContext.role !== 'admin' && authContext.role !== 'mod') {
         return withCors(FORBIDDEN);
     }
 
-    return await handler(session);
+    return await handler(authContext.session);
 }
 
 async function unauthorize(
@@ -136,6 +136,19 @@ async function unauthorize(
     }
 
     return await handler();
+}
+
+async function getAuthorizationContext(request: Request): Promise<AuthorizationContext | null> {
+    const session = auth.verifyToken(request);
+
+    if (session === null) {
+        return null;
+    }
+
+    return {
+        session,
+        role: (await db.selectUserRole(session.id))?.toLowerCase() ?? null,
+    };
 }
 
 const registerUserSchema = z.strictObject({
@@ -421,7 +434,7 @@ async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: st
 
     if (parsed.data.action === 'auth.identify') {
         const payload = auth.verifyBearerToken(parsed.data.token);
-        if (!payload || typeof payload === 'string') {
+        if (!payload) {
             ws.send(
                 JSON.stringify({
                     event: 'auth.error',
@@ -455,7 +468,7 @@ async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: st
     }
 
     const payload = auth.verifyBearerToken(parsed.data.token);
-    if (!payload || typeof payload === 'string') {
+    if (!payload) {
         ws.send(
             JSON.stringify({
                 event: 'chat.error',

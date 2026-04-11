@@ -40,7 +40,6 @@ interface AuthContextValue {
     session: AuthSession | null;
     login: (input: LoginInput) => Promise<AuthSession>;
     register: (input: RegisterInput) => Promise<AuthSession>;
-    debugSignIn: () => AuthSession;
     logout: () => void;
     updateLocalUser: (updates: Partial<Pick<AuthSessionUser, 'displayName' | 'email'>>) => void;
 }
@@ -79,23 +78,11 @@ function isStoredSession(value: unknown): value is AuthSession {
 
 function createFallbackDisplayName(email: string) {
     const [localPart] = email.split('@');
-    return localPart
+    return (localPart || 'Neighbor')
         .split(/[._-]+/)
         .filter(Boolean)
         .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
         .join(' ');
-}
-
-function createDebugSession(): AuthSession {
-    return {
-        token: 'debug-mock-token',
-        user: {
-            id: 'me',
-            role: 'resident',
-            email: 'debug@urbanpulse.local',
-            displayName: 'Alex Rivera',
-        },
-    };
 }
 
 async function readErrorPayload(response: Response): Promise<ErrorPayload> {
@@ -144,6 +131,7 @@ export function readStoredAuthSession(): AuthSession | null {
         if (isStoredSession(parsed)) {
             return parsed;
         }
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
     } catch {
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
     }
@@ -176,7 +164,9 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
         setIsReady(true);
     }, []);
 
-    const persistSession = (nextSession: AuthSession | null) => {
+    function persistSession(nextSession: AuthSession): AuthSession;
+    function persistSession(nextSession: null): null;
+    function persistSession(nextSession: AuthSession | null) {
         if (nextSession) {
             writeStoredAuthSession(nextSession);
         } else {
@@ -185,30 +175,33 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
 
         setSession(nextSession);
         return nextSession;
-    };
+    }
 
     const login = async ({ email, password }: LoginInput) => {
+        const normalizedEmail = email.trim();
         const existingSession = readStoredAuthSession();
-        const response = await postAuth('/auth/login', { email, password });
+        const response = await postAuth('/auth/login', { email: normalizedEmail, password });
         const nextSession: AuthSession = {
             token: response.token,
             user: {
                 ...response.user,
-                email,
+                email: normalizedEmail,
                 displayName:
-                    existingSession?.user.email === email
+                    existingSession?.user.email === normalizedEmail
                         ? existingSession.user.displayName
-                        : createFallbackDisplayName(email),
+                        : createFallbackDisplayName(normalizedEmail),
             },
         };
 
-        return persistSession(nextSession) as AuthSession;
+        return persistSession(nextSession);
     };
 
     const register = async ({ displayName, email, password }: RegisterInput) => {
+        const normalizedEmail = email.trim();
+        const normalizedDisplayName = displayName.trim();
         const response = await postAuth('/auth/register', {
-            displayName,
-            email,
+            displayName: normalizedDisplayName,
+            email: normalizedEmail,
             password,
         });
 
@@ -216,15 +209,13 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
             token: response.token,
             user: {
                 ...response.user,
-                email,
-                displayName: displayName.trim(),
+                email: normalizedEmail,
+                displayName: normalizedDisplayName,
             },
         };
 
-        return persistSession(nextSession) as AuthSession;
+        return persistSession(nextSession);
     };
-
-    const debugSignIn = () => persistSession(createDebugSession()) as AuthSession;
 
     const logout = () => {
         persistSession(null);
@@ -257,7 +248,6 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
                 session,
                 login,
                 register,
-                debugSignIn,
                 logout,
                 updateLocalUser,
             }}

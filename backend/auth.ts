@@ -1,5 +1,6 @@
 import * as bun from 'bun';
 import * as jwt from 'jsonwebtoken';
+import { z } from 'zod';
 import * as db from './db';
 
 function getJwtSecret(): string {
@@ -14,6 +15,12 @@ function getJwtSecret(): string {
 }
 
 const JWT_SECRET = getJwtSecret();
+
+const authTokenPayloadSchema = z.object({
+    id: z.string().uuid(),
+});
+
+export type AuthTokenPayload = z.infer<typeof authTokenPayloadSchema>;
 
 export type AuthResult =
     | { success: true; token: string; user: { id: string; role: string } }
@@ -43,11 +50,9 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
     const hashedPass = await bun.password.hash(user.password);
     const [dbUser] = await db.insertUser(user.email, hashedPass, user.displayName);
 
-    const token = jwt.sign({ id: dbUser.id }, JWT_SECRET, {
-        expiresIn: '7d',
-    });
+    const token = createAuthToken(dbUser.id);
 
-    return { success: true, token: token, user: dbUser };
+    return { success: true, token, user: dbUser };
 }
 
 export async function loginUser(user: LoginUser): Promise<AuthResult> {
@@ -66,34 +71,43 @@ export async function loginUser(user: LoginUser): Promise<AuthResult> {
         return { success: false, status: 401 };
     }
 
-    const token = jwt.sign({ id: dbUser.id }, JWT_SECRET, {
-        expiresIn: '7d',
-    });
+    const token = createAuthToken(dbUser.id);
 
     return { success: true, token, user: { id: dbUser.id, role: dbUser.role } };
 }
 
-export function verifyToken(req: Request) {
+function createAuthToken(userId: string) {
+    return jwt.sign({ id: userId }, JWT_SECRET, {
+        algorithm: 'HS256',
+        expiresIn: '7d',
+    });
+}
+
+function verifyAuthToken(token: string): AuthTokenPayload | null {
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET, {
+            algorithms: ['HS256'],
+        });
+
+        const parsed = authTokenPayloadSchema.safeParse(decoded);
+        return parsed.success ? parsed.data : null;
+    } catch {
+        return null;
+    }
+}
+
+export function verifyToken(req: Request): AuthTokenPayload | null {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return null;
     }
 
-    const token = authHeader.split(' ')[1];
-    if (token === undefined) return null;
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        return decoded;
-    } catch {
-        return null;
-    }
+    const token = authHeader.slice('Bearer '.length).trim();
+    if (token.length === 0) return null;
+
+    return verifyAuthToken(token);
 }
 
-export function verifyBearerToken(token: string) {
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        return decoded;
-    } catch {
-        return null;
-    }
+export function verifyBearerToken(token: string): AuthTokenPayload | null {
+    return verifyAuthToken(token);
 }

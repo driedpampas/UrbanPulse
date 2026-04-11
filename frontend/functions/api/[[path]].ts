@@ -12,7 +12,12 @@ const FORWARDED_REQUEST_HEADERS = [
     'cache-control',
     'content-type',
     'if-none-match',
+    'origin',
 ] as const;
+
+function isAllowedOrigin(origin: string): boolean {
+    return origin === ALLOWED_ORIGIN;
+}
 
 function normalizeBaseUrl(value: string): string {
     return value.replace(/\/+$/, '');
@@ -35,14 +40,17 @@ function buildForwardedHeaders(request: Request): Headers {
         }
     }
 
-    headers.set('Origin', ALLOWED_ORIGIN);
-
     return headers;
 }
 
 export const onRequest = async ({
     request,
 }: FunctionContext<Record<string, never>>): Promise<Response> => {
+    const origin = request.headers.get('Origin');
+    if (origin !== null && !isAllowedOrigin(origin)) {
+        return new Response(null, { status: 403 });
+    }
+
     const method = request.method.toUpperCase();
     const backendBaseUrl = 'https://urbanpulse-api.syu.nl.eu.org';
     const targetUrl = createTargetUrl(request.url, backendBaseUrl);

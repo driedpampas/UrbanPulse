@@ -2,4 +2,5 @@
 admin/
 .kilo/
 .scripts/
+Dockerfile
 **/package-lock.json
