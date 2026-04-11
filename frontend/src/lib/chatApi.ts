@@ -7,6 +7,7 @@ export type ChatSocketMessage = {
     threadId: string;
     senderId: string;
     content: string;
+    messageType?: 'text' | 'notice';
     timestamp: number;
 };
 
@@ -61,6 +62,7 @@ type BackendChatMessage = {
     threadId: string;
     senderId: string;
     content: string;
+    messageType?: string;
     timestamp: number | string;
 };
 
@@ -86,6 +88,7 @@ function normalizeMessage(message: BackendChatMessage, senderName: string): Chat
         senderId: message.senderId,
         senderName,
         content: message.content,
+        type: (message.messageType as 'text' | 'notice') ?? 'text',
         timestamp: Number(message.timestamp),
     };
 }
@@ -319,6 +322,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
                         threadId: summary.id,
                         senderId: message.senderId,
                         content: message.content,
+                        messageType: message.type,
                         timestamp: message.timestamp,
                     },
                     participantNames.get(message.senderId) ||

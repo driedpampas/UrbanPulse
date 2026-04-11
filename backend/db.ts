@@ -68,6 +68,7 @@ export interface Message {
     threadId: string;
     senderId: string;
     content: string;
+    messageType: 'text' | 'notice';
     timestamp: number;
 }
 
@@ -202,6 +203,7 @@ type MessageRow = {
     thread_id: string;
     sender_id: string;
     content: string;
+    message_type?: string | null;
     timestamp: number | string | Date;
 };
 
@@ -313,6 +315,7 @@ function mapMessageRow(rawMessage: MessageRow): Message {
         threadId: String(rawMessage.thread_id),
         senderId: String(rawMessage.sender_id),
         content: String(rawMessage.content),
+        messageType: (rawMessage.message_type as 'text' | 'notice') ?? 'text',
         timestamp: Number(rawMessage.timestamp ?? Date.now()),
     };
 }
@@ -609,7 +612,7 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content,
+            SELECT id, thread_id, sender_id, content, message_type,
             ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
             FROM app.messages
                         WHERE thread_id = ${threadId}
@@ -635,7 +638,7 @@ export async function selectMessage(
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content,
+            SELECT id, thread_id, sender_id, content, message_type,
             ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
             FROM app.messages
             WHERE id = ${messageId};
@@ -772,6 +775,12 @@ export async function insertChat(
         }
     });
 
+    if (isGroup) {
+        const creator = await selectUserSummary(currentUser);
+        const creatorName = creator?.displayName || `Neighbor ${currentUser.slice(0, 6)}`;
+        await insertMessage(threadId, currentUser, `${creatorName} created the group`, 'notice');
+    }
+
     return (await selectChat(threadId, currentUser))!;
 }
 
@@ -779,9 +788,9 @@ export async function addChatParticipants(
     threadId: string,
     participantIds: string[],
     actorId: string
-): Promise<boolean> {
+): Promise<Message[]> {
     if (participantIds.length === 0) {
-        return true;
+        return [];
     }
 
     await sql.begin(async (tx) => {
@@ -795,14 +804,30 @@ export async function addChatParticipants(
         `;
     });
 
-    return true;
+    const actor = await selectUserSummary(actorId);
+    const actorName = actor?.displayName || `Neighbor ${actorId.slice(0, 6)}`;
+    const messages: Message[] = [];
+    for (const pid of participantIds) {
+        const target = await selectUserSummary(pid);
+        const targetName = target?.displayName || `Neighbor ${pid.slice(0, 6)}`;
+        messages.push(
+            await insertMessage(
+                threadId,
+                actorId,
+                `${actorName} added ${targetName} to the chat`,
+                'notice'
+            )
+        );
+    }
+
+    return messages;
 }
 
 export async function removeChatParticipant(
     threadId: string,
     participantId: string,
     actorId: string
-): Promise<boolean> {
+): Promise<Message | null> {
     const [removed] = await sql.begin(async (tx) => {
         await ensureSchema();
         await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
@@ -819,7 +844,25 @@ export async function removeChatParticipant(
         `;
     });
 
-    return Boolean(removed);
+    if (removed) {
+        const actor = await selectUserSummary(actorId);
+        const actorName = actor?.displayName || `Neighbor ${actorId.slice(0, 6)}`;
+
+        if (actorId === participantId) {
+            return await insertMessage(threadId, actorId, `${actorName} left the chat`, 'notice');
+        } else {
+            const target = await selectUserSummary(participantId);
+            const targetName = target?.displayName || `Neighbor ${participantId.slice(0, 6)}`;
+            return await insertMessage(
+                threadId,
+                actorId,
+                `${actorName} removed ${targetName} from the chat`,
+                'notice'
+            );
+        }
+    }
+
+    return null;
 }
 
 export async function promoteChatParticipantToAdmin(
@@ -937,7 +980,8 @@ export async function unblockUser(blockerId: string, blockedId: string): Promise
 export async function insertMessage(
     threadId: string,
     senderId: string,
-    content: string
+    content: string,
+    messageType: 'text' | 'notice' = 'text'
 ): Promise<Message> {
     const [insertedMessage] = (await sql.begin(async (tx) => {
         await tx`
@@ -945,9 +989,9 @@ export async function insertMessage(
         `;
 
         return (await tx`
-            INSERT INTO app.messages (thread_id, sender_id, content)
-            VALUES (${threadId}, ${senderId}, ${content})
-            RETURNING id, thread_id, sender_id, content,
+            INSERT INTO app.messages (thread_id, sender_id, content, message_type)
+            VALUES (${threadId}, ${senderId}, ${content}, ${messageType})
+            RETURNING id, thread_id, sender_id, content, message_type,
             ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
         `) as MessageRow[];
     })) as MessageRow[];

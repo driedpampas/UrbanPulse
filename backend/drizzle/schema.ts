@@ -133,6 +133,7 @@ export const messages = app.table(
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
         content: text('content').notNull(),
+        messageType: text('message_type').notNull().default('text'),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
             .notNull()
             .defaultNow(),

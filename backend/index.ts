@@ -1410,7 +1410,7 @@ bun.serve({
                 ),
         },
         '/api/chats/:id/participants': {
-            POST: async (req) =>
+            POST: async (req, server) =>
                 validate(req, async () =>
                     authorize(req, async (session) =>
                         caught(async () => {
@@ -1432,18 +1432,30 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
 
-                            await db.addChatParticipants(
+                            const messages = await db.addChatParticipants(
                                 req.params.id,
                                 body.participantIds,
                                 payload.id
                             );
+
+                            if (server) {
+                                for (const message of messages) {
+                                    server.publish(
+                                        `chat-${req.params.id}`,
+                                        JSON.stringify({
+                                            event: 'message.created',
+                                            message,
+                                        })
+                                    );
+                                }
+                            }
                             return withCors(SUCCESS);
                         })
                     )
                 ),
         },
         '/api/chats/:id/participants/:userId': {
-            DELETE: async (req) =>
+            DELETE: async (req, server) =>
                 validate(req, async () =>
                     authorize(req, async (session) =>
                         caught(async () => {
@@ -1472,11 +1484,21 @@ bun.serve({
                                 return withCors(FORBIDDEN);
                             }
 
-                            await db.removeChatParticipant(
+                            const message = await db.removeChatParticipant(
                                 req.params.id,
                                 participantId.data,
                                 payload.id
                             );
+
+                            if (server && message) {
+                                server.publish(
+                                    `chat-${req.params.id}`,
+                                    JSON.stringify({
+                                        event: 'message.created',
+                                        message,
+                                    })
+                                );
+                            }
                             return withCors(SUCCESS);
                         })
                     )
