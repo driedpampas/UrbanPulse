@@ -685,7 +685,7 @@ bun.serve({
 
                                 users = users.map((u) => {
                                     if (!isAdmin && u.id !== payload.id) {
-                                        const { email: _email, ...rest } = u;
+                                        const { email: _email, location: _loc, radius: _rad, ...rest } = u;
                                         return rest as any;
                                     }
                                     return u;
@@ -711,7 +711,7 @@ bun.serve({
                                 );
 
                                 users = users.map((u) => {
-                                    const { email: _email, ...rest } = u;
+                                    const { email: _email, location: _loc, radius: _rad, ...rest } = u;
                                     return rest as any;
                                 });
 

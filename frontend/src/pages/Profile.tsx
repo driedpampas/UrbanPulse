@@ -138,7 +138,7 @@ export function Profile() {
         new URLSearchParams(window.location.search).get('setup') === '1';
     const selectedLocation = resolveLocationValue(editing ? draft : user);
     const editableLocationMap = isOwnProfile && editing;
-    const displayLocationMap = Boolean(selectedLocation || editableLocationMap);
+    const displayLocationMap = isOwnProfile && Boolean(selectedLocation || editableLocationMap);
     const mapStyle = theme === 'dark' ? PROFILE_MAPBOX_STYLE_DARK : PROFILE_MAPBOX_STYLE_LIGHT;
 
     const applyLocation = (nextLocation: { lat: number; lng: number }) => {
@@ -601,199 +601,203 @@ export function Profile() {
                     </div>
                     <div style={S.sectionBody}>
                         {/* Home location */}
-                        <div>
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+                        {isOwnProfile && (
+                            <div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+                                    <div style="display:flex;align-items:center;gap:7px;">
+                                        <Globe
+                                            size={13}
+                                            style="color:var(--text-tertiary);flex-shrink:0;"
+                                        />
+                                        <span style="font-size:13px;color:var(--text-secondary);">
+                                            Home location
+                                        </span>
+                                    </div>
+                                    {editing && (
+                                        <button
+                                            type="button"
+                                            class="btn-ghost"
+                                            onClick={async () => {
+                                                try {
+                                                    const browserLocation =
+                                                        await getCurrentBrowserLocation();
+                                                    applyLocation(browserLocation);
+                                                    setMapError(null);
+                                                } catch (error) {
+                                                    let message =
+                                                        'Could not read your current location.';
+                                                    if (error instanceof GeolocationPositionError) {
+                                                        if (
+                                                            error.code ===
+                                                            GeolocationPositionError.PERMISSION_DENIED
+                                                        ) {
+                                                            message =
+                                                                'Location access denied. Please enable location permissions in your browser settings.';
+                                                        } else if (
+                                                            error.code ===
+                                                            GeolocationPositionError.POSITION_UNAVAILABLE
+                                                        ) {
+                                                            message =
+                                                                'Location information is unavailable. Please try again.';
+                                                        } else if (
+                                                            error.code ===
+                                                            GeolocationPositionError.TIMEOUT
+                                                        ) {
+                                                            message =
+                                                                'Location request timed out. Please try again.';
+                                                        }
+                                                    } else if (error instanceof Error) {
+                                                        message = error.message;
+                                                    }
+                                                    setMapError(message);
+                                                }
+                                            }}
+                                            style="height:28px;padding:0 10px;font-size:11px;gap:5px;"
+                                        >
+                                            <Crosshair size={12} />
+                                            Use current location
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div style="display:flex;flex-direction:column;gap:8px;">
+                                    <div style={MAP_FRAME_STYLE}>
+                                        <div style="position:absolute;top:12px;left:12px;z-index:2;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:rgba(15,23,42,0.72);backdrop-filter:blur(14px);color:#fff;max-width:calc(100% - 24px);">
+                                            <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.72);">
+                                                {mapTitle}
+                                            </span>
+                                            <span style="font-size:13px;font-weight:600;line-height:1.2;">
+                                                {mapSubtitle}
+                                            </span>
+                                        </div>
+                                        <div style="position:absolute;top:12px;right:12px;z-index:2;padding:8px 10px;border-radius:999px;background:rgba(15,23,42,0.72);border:1px solid rgba(255,255,255,0.12);box-shadow:var(--shadow-sm);font-size:11px;font-weight:600;color:#fff;backdrop-filter:blur(10px);">
+                                            {locationText(selectedLocation)}
+                                        </div>
+                                        <div
+                                            ref={mapContainerRef}
+                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${
+                                                displayLocationMap ? 'block' : 'none'
+                                            };`}
+                                        />
+                                        {displayLocationMap && !mapLoaded && !mapError && (
+                                            <div style="position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
+                                                <div style="width:36px;height:36px;border-radius:999px;border:2px solid var(--accent-muted);border-top-color:var(--accent);animation:spin 1s linear infinite;" />
+                                                Loading map preview…
+                                            </div>
+                                        )}
+                                        {displayLocationMap && mapError && (
+                                            <div
+                                                style={`position:absolute;${
+                                                    mapLoaded
+                                                        ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
+                                                        : 'inset:0;justify-content:center;'
+                                                } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
+                                                class="animate-slide-up"
+                                            >
+                                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                                                    <div style="display:flex;gap:8px;align-items:flex-start;">
+                                                        <Ban
+                                                            size={14}
+                                                            style="color:var(--danger);flex-shrink:0;margin-top:2px;"
+                                                        />
+                                                        <div style="display:flex;flex-direction:column;gap:2px;">
+                                                            <p style="margin:0;font-size:12px;font-weight:700;color:var(--danger);line-height:1.4;">
+                                                                Action Failed
+                                                            </p>
+                                                            <p style="margin:0;font-size:12px;color:var(--danger);line-height:1.4;opacity:0.9;">
+                                                                {mapError}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setMapError(null)}
+                                                        style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
+                                                        onMouseEnter={(e) =>
+                                                            ((
+                                                                e.target as HTMLElement
+                                                            ).style.background = 'var(--danger-muted)')
+                                                        }
+                                                        onMouseLeave={(e) =>
+                                                            ((
+                                                                e.target as HTMLElement
+                                                            ).style.background = 'transparent')
+                                                        }
+                                                        aria-label="Clear error"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                                {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
+                                                    <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
+                                                        Tip: Set VITE_MAPBOX_TOKEN in your environment
+                                                        to enable the interactive map preview.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {!displayLocationMap && (
+                                            <div style="position:absolute;inset:0;padding:18px;display:flex;align-items:flex-end;background:var(--bg-subtle);">
+                                                <div style="display:flex;flex-direction:column;gap:5px;max-width:220px;padding:12px 14px;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
+                                                    <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
+                                                        Location
+                                                    </span>
+                                                    <span style="font-size:13px;color:var(--text);font-weight:600;line-height:1.4;">
+                                                        Not set yet
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {editing && (
+                                        <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.45;">
+                                            Click the map or drag the pin to set the account location.
+                                        </p>
+                                    )}
+
+                                    <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
+                                        Selected: {locationText(selectedLocation)}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Distance limit */}
+                        {isOwnProfile && (
+                            <div style={S.row}>
                                 <div style="display:flex;align-items:center;gap:7px;">
-                                    <Globe
+                                    <MapPin
                                         size={13}
                                         style="color:var(--text-tertiary);flex-shrink:0;"
                                     />
                                     <span style="font-size:13px;color:var(--text-secondary);">
-                                        Home location
+                                        Distance limit
                                     </span>
                                 </div>
-                                {editing && (
-                                    <button
-                                        type="button"
-                                        class="btn-ghost"
-                                        onClick={async () => {
-                                            try {
-                                                const browserLocation =
-                                                    await getCurrentBrowserLocation();
-                                                applyLocation(browserLocation);
-                                                setMapError(null);
-                                            } catch (error) {
-                                                let message =
-                                                    'Could not read your current location.';
-                                                if (error instanceof GeolocationPositionError) {
-                                                    if (
-                                                        error.code ===
-                                                        GeolocationPositionError.PERMISSION_DENIED
-                                                    ) {
-                                                        message =
-                                                            'Location access denied. Please enable location permissions in your browser settings.';
-                                                    } else if (
-                                                        error.code ===
-                                                        GeolocationPositionError.POSITION_UNAVAILABLE
-                                                    ) {
-                                                        message =
-                                                            'Location information is unavailable. Please try again.';
-                                                    } else if (
-                                                        error.code ===
-                                                        GeolocationPositionError.TIMEOUT
-                                                    ) {
-                                                        message =
-                                                            'Location request timed out. Please try again.';
-                                                    }
-                                                } else if (error instanceof Error) {
-                                                    message = error.message;
-                                                }
-                                                setMapError(message);
-                                            }
-                                        }}
-                                        style="height:28px;padding:0 10px;font-size:11px;gap:5px;"
-                                    >
-                                        <Crosshair size={12} />
-                                        Use current location
-                                    </button>
-                                )}
-                            </div>
-
-                            <div style="display:flex;flex-direction:column;gap:8px;">
-                                <div style={MAP_FRAME_STYLE}>
-                                    <div style="position:absolute;top:12px;left:12px;z-index:2;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:rgba(15,23,42,0.72);backdrop-filter:blur(14px);color:#fff;max-width:calc(100% - 24px);">
-                                        <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.72);">
-                                            {mapTitle}
-                                        </span>
-                                        <span style="font-size:13px;font-weight:600;line-height:1.2;">
-                                            {mapSubtitle}
-                                        </span>
-                                    </div>
-                                    <div style="position:absolute;top:12px;right:12px;z-index:2;padding:8px 10px;border-radius:999px;background:rgba(15,23,42,0.72);border:1px solid rgba(255,255,255,0.12);box-shadow:var(--shadow-sm);font-size:11px;font-weight:600;color:#fff;backdrop-filter:blur(10px);">
-                                        {locationText(selectedLocation)}
-                                    </div>
-                                    <div
-                                        ref={mapContainerRef}
-                                        style={`position:absolute;inset:0;width:100%;height:100%;display:${
-                                            displayLocationMap ? 'block' : 'none'
-                                        };`}
+                                {editing ? (
+                                    <input
+                                        type="number"
+                                        value={draft.distanceLimit}
+                                        onInput={(e) =>
+                                            setDraft((d) => ({
+                                                ...d,
+                                                distanceLimit: Number(
+                                                    (e.target as HTMLInputElement).value
+                                                ),
+                                            }))
+                                        }
+                                        style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;text-align:right;"
+                                        onFocus={focusOn}
+                                        onBlur={focusOff}
                                     />
-                                    {displayLocationMap && !mapLoaded && !mapError && (
-                                        <div style="position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
-                                            <div style="width:36px;height:36px;border-radius:999px;border:2px solid var(--accent-muted);border-top-color:var(--accent);animation:spin 1s linear infinite;" />
-                                            Loading map preview…
-                                        </div>
-                                    )}
-                                    {displayLocationMap && mapError && (
-                                        <div
-                                            style={`position:absolute;${
-                                                mapLoaded
-                                                    ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
-                                                    : 'inset:0;justify-content:center;'
-                                            } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
-                                            class="animate-slide-up"
-                                        >
-                                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
-                                                <div style="display:flex;gap:8px;align-items:flex-start;">
-                                                    <Ban
-                                                        size={14}
-                                                        style="color:var(--danger);flex-shrink:0;margin-top:2px;"
-                                                    />
-                                                    <div style="display:flex;flex-direction:column;gap:2px;">
-                                                        <p style="margin:0;font-size:12px;font-weight:700;color:var(--danger);line-height:1.4;">
-                                                            Action Failed
-                                                        </p>
-                                                        <p style="margin:0;font-size:12px;color:var(--danger);line-height:1.4;opacity:0.9;">
-                                                            {mapError}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setMapError(null)}
-                                                    style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
-                                                    onMouseEnter={(e) =>
-                                                        ((
-                                                            e.target as HTMLElement
-                                                        ).style.background = 'var(--danger-muted)')
-                                                    }
-                                                    onMouseLeave={(e) =>
-                                                        ((
-                                                            e.target as HTMLElement
-                                                        ).style.background = 'transparent')
-                                                    }
-                                                    aria-label="Clear error"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            </div>
-                                            {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
-                                                <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
-                                                    Tip: Set VITE_MAPBOX_TOKEN in your environment
-                                                    to enable the interactive map preview.
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                                    {!displayLocationMap && (
-                                        <div style="position:absolute;inset:0;padding:18px;display:flex;align-items:flex-end;background:var(--bg-subtle);">
-                                            <div style="display:flex;flex-direction:column;gap:5px;max-width:220px;padding:12px 14px;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
-                                                <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
-                                                    Location
-                                                </span>
-                                                <span style="font-size:13px;color:var(--text);font-weight:600;line-height:1.4;">
-                                                    Not set yet
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {editing && (
-                                    <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.45;">
-                                        Click the map or drag the pin to set the account location.
-                                    </p>
+                                ) : (
+                                    <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
+                                        {user.distanceLimit} m
+                                    </span>
                                 )}
-
-                                <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
-                                    Selected: {locationText(selectedLocation)}
-                                </p>
                             </div>
-                        </div>
-
-                        {/* Distance limit */}
-                        <div style={S.row}>
-                            <div style="display:flex;align-items:center;gap:7px;">
-                                <MapPin
-                                    size={13}
-                                    style="color:var(--text-tertiary);flex-shrink:0;"
-                                />
-                                <span style="font-size:13px;color:var(--text-secondary);">
-                                    Distance limit
-                                </span>
-                            </div>
-                            {editing ? (
-                                <input
-                                    type="number"
-                                    value={draft.distanceLimit}
-                                    onInput={(e) =>
-                                        setDraft((d) => ({
-                                            ...d,
-                                            distanceLimit: Number(
-                                                (e.target as HTMLInputElement).value
-                                            ),
-                                        }))
-                                    }
-                                    style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;text-align:right;"
-                                    onFocus={focusOn}
-                                    onBlur={focusOff}
-                                />
-                            ) : (
-                                <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
-                                    {user.distanceLimit} m
-                                </span>
-                            )}
-                        </div>
+                        )}
 
                         {/* Quiet hours */}
                         <div style={S.row}>

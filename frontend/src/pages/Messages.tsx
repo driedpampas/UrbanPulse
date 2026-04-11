@@ -346,9 +346,19 @@ export function Messages() {
                                 style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:background 0.15s;animation-delay:${i * 50}ms;`}
                             >
                                 <div
-                                    style={`width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'var(--accent-subtle)' : 'var(--type-item-bg)'};color:${isGroup ? 'var(--accent)' : 'var(--type-item-text)'};`}
+                                    style={`width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg-muted);overflow:hidden;`}
                                 >
-                                    {isGroup ? <Users size={17} /> : <User size={17} />}
+                                    {isGroup ? (
+                                        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
+                                            <Users size={17} />
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
+                                            alt=""
+                                            style="width:100%;height:100%;object-fit:cover;"
+                                        />
+                                    )}
                                 </div>
                                 <div style="flex:1;min-width:0;">
                                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -882,17 +892,29 @@ function ChatView({
                     <ArrowLeft size={18} />
                 </button>
                 <div
-                    style={`width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'var(--accent-subtle)' : 'var(--type-item-bg)'};color:${isGroup ? 'var(--accent)' : 'var(--type-item-text)'};`}
+                    style={`width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;background:var(--bg-muted);`}
                 >
-                    {isGroup ? <Users size={15} /> : <User size={15} />}
+                    {isGroup ? (
+                        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
+                            <Users size={15} />
+                        </div>
+                    ) : (
+                        <img
+                            src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
+                            alt=""
+                            style="width:100%;height:100%;object-fit:cover;"
+                        />
+                    )}
                 </div>
                 <div style="flex:1;min-width:0;">
                     <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;">
                         {chatTitle}
                     </p>
-                    <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
-                        {thread.participants.length} members
-                    </p>
+                    {isGroup && (
+                        <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
+                            {thread.participants.length} members
+                        </p>
+                    )}
                 </div>
                 {isGroup && (
                     <button
@@ -1086,6 +1108,7 @@ function ChatView({
                     return (
                         <div
                             key={msg.id}
+                            className="message-row"
                             style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;`}
                         >
                             {!isMe && (
@@ -1140,35 +1163,34 @@ function ChatView({
                                 <p style="margin:0;word-break:break-word;">{msg.content}</p>
                             </button>
 
-                            {isMe && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => handleContextMenu(e as any, msg.id)}
-                                    style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;opacity:${contextMenuMessageId === msg.id ? '1' : '0'};pointer-events:${contextMenuMessageId === msg.id ? 'auto' : 'none'};flex-shrink:0;`}
-                                    aria-label="Delete message"
-                                    onMouseEnter={(e) => {
-                                        const btn = e.currentTarget as HTMLElement;
-                                        btn.style.background = 'var(--danger-subtle)';
-                                        btn.style.color = 'var(--danger)';
+                            {!isContextMenuOpen && (
+                                <div className="delete-trigger-container" style="display:flex;align-items:center;">
+                                    <button
+                                        type="button"
+                                        className="delete-btn-hover"
+                                        onClick={(e) => handleContextMenu(e as any, msg.id)}
+                                        style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;flex-shrink:0;`}
+                                        aria-label="More options"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            )}
+
+                            {isContextMenuOpen && contextMenuPosition && (
+                                <div
+                                    style="position:fixed;inset:0;z-index:49;"
+                                    onClick={() => {
+                                        setContextMenuMessageId(null);
+                                        setContextMenuPosition(null);
                                     }}
-                                    onMouseLeave={(e) => {
-                                        const btn = e.currentTarget as HTMLElement;
-                                        btn.style.background = 'var(--surface-raised)';
-                                        btn.style.color = 'var(--text-tertiary)';
-                                    }}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
+                                />
                             )}
 
                             {isContextMenuOpen && contextMenuPosition && (
                                 <div
                                     style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
                                     role="menu"
-                                    onMouseLeave={() => {
-                                        setContextMenuMessageId(null);
-                                        setContextMenuPosition(null);
-                                    }}
                                 >
                                     <button
                                         type="button"
@@ -1189,26 +1211,30 @@ function ChatView({
                                         <Trash2 size={14} />
                                         Delete for me
                                     </button>
-                                    <div style="height:1px;background:var(--border);" />
-                                    <button
-                                        type="button"
-                                        onClick={() => handleDeleteMessage(msg, 'everyone')}
-                                        disabled={deletingMessageId !== null}
-                                        role="menuitem"
-                                        key="delete-everyone"
-                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                        onMouseEnter={(e) => {
-                                            (e.currentTarget as HTMLElement).style.background =
-                                                'var(--danger-subtle)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            (e.currentTarget as HTMLElement).style.background =
-                                                'none';
-                                        }}
-                                    >
-                                        <Trash2 size={14} />
-                                        Delete for everyone
-                                    </button>
+                                    {(isMe || (thread.isGroup && (thread.ownerId === currentUserId || thread.participantRoles?.[currentUserId]?.includes('admin')))) && (
+                                        <>
+                                            <div style="height:1px;background:var(--border);" />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteMessage(msg, 'everyone')}
+                                                disabled={deletingMessageId !== null}
+                                                role="menuitem"
+                                                key="delete-everyone"
+                                                style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                onMouseEnter={(e) => {
+                                                    (e.currentTarget as HTMLElement).style.background =
+                                                        'var(--danger-subtle)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    (e.currentTarget as HTMLElement).style.background =
+                                                        'none';
+                                                }}
+                                            >
+                                                <Trash2 size={14} />
+                                                Delete for everyone
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>
