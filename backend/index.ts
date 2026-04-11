@@ -1400,11 +1400,11 @@ bun.serve({
                                 return withCors(FORBIDDEN);
                             }
 
-                            const participants = await db.selectChat(threadId, payload.id);
-                            if (!participants) {
+                            const chatSummary = await db.selectChatSummary(threadId, payload.id);
+                            if (!chatSummary) {
                                 return withCors(NOT_FOUND);
                             }
-                            return withCors(Response.json(participants, { status: 200 }));
+                            return withCors(Response.json(chatSummary, { status: 200 }));
                         })
                     )
                 ),

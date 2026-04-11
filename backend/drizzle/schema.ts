@@ -84,6 +84,7 @@ export const pulses = app.table(
 export const chatThreads = app.table('chat_threads', {
     id: uuid('id').defaultRandom().primaryKey(),
     isGroup: boolean('is_group').notNull().default(false),
+    ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });
 
@@ -101,6 +102,24 @@ export const chatParticipants = app.table(
             .defaultNow(),
     },
     (table) => [primaryKey({ columns: [table.threadId, table.userId] })]
+);
+
+export const chatParticipantRoles = app.table(
+    'chat_participant_roles',
+    {
+        threadId: uuid('thread_id')
+            .notNull()
+            .references(() => chatThreads.id, { onDelete: 'cascade' }),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        role: text('role').notNull(),
+        assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+        assignedAt: timestamp('assigned_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => [primaryKey({ columns: [table.threadId, table.userId, table.role] })]
 );
 
 export const messages = app.table(
@@ -197,6 +216,29 @@ export const pulseConfirmations = app.table(
     (table) => [primaryKey({ columns: [table.pulseId, table.userId] })]
 );
 
+export const reports = app.table(
+    'reports',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        targetId: uuid('target_id').notNull(),
+        targetType: text('target_type').notNull(),
+        reason: text('reason').notNull(),
+        reportedBy: uuid('reported_by')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+        status: text('status').notNull().default('pending'),
+        content: text('content').notNull(),
+    },
+    (table) => [
+        index('reports_target_id_idx').on(table.targetId),
+        index('reports_reported_by_idx').on(table.reportedBy),
+        index('reports_status_idx').on(table.status),
+    ]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Pulse = typeof pulses.$inferSelect;
@@ -204,3 +246,4 @@ export type NewPulse = typeof pulses.$inferInsert;
 export type ChatThread = typeof chatThreads.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type LibraryItem = typeof libraryItems.$inferSelect;
+export type Report = typeof reports.$inferSelect;

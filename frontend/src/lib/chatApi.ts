@@ -345,6 +345,12 @@ export async function fetchChats(): Promise<ChatThread[]> {
     });
 }
 
+export async function fetchChatThread(threadId: string): Promise<ChatThread> {
+    const summary = await request<BackendChatSummary>(`/chats/${threadId}`, { method: 'GET' });
+    const messages = await fetchChatMessages(threadId);
+    return normalizeChat(summary, messages);
+}
+
 export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
     const message = await request<BackendChatMessage>(`/chats/${threadId}/messages`, {
         method: 'POST',

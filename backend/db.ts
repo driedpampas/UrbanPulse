@@ -327,22 +327,53 @@ function normalizeChatRoles(roles: string[] | null | undefined): ChatParticipant
     );
 }
 
-async function ensureChatParticipantRoleTable(tx: SqlRunner) {
-    await tx`
-        ALTER TABLE app.chat_threads
-        ADD COLUMN IF NOT EXISTS owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
-    `;
+let isSchemaEnsured = false;
+async function ensureSchema() {
+    if (isSchemaEnsured) return;
 
-    await tx`
-        CREATE TABLE IF NOT EXISTS app.chat_participant_roles (
-            thread_id uuid NOT NULL REFERENCES app.chat_threads(id) ON DELETE CASCADE,
-            user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-            role text NOT NULL,
-            assigned_by uuid REFERENCES app.users(id) ON DELETE SET NULL,
-            assigned_at timestamptz NOT NULL DEFAULT now(),
-            PRIMARY KEY (thread_id, user_id, role)
-        )
-    `;
+    await sql.begin(async (tx) => {
+        await tx`CREATE SCHEMA IF NOT EXISTS app`;
+
+        await tx`
+            ALTER TABLE app.chat_threads
+            ADD COLUMN IF NOT EXISTS owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
+        `;
+
+        await tx`
+            CREATE TABLE IF NOT EXISTS app.chat_participant_roles (
+                thread_id uuid NOT NULL REFERENCES app.chat_threads(id) ON DELETE CASCADE,
+                user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                role text NOT NULL,
+                assigned_by uuid REFERENCES app.users(id) ON DELETE SET NULL,
+                assigned_at timestamptz NOT NULL DEFAULT now(),
+                PRIMARY KEY (thread_id, user_id, role)
+            )
+        `;
+
+        await tx`
+            CREATE TABLE IF NOT EXISTS app.pulse_confirmations (
+                pulse_id uuid NOT NULL REFERENCES app.pulses(id) ON DELETE CASCADE,
+                user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                confirmed_at timestamptz NOT NULL DEFAULT now(),
+                PRIMARY KEY (pulse_id, user_id)
+            )
+        `;
+
+        await tx`
+            CREATE TABLE IF NOT EXISTS app.reports (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                target_id uuid NOT NULL,
+                target_type text NOT NULL,
+                reason text NOT NULL,
+                reported_by uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                created_at timestamptz NOT NULL DEFAULT now(),
+                status text NOT NULL DEFAULT 'pending',
+                content text NOT NULL
+            )
+        `;
+    });
+
+    isSchemaEnsured = true;
 }
 
 async function getChatParticipantRoles(
@@ -461,7 +492,7 @@ export async function selectChats(userId: string): Promise<{ chatId: string }[]>
 
 export async function selectChatSummaries(userId: string): Promise<ChatSummary[]> {
     const chats = (await sql.begin(async (tx) => {
-        await ensureChatParticipantRoleTable(tx);
+        await ensureSchema();
 
         return (await tx`
             SELECT
@@ -514,6 +545,63 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
     }));
 }
 
+export async function selectChatSummary(chatId: string, userId: string): Promise<ChatSummary | null> {
+    const [chat] = (await sql.begin(async (tx) => {
+        await ensureSchema();
+
+        return (await tx`
+            SELECT
+                ct.id,
+                ct.is_group,
+                ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
+                COALESCE(ct.owner_id::text, NULL) AS owner_id,
+                ARRAY_AGG(
+                    jsonb_build_object(
+                        'userId', cp.user_id::text,
+                        'displayName', NULLIF(users.display_name, ''),
+                        'roles', COALESCE(roles.roles, '[]'::jsonb)
+                    )
+                    ORDER BY cp.joined_at
+                ) AS participants
+            FROM app.chat_threads AS ct
+            JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
+            LEFT JOIN app.users AS users ON users.id = cp.user_id
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(role ORDER BY role) AS roles
+                FROM app.chat_participant_roles AS cpr
+                WHERE cpr.thread_id = ct.id AND cpr.user_id = cp.user_id
+            ) AS roles ON true
+            WHERE ct.id = ${chatId}::uuid
+              AND ct.id IN (
+                SELECT thread_id
+                FROM app.chat_participants
+                WHERE user_id = ${userId}
+            )
+            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+        `) as ChatSummaryRow[];
+    })) as ChatSummaryRow[];
+
+    if (!chat) return null;
+
+    return {
+        id: chat.id,
+        isGroup: chat.is_group,
+        timestamp: Number(chat.timestamp),
+        ownerId: chat.owner_id,
+        participants: (
+            chat.participants as Array<{
+                userId: string;
+                displayName: string | null;
+                roles: string[];
+            }>
+        ).map((participant) => ({
+            userId: participant.userId,
+            displayName: participant.displayName,
+            roles: normalizeChatRoles(participant.roles),
+        })),
+    };
+}
+
 export async function selectMessages(threadId: string, currentUser: string): Promise<Message[]> {
     const messages = (await sql.begin(async (tx) => {
         await tx`
@@ -559,7 +647,7 @@ export async function selectMessage(
 
 export async function selectChat(chatId: string, currentUser: string): Promise<Chat | null> {
     const chatRows = (await sql.begin(async (tx) => {
-        await ensureChatParticipantRoleTable(tx);
+        await ensureSchema();
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
@@ -654,7 +742,7 @@ export async function insertChat(
     const csvParticipantIds = participantIds.join(',');
 
     await sql.begin(async (tx) => {
-        await ensureChatParticipantRoleTable(tx);
+        await ensureSchema();
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
@@ -697,7 +785,7 @@ export async function addChatParticipants(
     }
 
     await sql.begin(async (tx) => {
-        await ensureChatParticipantRoleTable(tx);
+        await ensureSchema();
         await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
         await tx`
             INSERT INTO app.chat_participants (thread_id, user_id)
@@ -716,7 +804,7 @@ export async function removeChatParticipant(
     actorId: string
 ): Promise<boolean> {
     const [removed] = await sql.begin(async (tx) => {
-        await ensureChatParticipantRoleTable(tx);
+        await ensureSchema();
         await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
 
         await tx`
@@ -740,7 +828,7 @@ export async function promoteChatParticipantToAdmin(
     actorId: string
 ): Promise<boolean> {
     await sql.begin(async (tx) => {
-        await ensureChatParticipantRoleTable(tx);
+        await ensureSchema();
         await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
         await tx`
             INSERT INTO app.chat_participant_roles (thread_id, user_id, role, assigned_by)
@@ -1450,15 +1538,7 @@ export async function confirmPulse(
     userId: string
 ): Promise<{ success: boolean; alreadyConfirmed: boolean }> {
     return await sql.begin(async (tx) => {
-        await tx`CREATE SCHEMA IF NOT EXISTS app`;
-        await tx`
-            CREATE TABLE IF NOT EXISTS app.pulse_confirmations (
-                pulse_id uuid NOT NULL REFERENCES app.pulses(id) ON DELETE CASCADE,
-                user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-                confirmed_at timestamptz NOT NULL DEFAULT now(),
-                PRIMARY KEY (pulse_id, user_id)
-            )
-        `;
+        await ensureSchema();
 
         // 1. Check if user already confirmed or is author
         const [pulse] = await tx`
@@ -1511,18 +1591,7 @@ export async function insertReport(params: {
     content: string;
 }): Promise<Report> {
     return await sql.begin(async (tx) => {
-        await tx`
-            CREATE TABLE IF NOT EXISTS app.reports (
-                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                target_id uuid NOT NULL,
-                target_type text NOT NULL,
-                reason text NOT NULL,
-                reported_by uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-                created_at timestamptz NOT NULL DEFAULT now(),
-                status text NOT NULL DEFAULT 'pending',
-                content text NOT NULL
-            )
-        `;
+        await ensureSchema();
 
         const [row] = (await tx`
             INSERT INTO app.reports (target_id, target_type, reason, reported_by, content)
