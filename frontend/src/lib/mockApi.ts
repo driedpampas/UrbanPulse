@@ -426,7 +426,8 @@ export async function fetchCurrentUser(): Promise<User> {
 export async function updateProfile(updates: Partial<User>): Promise<User> {
     await delay(400);
     syncCurrentUserWithSession();
-    currentUser = { ...currentUser, ...updates };
+    const { location: _location, ...rest } = updates;
+    currentUser = { ...currentUser, ...rest };
     return { ...currentUser };
 }
 

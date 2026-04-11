@@ -2,7 +2,11 @@ import { AlertTriangle, RefreshCw, Thermometer } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { WeatherData } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
-import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation } from '../../lib/utils';
+import {
+    DEFAULT_PULSE_CENTER,
+    getCurrentBrowserLocation,
+    isUsableCoordinates,
+} from '../../lib/utils';
 import { fetchWeather } from '../../lib/weatherApi';
 
 export function WeatherAlert() {
@@ -16,7 +20,7 @@ export function WeatherAlert() {
             let lat = user.lat;
             let lng = user.lng;
 
-            if (!lat || !lng) {
+            if (!isUsableCoordinates(lat, lng)) {
                 try {
                     const loc = await getCurrentBrowserLocation();
                     lat = loc.lat;

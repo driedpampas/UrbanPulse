@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './api';
 import { readStoredAuthSession } from './auth';
 import type { User } from './types';
+import { isUsableCoordinates } from './utils';
 
 type BackendUser = {
     id: string;
@@ -89,6 +90,13 @@ function normalizeQuietDays(quietDays: Array<number | string> | null | undefined
 
 function mapBackendUser(user: BackendUser): User {
     const quiet = mergeQuietHours(user.quietHours);
+    const location =
+        user.location && isUsableCoordinates(user.location.lat ?? 0, user.location.lng ?? 0)
+            ? {
+                  lat: user.location.lat ?? 0,
+                  lng: user.location.lng ?? 0,
+              }
+            : null;
 
     return {
         id: user.id,
@@ -100,8 +108,9 @@ function mapBackendUser(user: BackendUser): User {
         skills: user.skillsAndResources || [],
         trustScore: Math.round(user.trustScore || 0),
         verified: Boolean(user.verified),
-        lat: user.location?.lat ?? 0,
-        lng: user.location?.lng ?? 0,
+        lat: location?.lat ?? 0,
+        lng: location?.lng ?? 0,
+        location,
         quietHoursStart: quiet.start,
         quietHoursEnd: quiet.end,
         distanceLimit: Math.max(user.radius ?? 1, 1),
@@ -180,6 +189,15 @@ export async function fetchCurrentUser(): Promise<User> {
 export async function updateProfile(updates: Partial<User>): Promise<User> {
     const quietHoursProvided =
         updates.quietHoursStart !== undefined || updates.quietHoursEnd !== undefined;
+    const nextLocation =
+        updates.location && isUsableCoordinates(updates.location.lat, updates.location.lng)
+            ? updates.location
+            : isUsableCoordinates(updates.lat ?? 0, updates.lng ?? 0)
+              ? {
+                    lat: updates.lat ?? 0,
+                    lng: updates.lng ?? 0,
+                }
+              : null;
 
     const patchBody: {
         displayName?: string;
@@ -203,8 +221,8 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         patchBody.radius = Math.max(1, Math.round(updates.distanceLimit));
     }
 
-    if (typeof updates.lat === 'number' && typeof updates.lng === 'number') {
-        patchBody.location = { lat: updates.lat, lng: updates.lng };
+    if (nextLocation) {
+        patchBody.location = nextLocation;
     }
 
     if (quietHoursProvided) {

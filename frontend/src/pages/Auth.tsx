@@ -75,7 +75,7 @@ export function Auth() {
         try {
             if (mode === 'login') await login({ email: email.trim(), password });
             else await register({ displayName: displayName.trim(), email: email.trim(), password });
-            setLocation('/');
+            setLocation(mode === 'login' ? '/' : '/profile?setup=1');
         } catch (err) {
             setErrors(mapErr(err));
         } finally {

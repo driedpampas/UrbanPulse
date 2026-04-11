@@ -1,13 +1,38 @@
-import { Ban, CalendarDays, LogOut, MapPin, MessageSquare, Moon, Pencil, Plus, Save, Trash2, X } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import {
+    Ban,
+    CalendarDays,
+    Crosshair,
+    Globe,
+    LogOut,
+    MapPin,
+    MessageSquare,
+    Moon,
+    Pencil,
+    Plus,
+    Save,
+    Trash2,
+    X,
+} from 'lucide-preact';
+import type {
+    ErrorEvent as MapboxErrorEvent,
+    Map as MapboxMap,
+    Marker as MapboxMarker,
+} from 'mapbox-gl';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
-import { blockUser, fetchBlockedUserIds, startDirectConversation, unblockUser } from '../lib/chatApi';
 import { useAuth } from '../lib/auth';
+import {
+    blockUser,
+    fetchBlockedUserIds,
+    startDirectConversation,
+    unblockUser,
+} from '../lib/chatApi';
 import type { User } from '../lib/types';
 import { deleteAccount, fetchCurrentUser, fetchUserById, updateProfile } from '../lib/userApi';
+import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation, isUsableCoordinates } from '../lib/utils';
 
 const DAYS = [
     { v: 0, s: 'Sun' },
@@ -39,6 +64,34 @@ const S = {
         'width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;resize:none;height:80px;transition:border-color 0.15s,box-shadow 0.15s;',
 };
 
+const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
+const PROFILE_MAPBOX_STYLE = 'mapbox/light-v11';
+
+function resolveLocationValue(
+    value:
+        | {
+              location?: { lat?: number | null; lng?: number | null } | null;
+              lat?: number | null;
+              lng?: number | null;
+          }
+        | null
+        | undefined
+): { lat: number; lng: number } | null {
+    const location = value?.location;
+    const lat = location?.lat ?? value?.lat ?? null;
+    const lng = location?.lng ?? value?.lng ?? null;
+
+    if (typeof lat === 'number' && typeof lng === 'number' && isUsableCoordinates(lat, lng)) {
+        return { lat, lng };
+    }
+
+    return null;
+}
+
+function locationText(location: { lat: number; lng: number } | null) {
+    return location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Not set';
+}
+
 const focusOn = (e: Event) => {
     const el = e.target as HTMLElement;
     el.style.borderColor = 'var(--border-focus)';
@@ -61,10 +114,31 @@ export function Profile() {
     const [showDel, setShowDel] = useState(false);
     const [blocked, setBlocked] = useState(false);
     const [actionBusy, setActionBusy] = useState(false);
+    const [mapError, setMapError] = useState<string | null>(null);
+    const [mapLoaded, setMapLoaded] = useState(false);
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<MapboxMap | null>(null);
+    const mapboxGlRef = useRef<typeof import('mapbox-gl')['default'] | null>(null);
+    const locationMarkerRef = useRef<MapboxMarker | null>(null);
 
     const selectedUserId =
-        typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('userId') : null;
+        typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('userId')
+            : null;
     const isOwnProfile = !selectedUserId || selectedUserId === session?.user.id;
+    const isSetupMode =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('setup') === '1';
+    const selectedLocation = resolveLocationValue(editing ? draft : user);
+
+    const applyLocation = (nextLocation: { lat: number; lng: number }) => {
+        setDraft((current) => ({
+            ...current,
+            lat: nextLocation.lat,
+            lng: nextLocation.lng,
+            location: nextLocation,
+        }));
+    };
 
     useEffect(() => {
         setEditing(false);
@@ -83,6 +157,10 @@ export function Profile() {
             setUser(loadedUser);
             setDraft(loadedUser);
 
+            if (isOwnProfile && isSetupMode) {
+                setEditing(true);
+            }
+
             if (!isOwnProfile && selectedUserId) {
                 const blockedUserIds = await fetchBlockedUserIds();
                 setBlocked(blockedUserIds.includes(selectedUserId));
@@ -92,6 +170,105 @@ export function Profile() {
         void loadUser();
     }, [location, isOwnProfile, selectedUserId]);
 
+    useEffect(() => {
+        if (!editing || !isOwnProfile) {
+            return;
+        }
+
+        let disposed = false;
+
+        const initMap = async () => {
+            if (!PROFILE_MAPBOX_TOKEN) {
+                setMapError(
+                    'Missing VITE_MAPBOX_TOKEN. Set a public Mapbox token to edit location.'
+                );
+                return;
+            }
+
+            try {
+                const [{ default: mapboxgl }] = await Promise.all([
+                    import('mapbox-gl'),
+                    import('mapbox-gl/dist/mapbox-gl.css'),
+                ]);
+
+                if (disposed || !mapContainerRef.current) {
+                    return;
+                }
+
+                mapboxGlRef.current = mapboxgl;
+                mapboxgl.accessToken = PROFILE_MAPBOX_TOKEN;
+
+                const initialLocation = selectedLocation ?? DEFAULT_PULSE_CENTER;
+                const map = new mapboxgl.Map({
+                    container: mapContainerRef.current,
+                    style: `mapbox://styles/${PROFILE_MAPBOX_STYLE}`,
+                    center: [initialLocation.lng, initialLocation.lat],
+                    zoom: 13,
+                });
+
+                mapRef.current = map;
+                map.on('load', () => {
+                    if (disposed) {
+                        return;
+                    }
+
+                    const marker = new mapboxgl.Marker({ draggable: true, color: '#0ea5e9' })
+                        .setLngLat([initialLocation.lng, initialLocation.lat])
+                        .addTo(map);
+
+                    locationMarkerRef.current = marker;
+                    setMapLoaded(true);
+
+                    marker.on('dragend', () => {
+                        const next = marker.getLngLat();
+                        applyLocation({ lat: next.lat, lng: next.lng });
+                    });
+
+                    map.on('click', (event) => {
+                        const next = { lat: event.lngLat.lat, lng: event.lngLat.lng };
+                        marker.setLngLat([next.lng, next.lat]);
+                        applyLocation(next);
+                    });
+                });
+
+                map.on('error', (event: MapboxErrorEvent) => {
+                    const message =
+                        event.error?.message || 'Mapbox failed to render the location picker.';
+                    setMapError(message);
+                });
+            } catch (error) {
+                if (!disposed) {
+                    setMapError(error instanceof Error ? error.message : 'Failed to load map.');
+                }
+            }
+        };
+
+        void initMap();
+
+        return () => {
+            disposed = true;
+            locationMarkerRef.current?.remove();
+            locationMarkerRef.current = null;
+            mapRef.current?.remove();
+            mapRef.current = null;
+            mapboxGlRef.current = null;
+            setMapLoaded(false);
+            setMapError(null);
+        };
+    }, [editing, isOwnProfile, selectedLocation?.lat, selectedLocation?.lng]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        const marker = locationMarkerRef.current;
+
+        if (!editing || !mapLoaded || !map || !marker || !selectedLocation) {
+            return;
+        }
+
+        marker.setLngLat([selectedLocation.lng, selectedLocation.lat]);
+        map.setCenter([selectedLocation.lng, selectedLocation.lat]);
+    }, [editing, mapLoaded, selectedLocation]);
+
     const handleSave = async () => {
         if (!draft) return;
         setSaving(true);
@@ -100,6 +277,9 @@ export function Profile() {
         setUser(updated);
         setDraft(updated);
         setEditing(false);
+        if (isSetupMode) {
+            setLocation('/profile');
+        }
         setSaving(false);
     };
 
@@ -349,12 +529,12 @@ export function Profile() {
                                         placeholder="Add skill…"
                                         style="width:100px;padding:3px 10px;border-radius:6px;border:1px dashed var(--border-strong);background:transparent;color:var(--text);font-size:12px;font-family:inherit;outline:none;"
                                         onFocus={(e) =>
-                                        ((e.target as HTMLElement).style.borderColor =
-                                            'var(--border-focus)')
+                                            ((e.target as HTMLElement).style.borderColor =
+                                                'var(--border-focus)')
                                         }
                                         onBlur={(e) =>
-                                        ((e.target as HTMLElement).style.borderColor =
-                                            'var(--border-strong)')
+                                            ((e.target as HTMLElement).style.borderColor =
+                                                'var(--border-strong)')
                                         }
                                     />
                                     <button
@@ -380,6 +560,95 @@ export function Profile() {
                         </p>
                     </div>
                     <div style={S.sectionBody}>
+                        {/* Home location */}
+                        <div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+                                <div style="display:flex;align-items:center;gap:7px;">
+                                    <Globe
+                                        size={13}
+                                        style="color:var(--text-tertiary);flex-shrink:0;"
+                                    />
+                                    <span style="font-size:13px;color:var(--text-secondary);">
+                                        Home location
+                                    </span>
+                                </div>
+                                {editing && (
+                                    <button
+                                        type="button"
+                                        class="btn-ghost"
+                                        onClick={async () => {
+                                            try {
+                                                const browserLocation =
+                                                    await getCurrentBrowserLocation();
+                                                applyLocation(browserLocation);
+                                                setMapError(null);
+                                            } catch {
+                                                window.alert(
+                                                    'Could not read your current location.'
+                                                );
+                                            }
+                                        }}
+                                        style="height:28px;padding:0 10px;font-size:11px;gap:5px;"
+                                    >
+                                        <Crosshair size={12} />
+                                        Use current location
+                                    </button>
+                                )}
+                            </div>
+
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <div
+                                    style={`border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg-subtle);${
+                                        editing ? '' : 'opacity:0.95;'
+                                    }`}
+                                >
+                                    <div
+                                        ref={mapContainerRef}
+                                        style={`width:100%;height:220px;display:${
+                                            editing && mapLoaded ? 'block' : 'none'
+                                        };`}
+                                    />
+                                    {editing && !mapLoaded && !mapError && (
+                                        <div style="height:220px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:12px;">
+                                            Loading location map…
+                                        </div>
+                                    )}
+                                    {editing && mapError && (
+                                        <div style="height:220px;padding:14px;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:flex-start;">
+                                            <p style="margin:0;font-size:12px;color:var(--danger);">
+                                                {mapError}
+                                            </p>
+                                            <p style="margin:0;font-size:11px;color:var(--text-tertiary);">
+                                                Set `VITE_MAPBOX_TOKEN` to enable map picking.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {!editing && (
+                                        <div style="height:220px;padding:14px;display:flex;align-items:flex-end;background:linear-gradient(180deg,rgba(0,0,0,0.02),rgba(0,0,0,0.08));">
+                                            <div style="padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
+                                                <p style="margin:0;font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;">
+                                                    Current pin
+                                                </p>
+                                                <p style="margin:3px 0 0;font-size:13px;color:var(--text);font-weight:600;">
+                                                    {locationText(selectedLocation)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {editing && (
+                                    <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.45;">
+                                        Click the map or drag the pin to set the account location.
+                                    </p>
+                                )}
+
+                                <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
+                                    Selected: {locationText(selectedLocation)}
+                                </p>
+                            </div>
+                        </div>
+
                         {/* Distance limit */}
                         <div style={S.row}>
                             <div style="display:flex;align-items:center;gap:7px;">
@@ -485,9 +754,10 @@ export function Profile() {
 												padding:4px 10px;border-radius:5px;border:1px solid;
 												font-size:12px;font-weight:500;cursor:${editing ? 'pointer' : 'default'};
 												transition:all 0.15s;
-												${active
-                                                    ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
-                                                    : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+												${
+                                                    active
+                                                        ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
+                                                        : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                                 }
 											`}
                                         >
@@ -508,11 +778,15 @@ export function Profile() {
                             id="save-profile-btn"
                             class="btn-primary"
                             onClick={handleSave}
-                            disabled={saving}
+                            disabled={saving || (isSetupMode && !selectedLocation)}
                             style="flex:1;height:40px;background:var(--accent);"
                         >
                             <Save size={14} />
-                            {saving ? 'Saving…' : 'Save Changes'}
+                            {saving
+                                ? 'Saving…'
+                                : isSetupMode && !selectedLocation
+                                  ? 'Choose a location'
+                                  : 'Save Changes'}
                         </button>
                         <button
                             type="button"

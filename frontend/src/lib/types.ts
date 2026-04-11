@@ -10,6 +10,10 @@ export interface User {
     verified: boolean;
     lat: number;
     lng: number;
+    location?: {
+        lat: number;
+        lng: number;
+    } | null;
     quietHoursStart?: string;
     quietHoursEnd?: string;
     distanceLimit: number;
