@@ -8,6 +8,7 @@ import {
     Send,
     ShieldCheck,
     Trash2,
+    UserMinus,
     Users,
     X,
 } from 'lucide-preact';
@@ -1681,66 +1682,75 @@ function ChatView({
                                                             e.stopPropagation();
                                                             setParticipantActionBusy(participantId);
                                                             try {
-                                                                await promoteGroupChatParticipant(
-                                                                    thread.id,
-                                                                    participantId
-                                                                );
-                                                                const updated =
-                                                                    await fetchChatThread(
-                                                                        thread.id
+                                                                const promoted =
+                                                                    await promoteGroupChatParticipant(
+                                                                        thread.id,
+                                                                        participantId
                                                                     );
-                                                                onThreadUpdate(updated);
+                                                                onThreadUpdate({
+                                                                    ...promoted,
+                                                                    messages: thread.messages,
+                                                                    lastMessage: thread.lastMessage,
+                                                                });
                                                             } finally {
                                                                 setParticipantActionBusy(null);
                                                             }
                                                         }}
-                                                        style="height:28px;padding:0 10px;font-size:11px;"
+                                                        aria-label="Promote to admin"
+                                                        title="Promote to admin"
+                                                        style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
                                                     >
-                                                        Promote
+                                                        <ShieldCheck size={14} />
                                                     </button>
                                                 )}
-                                                {(thread.ownerId === currentUserId ||
-                                                    (thread.participantRoles?.[
-                                                        currentUserId
-                                                    ]?.includes('admin') ??
-                                                        false)) &&
-                                                    !isOwner && (
-                                                        <button
-                                                            type="button"
-                                                            class="btn-ghost"
-                                                            disabled={
-                                                                participantActionBusy ===
-                                                                participantId
-                                                            }
-                                                            onClick={async (e) => {
-                                                                e.stopPropagation();
-                                                                setParticipantActionBusy(
+                                                <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
+                                                    {(thread.ownerId === currentUserId ||
+                                                        (thread.participantRoles?.[
+                                                            currentUserId
+                                                        ]?.includes('admin') ??
+                                                            false)) &&
+                                                        !isOwner && (
+                                                            <button
+                                                                type="button"
+                                                                class="btn-ghost"
+                                                                disabled={
+                                                                    participantActionBusy ===
                                                                     participantId
-                                                                );
-                                                                try {
-                                                                    await removeGroupChatParticipant(
-                                                                        thread.id,
+                                                                }
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    setParticipantActionBusy(
                                                                         participantId
                                                                     );
-                                                                    const updated =
-                                                                        await fetchChatThread(
-                                                                            thread.id
+                                                                    try {
+                                                                        await removeGroupChatParticipant(
+                                                                            thread.id,
+                                                                            participantId
                                                                         );
-                                                                    onThreadUpdate(updated);
-                                                                    // We don't close sidebar here because someone else might still be there
-                                                                } finally {
-                                                                    setParticipantActionBusy(null);
-                                                                }
-                                                            }}
-                                                            style="height:28px;padding:0 10px;font-size:11px;"
-                                                        >
-                                                            Remove
-                                                        </button>
-                                                    )}
-                                                <ChevronRight
-                                                    size={13}
-                                                    style="color:var(--text-tertiary);"
-                                                />
+                                                                        const updated =
+                                                                            await fetchChatThread(
+                                                                                thread.id
+                                                                            );
+                                                                        onThreadUpdate(updated);
+                                                                        // We don't close sidebar here because someone else might still be there
+                                                                    } finally {
+                                                                        setParticipantActionBusy(
+                                                                            null
+                                                                        );
+                                                                    }
+                                                                }}
+                                                                aria-label="Remove from group"
+                                                                title="Remove from group"
+                                                                style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-subtle);color:var(--danger);border:1px solid var(--danger-muted);"
+                                                            >
+                                                                <UserMinus size={14} />
+                                                            </button>
+                                                        )}
+                                                    <ChevronRight
+                                                        size={13}
+                                                        style="color:var(--text-tertiary);"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     );
