@@ -1,4 +1,5 @@
 .local/
 admin/
 .kilo/
+.scripts/
 **/package-lock.json

@@ -399,8 +399,12 @@ function AddItemModal({
                                 type="button"
                                 onClick={() => setType(t)}
                                 style={`flex:1;padding:7px;border-radius:8px;border:1px solid;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;${type === t ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);' : 'background:transparent;color:var(--text-secondary);border-color:var(--border);'}`}
-                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                onMouseEnter={(e) => {(e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
+                                (e.target as HTMLElement).style.background = 'var(--bg-muted)';
+                                }}
+                                onMouseLeave={(e) => {(e.target as HTMLElement).style.filter = 'none';
+                                (e.target as HTMLElement).style.background = 'transparent';
+                                }}
                             >
                                 {t === 'item' ? '📦 Item' : '🛠️ Skill'}
                             </button>
