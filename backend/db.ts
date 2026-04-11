@@ -722,7 +722,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
             )
             FROM unnest(quiet_hours) AS rng), '[]'::jsonb)
       AS quiet_hours, 
-      COALESCE(quiet_days, '[]'::jsonb) AS quiet_days,
+      COALESCE(to_jsonb(quiet_days), '[]'::jsonb) AS quiet_days,
       bio 
     FROM app.users 
     WHERE 
