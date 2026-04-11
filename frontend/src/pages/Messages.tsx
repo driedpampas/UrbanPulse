@@ -150,10 +150,18 @@ export function Messages() {
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
     const currentUserId = currentUser?.id ?? 'me';
     const composeSearchLimit = 50;
+    const historyNormalizedThreadIdRef = useRef<string | null>(null);
     const selectedThreadId =
         typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('threadId')
             : null;
+
+    useEffect(() => {
+        if (!selectedThreadId) {
+            setActiveThread(null);
+            historyNormalizedThreadIdRef.current = null;
+        }
+    }, [selectedThreadId]);
 
     const handleThreadUpdate = (updated: ChatThread) => {
         setThreads((p) => upsertThreadById(p, updated));
@@ -186,9 +194,20 @@ export function Messages() {
                 const target = data.find((thread) => thread.id === selectedThreadId);
                 if (target) {
                     setActiveThread(target);
+
+                    // If user lands directly on a thread URL, insert the list route
+                    // before it so browser/phone back returns to the chat list first.
+                    if (
+                        typeof window !== 'undefined' &&
+                        historyNormalizedThreadIdRef.current !== selectedThreadId
+                    ) {
+                        const listUrl = '/messages';
+                        const threadUrl = `/messages?threadId=${encodeURIComponent(selectedThreadId)}`;
+                        window.history.replaceState(window.history.state, '', listUrl);
+                        window.history.pushState(window.history.state, '', threadUrl);
+                        historyNormalizedThreadIdRef.current = selectedThreadId;
+                    }
                 }
-            } else {
-                setActiveThread(null);
             }
         });
     }, [location, selectedThreadId]);
@@ -326,11 +345,7 @@ export function Messages() {
     };
 
     const handleBackToThreadList = () => {
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-            window.history.back();
-            return;
-        }
-
+        // Keep in-app back deterministic: always return to list route.
         setLocation('/messages');
         setActiveThread(null);
     };
