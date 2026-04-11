@@ -40,27 +40,65 @@ export function distanceInMeters(
 }
 
 export async function getCurrentBrowserLocation(): Promise<{ lat: number; lng: number }> {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('Geolocation is not supported by your browser'));
-            return;
-        }
+    if (typeof window === 'undefined') {
+        throw new Error('Location lookup is only available in the browser');
+    }
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                resolve({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                });
-            },
-            (error) => {
-                reject(error);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0,
+    if (!navigator.geolocation) {
+        throw new Error('Geolocation is not supported by your browser');
+    }
+
+    if (!window.isSecureContext) {
+        throw new Error('Location access requires a secure context (https or localhost)');
+    }
+
+    const readPosition = (options: PositionOptions) =>
+        new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, options);
+        });
+
+    const attempts: PositionOptions[] = [
+        {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 0,
+        },
+        {
+            enableHighAccuracy: false,
+            timeout: 15000,
+            maximumAge: 5 * 60 * 1000,
+        },
+    ];
+
+    let lastError: unknown;
+
+    for (const options of attempts) {
+        try {
+            const position = await readPosition(options);
+            return {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+            };
+        } catch (error) {
+            lastError = error;
+
+            const code =
+                typeof error === 'object' && error !== null && 'code' in error
+                    ? Number((error as { code?: number }).code)
+                    : null;
+
+            if (
+                code !== GeolocationPositionError.POSITION_UNAVAILABLE &&
+                code !== GeolocationPositionError.TIMEOUT
+            ) {
+                break;
             }
-        );
-    });
+        }
+    }
+
+    if (lastError instanceof Error) {
+        throw lastError;
+    }
+
+    throw new Error('Could not determine your current location');
 }
