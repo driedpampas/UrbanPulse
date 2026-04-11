@@ -1,6 +1,8 @@
 import { useEffect } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './lib/auth';
+import { type ChatSocketEvent, connectChatWebSocket, disconnectChatWebSocket } from './lib/chatApi';
+import { isActiveChatThread, markThreadUnread } from './lib/chatNotifications';
 import { ThemeProvider } from './lib/theme';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Auth } from './pages/Auth';
@@ -79,10 +81,54 @@ function AppRoutes() {
     );
 }
 
+function ChatNotificationsBridge() {
+    const { isAuthenticated } = useAuth();
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            return;
+        }
+
+        const handleChatEvent = (event: ChatSocketEvent) => {
+            if (event.event !== 'notification.message' || !event.message) {
+                return;
+            }
+
+            const notificationEvent = event as Extract<
+                ChatSocketEvent,
+                { event: 'notification.message' }
+            >;
+
+            if (isActiveChatThread(event.message.threadId)) {
+                return;
+            }
+
+            markThreadUnread(event.message.threadId);
+
+            if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+                return;
+            }
+
+            new Notification(
+                notificationEvent.threadName || notificationEvent.senderName || 'New message',
+                {
+                    body: event.message.content,
+                }
+            );
+        };
+
+        connectChatWebSocket(handleChatEvent);
+        return () => disconnectChatWebSocket(handleChatEvent);
+    }, [isAuthenticated]);
+
+    return null;
+}
+
 export function App() {
     return (
         <ThemeProvider>
             <AuthProvider>
+                <ChatNotificationsBridge />
                 <AppRoutes />
             </AuthProvider>
         </ThemeProvider>

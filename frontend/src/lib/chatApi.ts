@@ -15,7 +15,13 @@ export type ChatSocketEvent =
     | { event: 'message.deleted'; messageId: string; scope: 'everyone' }
     | { event: 'chat.subscribed'; threadId: string }
     | { event: 'chat.unsubscribed'; threadId: string }
-    | { event: 'chat.error'; threadId: string; reason: string };
+    | { event: 'chat.error'; threadId: string; reason: string }
+    | {
+          event: 'notification.message';
+          message: ChatSocketMessage;
+          senderName: string;
+          threadName?: string;
+      };
 
 type ChatSocketHandler = (event: ChatSocketEvent) => void;
 
@@ -73,7 +79,9 @@ function normalizeMessage(message: BackendChatMessage, senderName: string): Chat
 function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): ChatThread {
     const participantIds = summary.participants.map((participant) => participant.userId);
     const participantNames = summary.participants.map((participant) =>
-        participant.displayName?.trim().length ? participant.displayName : `Neighbor ${participant.userId.slice(0, 6)}`
+        participant.displayName?.trim().length
+            ? participant.displayName
+            : `Neighbor ${participant.userId.slice(0, 6)}`
     );
     const lastMessage = messages[messages.length - 1];
 
@@ -82,9 +90,7 @@ function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): Ch
         participants: participantIds,
         participantNames,
         isGroup: summary.isGroup,
-        name: summary.isGroup
-            ? participantNames.filter(Boolean).join(', ')
-            : participantNames.find((name) => name) || undefined,
+        name: summary.isGroup ? participantNames.join(', ') : undefined,
         lastMessage,
         messages,
     };
@@ -147,6 +153,8 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
             threadId?: string;
             reason?: string;
             message?: ChatSocketMessage;
+            senderName?: string;
+            threadName?: string;
         };
 
         if (
@@ -202,6 +210,43 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
                 reason: parsed.reason,
             };
         }
+
+        if (
+            parsed.event === 'notification.message' &&
+            parsed.message &&
+            typeof parsed.message.id === 'string' &&
+            typeof parsed.message.threadId === 'string' &&
+            typeof parsed.message.senderId === 'string' &&
+            typeof parsed.message.content === 'string' &&
+            typeof parsed.senderName === 'string'
+        ) {
+            return {
+                event: 'notification.message',
+                message: {
+                    ...parsed.message,
+                    timestamp: Number(parsed.message.timestamp),
+                },
+                senderName: parsed.senderName,
+                threadName: typeof parsed.threadName === 'string' ? parsed.threadName : undefined,
+            };
+        }
+
+        if (
+            parsed.event === 'message.created' &&
+            parsed.message &&
+            typeof parsed.message.id === 'string' &&
+            typeof parsed.message.threadId === 'string' &&
+            typeof parsed.message.senderId === 'string' &&
+            typeof parsed.message.content === 'string'
+        ) {
+            return {
+                event: 'message.created',
+                message: {
+                    ...parsed.message,
+                    timestamp: Number(parsed.message.timestamp),
+                },
+            };
+        }
     } catch {
         return null;
     }
@@ -214,7 +259,9 @@ async function fetchChatMessages(threadId: string): Promise<ChatMessage[]> {
         method: 'GET',
     });
 
-    return messages.map((message) => normalizeMessage(message, `Neighbor ${message.senderId.slice(0, 6)}`));
+    return messages.map((message) =>
+        normalizeMessage(message, `Neighbor ${message.senderId.slice(0, 6)}`)
+    );
 }
 
 export async function fetchChats(): Promise<ChatThread[]> {
@@ -241,7 +288,8 @@ export async function fetchChats(): Promise<ChatThread[]> {
                         content: message.content,
                         timestamp: message.timestamp,
                     },
-                    participantNames.get(message.senderId) || `Neighbor ${message.senderId.slice(0, 6)}`
+                    participantNames.get(message.senderId) ||
+                        `Neighbor ${message.senderId.slice(0, 6)}`
                 )
             );
 
@@ -250,8 +298,16 @@ export async function fetchChats(): Promise<ChatThread[]> {
     );
 
     return threads.sort((left, right) => {
-        const rightTimestamp = right.lastMessage?.timestamp ?? right.messages[right.messages.length - 1]?.timestamp ?? right.messages[0]?.timestamp ?? 0;
-        const leftTimestamp = left.lastMessage?.timestamp ?? left.messages[left.messages.length - 1]?.timestamp ?? left.messages[0]?.timestamp ?? 0;
+        const rightTimestamp =
+            right.lastMessage?.timestamp ??
+            right.messages[right.messages.length - 1]?.timestamp ??
+            right.messages[0]?.timestamp ??
+            0;
+        const leftTimestamp =
+            left.lastMessage?.timestamp ??
+            left.messages[left.messages.length - 1]?.timestamp ??
+            left.messages[0]?.timestamp ??
+            0;
         return rightTimestamp - leftTimestamp;
     });
 }
@@ -417,6 +473,15 @@ function ensureSocket() {
 
     socket.onopen = () => {
         resubscribeAllThreads();
+        const session = readStoredAuthSession();
+        if (session?.token) {
+            socket?.send(
+                JSON.stringify({
+                    action: 'auth.identify',
+                    token: session.token,
+                })
+            );
+        }
     };
 
     socket.onmessage = (event) => {

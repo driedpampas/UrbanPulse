@@ -110,7 +110,7 @@ function mapBackendUser(user: BackendUser): User {
     };
 }
 
-function buildUserQuery(params?: { displayName?: string; id?: string }): string {
+function buildUserQuery(params?: { displayName?: string; id?: string; limit?: number }): string {
     if (!params) {
         return '';
     }
@@ -121,6 +121,10 @@ function buildUserQuery(params?: { displayName?: string; id?: string }): string 
     }
     if (params.id?.trim()) {
         query.set('id', params.id.trim());
+    }
+
+    if (typeof params.limit === 'number') {
+        query.set('limit', String(params.limit));
     }
 
     const queryString = query.toString();
@@ -239,7 +243,11 @@ export async function deleteAccount(): Promise<void> {
     await request<void>('/user', { method: 'DELETE' });
 }
 
-export async function fetchUsers(params?: { displayName?: string; id?: string }): Promise<User[]> {
+export async function fetchUsers(params?: {
+    displayName?: string;
+    id?: string;
+    limit?: number;
+}): Promise<User[]> {
     const users = await request<BackendUser[]>(`/users${buildUserQuery(params)}`, {
         method: 'GET',
     });

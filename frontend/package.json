@@ -9,27 +9,25 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "@tailwindcss/vite": "^4.2.1",
+        "@tailwindcss/vite": "^4.2.2",
         "clsx": "^2.1.1",
         "lucide-preact": "^0.577.0",
-        "mapbox-gl": "^3.19.1",
-        "preact": "^10.27.2",
+        "mapbox-gl": "^3.21.0",
+        "preact": "^10.29.1",
         "tailwind-merge": "^3.5.0",
         "wouter": "^3.9.0"
     },
     "devDependencies": {
-        "@biomejs/biome": "^2.4.4",
-        "@preact/preset-vite": "^2.10.2",
-        "@types/mapbox-gl": "^3.5.0",
-        "@types/node": "^24.10.1",
-        "@types/wouter": "^2.2.0",
+        "@biomejs/biome": "^2.4.11",
+        "@preact/preset-vite": "^2.10.5",
+        "@types/node": "^24.12.2",
         "autoprefixer": "^10.4.27",
-        "postcss": "^8.5.8",
-        "tailwindcss": "^4.2.1",
-        "typescript": "~5.9.3",
-        "vite": "^8.0.0-beta.13"
+        "postcss": "^8.5.9",
+        "tailwindcss": "^4.2.2",
+        "typescript": "^6.0.2",
+        "vite": "^8.0.8"
     },
     "overrides": {
-        "vite": "^8.0.0-beta.13"
+        "vite": "^8.0.8"
     }
 }

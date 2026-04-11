@@ -1,6 +1,7 @@
 import { BookOpen, Home, MessageCircle, PawPrint, ShieldCheck, User } from 'lucide-preact';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../lib/auth';
+import { useUnreadChatCount } from '../../lib/chatNotifications';
 
 const tabs = [
     { path: '/', icon: Home, label: 'Feed' },
@@ -13,6 +14,7 @@ const tabs = [
 export function BottomNav() {
     const [location, setLocation] = useLocation();
     const { session } = useAuth();
+    const unreadChatCount = useUnreadChatCount();
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
 
     const visibleTabs = isAdmin
@@ -33,6 +35,7 @@ export function BottomNav() {
                         location === tab.path ||
                         (tab.path !== '/' && location.startsWith(tab.path));
                     const Icon = tab.icon;
+                    const showUnreadBadge = tab.path === '/messages' && unreadChatCount > 0;
                     return (
                         <button
                             type="button"
@@ -49,7 +52,12 @@ export function BottomNav() {
                             `}
                             aria-current={active ? 'page' : undefined}
                         >
-                            <Icon size={18} strokeWidth={active ? 2.2 : 1.7} />
+                            <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+                                <Icon size={18} strokeWidth={active ? 2.2 : 1.7} />
+                                {showUnreadBadge && (
+                                    <span style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 2px var(--surface);" />
+                                )}
+                            </span>
                             <span
                                 style={`font-size:10px;font-weight:${active ? '600' : '500'};letter-spacing:0.01em;`}
                             >

@@ -29,6 +29,11 @@ import {
     subscribeChatThread,
     unsubscribeChatThread,
 } from '../lib/chatApi';
+import {
+    markThreadRead,
+    setActiveChatThread,
+    useUnreadChatThreads,
+} from '../lib/chatNotifications';
 import type { User as AppUser, ChatMessage, ChatThread } from '../lib/types';
 import { fetchUsers } from '../lib/userApi';
 
@@ -83,6 +88,18 @@ function removeMessageById(messages: ChatMessage[], messageId: string): ChatMess
     return messages.filter((message) => message.id !== messageId);
 }
 
+function getThreadDisplayName(thread: ChatThread, currentUserId: string, fallback: string) {
+    const names = thread.participants
+        .map((participantId, index) => ({
+            participantId,
+            name: thread.participantNames[index],
+        }))
+        .filter(({ participantId }) => participantId !== currentUserId)
+        .map(({ name, participantId }) => name || `Neighbor ${participantId.slice(0, 6)}`);
+
+    return thread.name || names.join(', ') || fallback;
+}
+
 export function Messages() {
     const [location] = useLocation();
     const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -94,8 +111,11 @@ export function Messages() {
     const [searching, setSearching] = useState(false);
     const [composeError, setComposeError] = useState<string | null>(null);
     const [startingUserId, setStartingUserId] = useState<string | null>(null);
+    const unreadThreadIds = useUnreadChatThreads();
     const currentUser = readStoredAuthSession()?.user;
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
+    const currentUserId = currentUser?.id ?? 'me';
+    const composeSearchLimit = 50;
     const selectedThreadId =
         typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('threadId')
@@ -128,7 +148,10 @@ export function Messages() {
         let cancelled = false;
         setSearching(true);
 
-        fetchUsers({ displayName: query.trim() || undefined })
+        fetchUsers({
+            displayName: query.trim() || undefined,
+            limit: composeSearchLimit,
+        })
             .then((users) => {
                 if (cancelled) {
                     return;
@@ -166,6 +189,19 @@ export function Messages() {
         if (resolved) {
             setActiveThread(resolved);
         }
+    };
+
+    useEffect(() => {
+        setActiveChatThread(activeThread?.id ?? null);
+
+        return () => {
+            setActiveChatThread(null);
+        };
+    }, [activeThread?.id]);
+
+    const openThread = (thread: ChatThread) => {
+        markThreadRead(thread.id);
+        setActiveThread(thread);
     };
 
     const handleStartConversation = async (user: AppUser) => {
@@ -254,17 +290,19 @@ export function Messages() {
                     </div>
                 ) : (
                     threads.map((thread, i) => {
-                        const otherNames = thread.participantNames.filter(
-                            (name) => name !== currentUserName
+                        const displayName = getThreadDisplayName(
+                            thread,
+                            currentUserId,
+                            currentUserName
                         );
-                        const displayName = thread.name || otherNames.join(', ');
                         const isGroup = thread.isGroup;
+                        const isUnread = unreadThreadIds.includes(thread.id);
                         return (
                             <button
                                 type="button"
                                 key={thread.id}
                                 id={`thread-${thread.id}`}
-                                onClick={() => setActiveThread(thread)}
+                                onClick={() => openThread(thread)}
                                 class="card animate-slide-up"
                                 style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:transform 0.15s,background 0.15s;animation-delay:${i * 50}ms;border-radius:16px;`}
                             >
@@ -275,9 +313,14 @@ export function Messages() {
                                 </div>
                                 <div style="flex:1;min-width:0;">
                                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                        <p style="font-size:13px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        <p
+                                            style={`font-size:13px;font-weight:${isUnread ? '800' : '700'};color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`}
+                                        >
                                             {displayName}
                                         </p>
+                                        {isUnread && (
+                                            <span style="width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 4px var(--accent-subtle);flex-shrink:0;" />
+                                        )}
                                         <span
                                             style={`display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:${isGroup ? 'var(--accent-subtle)' : 'var(--success-subtle)'};color:${isGroup ? 'var(--accent)' : 'var(--success)'};`}
                                         >
@@ -309,11 +352,11 @@ export function Messages() {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    style="position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;padding:14px;background:rgba(15,17,23,0.52);backdrop-filter:blur(8px);"
+                    style="position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,17,23,0.52);backdrop-filter:blur(8px);"
                 >
                     <div
                         class="animate-slide-up"
-                        style="width:100%;max-width:680px;max-height:82dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:20px;background:linear-gradient(180deg,var(--surface),var(--bg));overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,0.28);"
+                        style="width:100%;max-width:720px;max-height:82dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:20px;background:linear-gradient(180deg,var(--surface),var(--bg));overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,0.28);"
                     >
                         <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(59,130,246,0.11),rgba(16,185,129,0.08));display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                             <div style="display:flex;align-items:flex-start;gap:12px;">
@@ -351,7 +394,7 @@ export function Messages() {
                             >
                                 Search users
                             </label>
-                            <div style="display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border:1px solid var(--border);border-radius:14px;background:var(--bg-subtle);box-shadow:inset 0 1px 0 rgba(255,255,255,0.4);">
+                            <div style="display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border:1px solid var(--border);border-radius:14px;background:var(--bg-subtle);box-shadow:none;">
                                 <Search size={14} style="color:var(--text-tertiary);" />
                                 <input
                                     id="chat-user-search"
@@ -498,6 +541,8 @@ function ChatView({
                 timestamp: number;
             };
             messageId?: string;
+            senderName?: string;
+            threadName?: string;
         }) => {
             if (event.event === 'message.deleted' && typeof event.messageId === 'string') {
                 setMessages((prev) => {
@@ -518,11 +563,11 @@ function ChatView({
                 return;
             }
 
-            if (event.event !== 'message.created' || !event.message) {
+            if (event.event !== 'message.created' && event.event !== 'notification.message') {
                 return;
             }
 
-            if (event.message.threadId !== thread.id) {
+            if (!event.message || event.message.threadId !== thread.id) {
                 return;
             }
 
@@ -530,16 +575,19 @@ function ChatView({
                 return participant === event.message?.senderId;
             });
             const isMe = event.message.senderId === currentUserId;
+            const senderName = isMe
+                ? currentUserName
+                : event.event === 'notification.message' && event.senderName
+                  ? event.senderName
+                  : senderIndex >= 0
+                    ? thread.participantNames[senderIndex] ||
+                      `Neighbor ${event.message.senderId.slice(0, 6)}`
+                    : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
             const mappedMessage: ChatMessage = {
                 id: event.message.id,
                 senderId: event.message.senderId,
-                senderName: isMe
-                    ? currentUserName
-                    : senderIndex >= 0
-                      ? thread.participantNames[senderIndex] ||
-                        `Neighbor ${event.message.senderId.slice(0, 6)}`
-                      : `Neighbor ${event.message.senderId.slice(0, 6)}`,
+                senderName,
                 content: event.message.content,
                 timestamp: Number(event.message.timestamp),
             };
@@ -652,8 +700,7 @@ function ChatView({
         }
     };
 
-    const otherNames = thread.participantNames.filter((name) => name !== currentUserName);
-    const title = thread.name || otherNames.join(', ');
+    const title = getThreadDisplayName(thread, currentUserId, currentUserName);
 
     return (
         <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);">

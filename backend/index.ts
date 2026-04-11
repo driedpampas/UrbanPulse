@@ -156,6 +156,19 @@ const createChatSchema = z.strictObject({
     participantIds: z.array(z.uuid()).min(1).max(50),
 });
 
+const messageNotificationPayloadSchema = z.strictObject({
+    event: z.literal('notification.message'),
+    message: z.strictObject({
+        id: z.uuid(),
+        threadId: z.uuid(),
+        senderId: z.uuid(),
+        content: z.string(),
+        timestamp: z.union([z.number(), z.string()]),
+    }),
+    senderName: z.string(),
+    threadName: z.string().optional(),
+});
+
 const createMessageSchema = z.strictObject({
     content: z.string().trim().min(1).max(5000),
 });
@@ -662,7 +675,8 @@ bun.serve({
                                 const requesterRole = (
                                     await db.selectUserRole(payload.id as string)
                                 )?.toLowerCase();
-                                const isAdmin = requesterRole === 'admin' || requesterRole === 'mod';
+                                const isAdmin =
+                                    requesterRole === 'admin' || requesterRole === 'mod';
 
                                 users = users.map((u) => {
                                     if (!isAdmin && u.id !== payload.id) {
@@ -999,11 +1013,11 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
 
-                            const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                            const role = (
+                                await db.selectUserRole(payload.id as string)
+                            )?.toLowerCase();
                             const canDeletePulse =
-                                role === 'admin' ||
-                                role === 'mod' ||
-                                payload.id === pulse.userId;
+                                role === 'admin' || role === 'mod' || payload.id === pulse.userId;
 
                             if (!canDeletePulse) {
                                 return withCors(FORBIDDEN);
@@ -1169,6 +1183,31 @@ bun.serve({
                                 body.content
                             );
 
+                            const thread = await db.selectChat(threadId, payload.id);
+                            const threadSummary = (
+                                await db.selectChatSummaries(payload.id as string)
+                            ).find((chat) => chat.id === threadId);
+                            const sender = await db.selectUserSummary(payload.id as string);
+                            const notificationPayload = messageNotificationPayloadSchema.parse({
+                                event: 'notification.message',
+                                message: {
+                                    ...message,
+                                    timestamp: Number(message.timestamp),
+                                },
+                                senderName:
+                                    sender?.displayName?.trim() ||
+                                    `Neighbor ${payload.id.slice(0, 6)}`,
+                                threadName:
+                                    threadSummary?.participants
+                                        .filter((participant) => participant.userId !== payload.id)
+                                        .map(
+                                            (participant) =>
+                                                participant.displayName?.trim() ||
+                                                `Neighbor ${participant.userId.slice(0, 6)}`
+                                        )
+                                        .join(', ') || undefined,
+                            });
+
                             server.publish(
                                 `chat-${threadId}`,
                                 JSON.stringify({
@@ -1176,6 +1215,17 @@ bun.serve({
                                     message,
                                 })
                             );
+
+                            for (const participant of thread?.participants ?? []) {
+                                if (participant.userId === payload.id) {
+                                    continue;
+                                }
+
+                                server.publish(
+                                    `user-${participant.userId}`,
+                                    JSON.stringify(notificationPayload)
+                                );
+                            }
 
                             return withCors(Response.json(message, { status: 201 }));
                         })
@@ -1211,7 +1261,9 @@ bun.serve({
                                 return withCors(SUCCESS);
                             }
 
-                            const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                            const role = (
+                                await db.selectUserRole(payload.id as string)
+                            )?.toLowerCase();
                             const canDeleteMessage =
                                 role === 'admin' ||
                                 role === 'mod' ||

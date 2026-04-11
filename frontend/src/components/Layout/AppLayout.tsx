@@ -24,7 +24,7 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                     <h1 style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.02em;margin:0;">
                         {title}
                     </h1>
-                    <div style="display:flex;align-items:center;gap:6px;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                         {headerRight}
                         <button
                             type="button"

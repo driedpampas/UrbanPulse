@@ -784,6 +784,19 @@ export async function selectFullUser(id: string): Promise<User | null> {
     } as User;
 }
 
+export async function selectUserSummary(
+    id: string
+): Promise<{ id: string; displayName: string | null } | null> {
+    const [row] = (await sql`
+        SELECT id::text AS id, NULLIF(display_name, '') AS "displayName"
+        FROM app.users
+        WHERE id = ${id}
+        LIMIT 1
+    `) as Array<{ id: string; displayName: string | null }>;
+
+    return row ?? null;
+}
+
 export async function selectUserRole(id: string): Promise<string | null> {
     const [row] = (await sql`
     SELECT role FROM app.users WHERE id = ${id}
