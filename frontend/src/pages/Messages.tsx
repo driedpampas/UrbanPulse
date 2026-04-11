@@ -2,6 +2,7 @@ import {
     ArrowLeft,
     ChevronRight,
     Clock,
+    Copy,
     Info,
     Plus,
     Search,
@@ -732,8 +733,8 @@ function ChatView({
     const [connectionStatus, setConnectionStatus] = useState<
         'connected' | 'connecting' | 'disconnected'
     >(() => 'connected');
-
-        const [sendError, setSendError] = useState<string | null>(null);
+    const [sendError, setSendError] = useState<string | null>(null);
+    const [copyNotice, setCopyNotice] = useState<string | null>(null);
     useEffect(() => {
         return onChatConnectionStatusChange(setConnectionStatus);
     }, []);
@@ -742,6 +743,7 @@ function ChatView({
         localStorage.setItem('wide-chat-view', wideChatView.toString());
     }, [wideChatView]);
     const sendingRef = useRef(false);
+    const copyNoticeTimerRef = useRef<number | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const threadRef = useRef(thread);
     const currentUser = readStoredAuthSession()?.user;
@@ -770,6 +772,14 @@ function ChatView({
     useEffect(() => {
         threadRef.current = thread;
     }, [thread]);
+
+    useEffect(() => {
+        return () => {
+            if (copyNoticeTimerRef.current !== null) {
+                window.clearTimeout(copyNoticeTimerRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -1070,6 +1080,38 @@ function ChatView({
         }
     };
 
+    const handleCopyMessage = async (content: string) => {
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(content);
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = content;
+                textarea.setAttribute('readonly', 'true');
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+
+            setCopyNotice('Message copied');
+            if (copyNoticeTimerRef.current !== null) {
+                window.clearTimeout(copyNoticeTimerRef.current);
+            }
+            copyNoticeTimerRef.current = window.setTimeout(() => {
+                setCopyNotice(null);
+                copyNoticeTimerRef.current = null;
+            }, 1800);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setContextMenuMessageId(null);
+            setContextMenuPosition(null);
+        }
+    };
+
     const handleContextMenu = (e: MouseEvent, messageId: string) => {
         e.preventDefault();
         const screenWidth = window.innerWidth;
@@ -1230,24 +1272,8 @@ function ChatView({
                                         )}
                                         <HoverButton
                                             type="button"
-                                            onClick={(e) => {
-                                                const roles =
-                                                    thread.participantRoles?.[currentUserId] ?? [];
-                                                const canManage =
-                                                    thread.ownerId === currentUserId ||
-                                                    roles.includes('admin');
-                                                if (isMe || canManage)
-                                                    handleContextMenu(e as any, msg.id);
-                                            }}
-                                            onContextMenu={(e) => {
-                                                const roles =
-                                                    thread.participantRoles?.[currentUserId] ?? [];
-                                                const canManage =
-                                                    thread.ownerId === currentUserId ||
-                                                    roles.includes('admin');
-                                                if (isMe || canManage)
-                                                    handleContextMenu(e as any, msg.id);
-                                            }}
+                                            onClick={(e) => handleContextMenu(e as any, msg.id)}
+                                            onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
                                             style={`
                                                 max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                                 ${
@@ -1322,6 +1348,27 @@ function ChatView({
                                                     style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
                                                     role="menu"
                                                 >
+                                                    <HoverButton
+                                                        type="button"
+                                                        onClick={() => void handleCopyMessage(msg.content)}
+                                                        role="menuitem"
+                                                        key="copy-text"
+                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                        onMouseEnter={(e) => {
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'var(--bg-muted)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'none';
+                                                        }}
+                                                    >
+                                                        <Copy size={14} />
+                                                        Copy text
+                                                    </HoverButton>
+                                                    <div style="height:1px;background:var(--border);" />
                                                     <HoverButton
                                                         type="button"
                                                         onClick={() =>
@@ -1469,6 +1516,13 @@ function ChatView({
                                 style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:8px auto 0;padding:8px 10px;border:1px solid var(--danger-muted);border-radius:10px;background:var(--danger-subtle);color:var(--danger);font-size:12px;line-height:1.4;`}
                             >
                                 {sendError}
+                            </div>
+                        )}
+                        {copyNotice && (
+                            <div
+                                style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:8px auto 0;padding:8px 10px;border:1px solid var(--success);border-radius:10px;background:var(--success-subtle);color:var(--success);font-size:12px;line-height:1.4;`}
+                            >
+                                {copyNotice}
                             </div>
                         )}
                     </div>
