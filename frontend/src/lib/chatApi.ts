@@ -325,20 +325,12 @@ export async function fetchChats(): Promise<ChatThread[]> {
                 ])
             );
 
-            const normalizedMessages = messages.map((message) =>
-                normalizeMessage(
-                    {
-                        id: message.id,
-                        threadId: summary.id,
-                        senderId: message.senderId,
-                        content: message.content,
-                        messageType: message.type,
-                        timestamp: message.timestamp,
-                    },
+            const normalizedMessages = messages.map((message) => ({
+                ...message,
+                senderName:
                     participantNames.get(message.senderId) ||
-                        `Neighbor ${message.senderId.slice(0, 6)}`
-                )
-            );
+                    `Neighbor ${message.senderId.slice(0, 6)}`,
+            }));
 
             return normalizeChat(summary, sortMessagesByTimestamp(normalizedMessages));
         })
@@ -380,6 +372,7 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
         senderId,
         senderName: readStoredAuthSession()?.user.displayName || `Neighbor ${senderId.slice(0, 6)}`,
         content: message.content,
+        type: 'text',
         timestamp: Number(message.timestamp),
     };
 }

@@ -406,6 +406,19 @@ async function ensureSchema() {
                 )
             `;
         }
+
+        // Check app.messages.message_type
+        const messageTypeCol = await tx`
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'message_type'
+            LIMIT 1
+        `;
+        if (messageTypeCol.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD COLUMN message_type text NOT NULL DEFAULT 'text'
+            `;
+        }
     });
 
     isSchemaEnsured = true;
@@ -638,6 +651,7 @@ export async function selectChatSummary(chatId: string, userId: string): Promise
 }
 
 export async function selectMessages(threadId: string, currentUser: string): Promise<Message[]> {
+    await ensureSchema();
     const messages = (await sql.begin(async (tx) => {
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
@@ -1024,6 +1038,7 @@ export async function insertMessage(
     content: string,
     messageType: 'text' | 'notice' = 'text'
 ): Promise<Message> {
+    await ensureSchema();
     const [insertedMessage] = (await sql.begin(async (tx) => {
         await tx`
             SELECT set_config('app.current_user_id', ${senderId}, true);

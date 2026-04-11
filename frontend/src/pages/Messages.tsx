@@ -591,6 +591,7 @@ function ChatView({
     thread,
     onBack,
     onThreadUpdate,
+    onThreadDeleted,
 }: {
     thread: ChatThread;
     onBack: () => void;
@@ -734,6 +735,7 @@ function ChatView({
             messageId?: string;
             senderName?: string;
             threadName?: string;
+            threadId?: string;
         }) => {
             if (event.event === 'message.deleted' && typeof event.messageId === 'string') {
                 setMessages((prev) => {
