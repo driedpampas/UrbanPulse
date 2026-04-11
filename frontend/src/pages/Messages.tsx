@@ -34,6 +34,7 @@ import {
     removeGroupChatParticipant,
     sendMessage,
     startDirectConversation,
+    waitForChatThreadSubscription,
     subscribeChatThread,
     unsubscribeChatThread,
 } from '../lib/chatApi';
@@ -103,6 +104,20 @@ function removeMessageById(messages: ChatMessage[], messageId: string): ChatMess
     return messages.filter((message) => message.id !== messageId);
 }
 
+function getThreadLatestTimestamp(thread: ChatThread) {
+    return thread.lastMessage?.timestamp ?? thread.messages[thread.messages.length - 1]?.timestamp ?? 0;
+}
+
+function sortThreadsByLatestMessage(threads: ChatThread[]) {
+    return [...threads].sort((left, right) => getThreadLatestTimestamp(right) - getThreadLatestTimestamp(left));
+}
+
+function upsertThreadById(threads: ChatThread[], updatedThread: ChatThread) {
+    return sortThreadsByLatestMessage(
+        threads.map((thread) => (thread.id === updatedThread.id ? updatedThread : thread))
+    );
+}
+
 function getThreadDisplayName(thread: ChatThread, currentUserId: string, fallback: string) {
     const names = thread.participants
         .map((participantId, index) => ({
@@ -140,7 +155,7 @@ export function Messages() {
             : null;
 
     const handleThreadUpdate = (updated: ChatThread) => {
-        setThreads((p) => p.map((t) => (t.id === updated.id ? updated : t)));
+        setThreads((p) => upsertThreadById(p, updated));
         setActiveThread(updated);
     };
 
@@ -152,9 +167,7 @@ export function Messages() {
     const refreshThread = useCallback(
         async (threadId: string): Promise<ChatThread> => {
             const refreshed = await fetchChatThread(threadId);
-            setThreads((prev) =>
-                prev.map((thread) => (thread.id === threadId ? refreshed : thread))
-            );
+            setThreads((prev) => upsertThreadById(prev, refreshed));
             if (activeThread?.id === threadId) {
                 setActiveThread(refreshed);
             }
@@ -242,6 +255,60 @@ export function Messages() {
     }, [refreshThread]);
 
     useEffect(() => {
+        const handleThreadListSync = (event: ChatSocketEvent) => {
+            if (event.event !== 'message.created' && event.event !== 'notification.message') {
+                return;
+            }
+
+            if (!event.message || activeThread?.id === event.message.threadId) {
+                return;
+            }
+
+            setThreads((prev) => {
+                const index = prev.findIndex((thread) => thread.id === event.message?.threadId);
+                if (index < 0) {
+                    return prev;
+                }
+
+                const thread = prev[index]!;
+                const senderIndex = thread.participants.findIndex(
+                    (participant) => participant === event.message?.senderId
+                );
+                const senderName =
+                    event.event === 'notification.message' && event.senderName
+                        ? event.senderName
+                        : senderIndex >= 0
+                          ? thread.participantNames[senderIndex] ||
+                            `Neighbor ${event.message.senderId.slice(0, 6)}`
+                          : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+
+                const mappedMessage: ChatMessage = {
+                    id: event.message.id,
+                    senderId: event.message.senderId,
+                    senderName,
+                    content: event.message.content,
+                    type: (event.message.messageType as 'text' | 'notice') ?? 'text',
+                    timestamp: Number(event.message.timestamp),
+                };
+
+                const merged = upsertMessageById(thread.messages, mappedMessage);
+                if (!merged.changed) {
+                    return prev;
+                }
+
+                return upsertThreadById(prev, {
+                    ...thread,
+                    messages: merged.messages,
+                    lastMessage: merged.messages[merged.messages.length - 1],
+                });
+            });
+        };
+
+        connectChatWebSocket(handleThreadListSync);
+        return () => disconnectChatWebSocket(handleThreadListSync);
+    }, [activeThread?.id]);
+
+    useEffect(() => {
         setActiveChatThread(activeThread?.id ?? null);
 
         return () => {
@@ -294,7 +361,7 @@ export function Messages() {
         setComposeError(null);
         try {
             const thread = await createGroupChat({ participantIds: selectedComposeIds });
-            setThreads((current) => [thread, ...current.filter((item) => item.id !== thread.id)]);
+            setThreads((current) => upsertThreadById(current, thread));
             setActiveThread(thread);
             resetCompose();
         } catch (error) {
@@ -641,6 +708,7 @@ function ChatView({
     const [messages, setMessages] = useState<ChatMessage[]>(() => [...thread.messages]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
+    const [threadSubscribed, setThreadSubscribed] = useState(false);
     const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
     const [contextMenuMessageId, setContextMenuMessageId] = useState<string | null>(null);
     const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(
@@ -665,6 +733,7 @@ function ChatView({
         'connected' | 'connecting' | 'disconnected'
     >(() => 'connected');
 
+        const [sendError, setSendError] = useState<string | null>(null);
     useEffect(() => {
         return onChatConnectionStatusChange(setConnectionStatus);
     }, []);
@@ -701,6 +770,33 @@ function ChatView({
     useEffect(() => {
         threadRef.current = thread;
     }, [thread]);
+
+    useEffect(() => {
+        let cancelled = false;
+        setThreadSubscribed(false);
+
+        void waitForChatThreadSubscription(thread.id)
+            .then(() => {
+                if (!cancelled) {
+                    setThreadSubscribed(true);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setThreadSubscribed(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [thread.id]);
+
+    useEffect(() => {
+        if (connectionStatus !== 'connected') {
+            setThreadSubscribed(false);
+        }
+    }, [connectionStatus]);
 
     useEffect(() => {
         let cancelled = false;
@@ -908,6 +1004,7 @@ function ChatView({
         const content = input.trim();
         sendingRef.current = true;
         setSending(true);
+        setSendError(null);
         try {
             const msg = await sendMessage(thread.id, content);
             setMessages((prev) => {
@@ -931,6 +1028,9 @@ function ChatView({
                 return merged.messages;
             });
             setInput('');
+        } catch (error) {
+            setSendError(error instanceof Error ? error.message : 'Could not send message.');
+            console.error(error);
         } finally {
             sendingRef.current = false;
             setSending(false);
@@ -1074,11 +1174,11 @@ function ChatView({
                 </HoverButton>
             </header>
 
-            {connectionStatus !== 'connected' && (
+            {(connectionStatus !== 'connected' || !threadSubscribed) && (
                 <div style="background:var(--warning-subtle);color:var(--warning);padding:8px 12px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px;border-bottom:1px solid var(--warning-muted);animation:pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;z-index:35;flex-shrink:0;">
                     <div style="width:6px;height:6px;border-radius:50%;background:var(--warning);" />
                     <span>
-                        {connectionStatus === 'connecting'
+                        {connectionStatus === 'connecting' || !threadSubscribed
                             ? 'Reconnecting to live updates…'
                             : 'Live updates unavailable. Check your connection.'}
                     </span>
@@ -1303,21 +1403,31 @@ function ChatView({
                         >
                             <input
                                 value={input}
-                                onInput={(e) => setInput((e.target as HTMLInputElement).value)}
+                                onInput={(e) => {
+                                    setInput((e.target as HTMLInputElement).value);
+                                    if (sendError) {
+                                        setSendError(null);
+                                    }
+                                }}
                                 onKeyDown={(e) => {
                                     if (
                                         e.key === 'Enter' &&
                                         !e.repeat &&
                                         !isBlockedConversation &&
-                                        connectionStatus === 'connected'
+                                        connectionStatus === 'connected' &&
+                                        threadSubscribed
                                     )
                                         handleSend();
                                 }}
-                                disabled={isBlockedConversation || connectionStatus !== 'connected'}
+                                disabled={
+                                    isBlockedConversation ||
+                                    connectionStatus !== 'connected' ||
+                                    !threadSubscribed
+                                }
                                 placeholder={
                                     isBlockedConversation
                                         ? 'You have blocked this user'
-                                        : connectionStatus !== 'connected'
+                                        : connectionStatus !== 'connected' || !threadSubscribed
                                           ? 'Connecting…'
                                           : 'Message…'
                                 }
@@ -1339,7 +1449,13 @@ function ChatView({
                                 type="button"
                                 id="send-message-btn"
                                 onClick={handleSend}
-                                disabled={!input.trim() || sending || isBlockedConversation}
+                                disabled={
+                                    !input.trim() ||
+                                    sending ||
+                                    isBlockedConversation ||
+                                    connectionStatus !== 'connected' ||
+                                    !threadSubscribed
+                                }
                                 class="btn-primary"
                                 style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
                                 aria-label="Send"
@@ -1347,6 +1463,13 @@ function ChatView({
                                 <Send size={15} />
                             </HoverButton>
                         </div>
+                        {sendError && (
+                            <div
+                                style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:8px auto 0;padding:8px 10px;border:1px solid var(--danger-muted);border-radius:10px;background:var(--danger-subtle);color:var(--danger);font-size:12px;line-height:1.4;`}
+                            >
+                                {sendError}
+                            </div>
+                        )}
                     </div>
                 </div>
 

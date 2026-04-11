@@ -68,6 +68,12 @@ type BackendChatMessage = {
     timestamp: number | string;
 };
 
+type BackendSendMessageResponse = {
+    message: BackendChatMessage;
+    senderName: string;
+    threadName?: string;
+};
+
 type BackendAddParticipantsResponse = {
     chat: BackendChatSummary;
     messages: BackendChatMessage[];
@@ -85,6 +91,8 @@ class ChatApiError extends Error {
 
 const wsHandlers = new Set<ChatSocketHandler>();
 const subscribedThreadIds = new Set<string>();
+const confirmedSubscribedThreadIds = new Set<string>();
+const subscribedThreadWaiters = new Map<string, Set<() => void>>();
 let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 let reconnectEnabled = false;
@@ -175,6 +183,22 @@ function sortMessagesByTimestamp(messages: ChatMessage[]): ChatMessage[] {
 }
 
 function dispatchEvent(event: ChatSocketEvent) {
+    if (event.event === 'chat.subscribed') {
+        confirmedSubscribedThreadIds.add(event.threadId);
+        const waiters = subscribedThreadWaiters.get(event.threadId);
+        if (waiters) {
+            for (const resolve of waiters) {
+                resolve();
+            }
+            subscribedThreadWaiters.delete(event.threadId);
+        }
+    }
+
+    if (event.event === 'chat.unsubscribed') {
+        confirmedSubscribedThreadIds.delete(event.threadId);
+        subscribedThreadWaiters.delete(event.threadId);
+    }
+
     for (const handler of wsHandlers) {
         handler(event);
     }
@@ -386,19 +410,29 @@ export async function fetchChatThread(threadId: string): Promise<ChatThread> {
 }
 
 export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
-    const message = await request<BackendChatMessage>(`/chats/${threadId}/messages`, {
+    const response = await request<BackendChatMessage | BackendSendMessageResponse>(
+        `/chats/${threadId}/messages`,
+        {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ content }),
-    });
+        }
+    );
+
+    const message = 'message' in response ? response.message : response;
+    const senderName =
+        'senderName' in response && typeof response.senderName === 'string'
+            ? response.senderName
+            : readStoredAuthSession()?.user.displayName ||
+              `Neighbor ${message.senderId.slice(0, 6)}`;
 
     const senderId = readStoredAuthSession()?.user.id ?? message.senderId;
     return {
         id: message.id,
         senderId,
-        senderName: readStoredAuthSession()?.user.displayName || `Neighbor ${senderId.slice(0, 6)}`,
+        senderName,
         content: message.content,
         type: 'text',
         timestamp: Number(message.timestamp),
@@ -635,6 +669,7 @@ function ensureSocket() {
     };
 
     socket.onclose = () => {
+        confirmedSubscribedThreadIds.clear();
         socket = null;
         if (wsHandlers.size > 0) {
             updateStatus('connecting');
@@ -683,8 +718,26 @@ export function subscribeChatThread(threadId: string) {
     }
 }
 
+export function isChatThreadSubscribed(threadId: string) {
+    return confirmedSubscribedThreadIds.has(threadId) && socket?.readyState === WebSocket.OPEN;
+}
+
+export function waitForChatThreadSubscription(threadId: string) {
+    if (isChatThreadSubscribed(threadId)) {
+        return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+        const waiters = subscribedThreadWaiters.get(threadId) ?? new Set<() => void>();
+        waiters.add(resolve);
+        subscribedThreadWaiters.set(threadId, waiters);
+        ensureSocket();
+    });
+}
+
 export function unsubscribeChatThread(threadId: string) {
     subscribedThreadIds.delete(threadId);
+    subscribedThreadWaiters.delete(threadId);
     sendUnsubscribe(threadId);
 }
 

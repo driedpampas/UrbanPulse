@@ -214,6 +214,12 @@ const messageNotificationPayloadSchema = z.strictObject({
     threadName: z.string().optional(),
 });
 
+const sendMessageResponseSchema = z.strictObject({
+    message: messageNotificationPayloadSchema.shape.message,
+    senderName: z.string(),
+    threadName: z.string().optional(),
+});
+
 const createMessageSchema = z.strictObject({
     content: z.string().trim().min(1).max(5000),
 });
@@ -1571,7 +1577,29 @@ bun.serve({
                                 );
                             }
 
-                            return withCors(Response.json(message, { status: 201 }));
+                            return withCors(
+                                Response.json(
+                                    sendMessageResponseSchema.parse({
+                                        message: {
+                                            ...message,
+                                            timestamp: Number(message.timestamp),
+                                        },
+                                        senderName:
+                                            sender?.displayName?.trim() ||
+                                            `Neighbor ${payload.id.slice(0, 6)}`,
+                                        threadName:
+                                            threadSummary?.participants
+                                                .filter((participant) => participant.userId !== payload.id)
+                                                .map(
+                                                    (participant) =>
+                                                        participant.displayName?.trim() ||
+                                                        `Neighbor ${participant.userId.slice(0, 6)}`
+                                                )
+                                                .join(', ') || undefined,
+                                    }),
+                                    { status: 201 }
+                                )
+                            );
                         })
                     )
                 ),
