@@ -90,6 +90,13 @@ async function authorize(
         return await fallback();
     }
 
+    const payload = session as JwtPayload;
+    const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+
+    if (role === 'banned') {
+        return withCors(FORBIDDEN);
+    }
+
     return await handler(session);
 }
 
@@ -106,6 +113,10 @@ async function adminAuthorize(
 
     const payload = session as JwtPayload;
     const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+
+    if (role === 'banned') {
+        return withCors(FORBIDDEN);
+    }
 
     if (role !== 'admin' && role !== 'mod') {
         return withCors(FORBIDDEN);
@@ -317,7 +328,7 @@ type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 type CreateReportBody = z.infer<typeof createReportSchema>;
 type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
 
-const adminRoleSchema = z.enum(['admin', 'resident']);
+const adminRoleSchema = z.enum(['admin', 'resident', 'banned']);
 
 const updateAdminUserRoleBodySchema = z.strictObject({
     role: adminRoleSchema,
@@ -869,6 +880,74 @@ bun.serve({
                                 Number.isFinite(offset) ? offset : 0
                             );
                             return withCors(Response.json({ pulses }, { status: 200 }));
+                        })
+                    )
+                ),
+            DELETE: async (req, server) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const url = new URL(req.url);
+                            const pulseId = url.searchParams.get('id');
+
+                            if (!pulseId) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const pulse = await db.selectPulseById(pulseId);
+                            if (!pulse) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            const deleted = await db.deletePulse(pulse.id);
+                            if (!deleted) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            server.publish(
+                                PULSE_FEED_TOPIC,
+                                JSON.stringify({ event: 'pulse.deleted', pulseId: pulse.id })
+                            );
+
+                            return withCors(new Response(null, { status: 204 }));
+                        })
+                    )
+                ),
+        },
+        '/api/admin/pulses/:id': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const pulse = await db.selectPulseById(req.params.id);
+                            if (!pulse) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(Response.json(pulse, { status: 200 }));
+                        })
+                    )
+                ),
+            DELETE: async (req, server) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const pulse = await db.selectPulseById(req.params.id);
+                            if (!pulse) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            const deleted = await db.deletePulse(pulse.id);
+                            if (!deleted) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            server.publish(
+                                PULSE_FEED_TOPIC,
+                                JSON.stringify({ event: 'pulse.deleted', pulseId: pulse.id })
+                            );
+
+                            return withCors(new Response(null, { status: 204 }));
                         })
                     )
                 ),

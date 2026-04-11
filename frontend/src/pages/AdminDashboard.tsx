@@ -1,19 +1,36 @@
-import { Activity, Flag, LibraryBig, UsersRound } from 'lucide-preact';
+import {
+    Activity,
+    Ban,
+    CheckCircle,
+    Flag,
+    LibraryBig,
+    Search,
+    Shield,
+    Trash2,
+    UsersRound,
+} from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { useAuth } from '../lib/auth';
 import { fetchAdminLibrary } from '../lib/libraryApi';
+import { deleteAdminPulse, fetchAdminPulseById, fetchAdminPulses } from '../lib/pulseApi';
 import { fetchAdminReports, updateReportStatus } from '../lib/reportsApi';
 import type { AdminFlag, LibraryItem, User } from '../lib/types';
-import { fetchAdminOverview, fetchAdminUsers } from '../lib/userApi';
+import {
+    deleteAdminUser,
+    fetchAdminOverview,
+    fetchAdminUsers,
+    updateAdminUserRole,
+} from '../lib/userApi';
 
-type AdminSection = 'overview' | 'users' | 'library' | 'reports';
+type AdminSection = 'overview' | 'users' | 'pulses' | 'library' | 'reports';
 
 type AdminOverview = Awaited<ReturnType<typeof fetchAdminOverview>>;
 
 const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }> = [
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'users', label: 'Users', icon: UsersRound },
+    { id: 'pulses', label: 'Pulses', icon: Search },
     { id: 'library', label: 'Library', icon: LibraryBig },
     { id: 'reports', label: 'Reports', icon: Flag },
 ];
@@ -37,7 +54,9 @@ function SectionButton({
             type="button"
             onClick={onClick}
             style={`display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid ${active ? 'var(--border-strong)' : 'var(--border)'};background:${active ? 'var(--surface-raised)' : 'var(--bg-subtle)'};color:${active ? 'var(--text)' : 'var(--text-tertiary)'};font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s ease;`}
-            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+            onMouseEnter={(e) =>
+                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+            }
             onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
         >
             <Icon size={13} />
@@ -70,10 +89,22 @@ function StatCard({
 
 function UserRow({ user }: { user: User }) {
     const role = user.role?.toLowerCase() ?? 'resident';
+    const [busy, setBusy] = useState(false);
+
+    const setRole = async (nextRole: 'admin' | 'resident' | 'banned') => {
+        setBusy(true);
+        try {
+            await updateAdminUserRole(user.id, nextRole);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setBusy(false);
+        }
+    };
 
     return (
         <div
-            style={`${surfaceCard};padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;`}
+            style={`${surfaceCard};padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;`}
         >
             <div style="display:flex;align-items:center;gap:12px;min-width:0;">
                 <div style="width:40px;height:40px;border-radius:12px;overflow:hidden;background:var(--bg-muted);flex-shrink:0;">
@@ -97,6 +128,108 @@ function UserRow({ user }: { user: User }) {
                     </p>
                 </div>
             </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;">
+                <button
+                    type="button"
+                    disabled={busy || role === 'admin'}
+                    onClick={() => setRole('admin')}
+                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--accent-subtle);color:var(--accent);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                    aria-label="Promote user"
+                >
+                    <Shield size={14} />
+                </button>
+                <button
+                    type="button"
+                    disabled={busy || role === 'banned'}
+                    onClick={() => setRole('banned')}
+                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                    aria-label="Ban user"
+                >
+                    <Ban size={14} />
+                </button>
+                <button
+                    type="button"
+                    disabled={busy || role === 'resident'}
+                    onClick={() => setRole('resident')}
+                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--bg-muted);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                    aria-label="Restore user"
+                >
+                    <CheckCircle size={14} />
+                </button>
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                        setBusy(true);
+                        try {
+                            await deleteAdminUser(user.id);
+                        } catch (error) {
+                            console.error(error);
+                        } finally {
+                            setBusy(false);
+                        }
+                    }}
+                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--bg-muted);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                    aria-label="Delete user"
+                    title="Delete user"
+                >
+                    <Trash2 size={14} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function PulseRow({
+    pulse,
+    onDelete,
+}: {
+    pulse: Awaited<ReturnType<typeof fetchAdminPulses>>[number];
+    onDelete: () => void;
+}) {
+    const [busy, setBusy] = useState(false);
+
+    const handleDelete = async () => {
+        setBusy(true);
+        try {
+            await deleteAdminPulse(pulse.id);
+            onDelete();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div
+            style={`${surfaceCard};padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;`}
+        >
+            <div style="min-width:0;flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;background:var(--bg-muted);color:var(--text-tertiary);text-transform:uppercase;">
+                        {pulse.type}
+                    </span>
+                    <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;background:var(--accent-subtle);color:var(--accent);text-transform:uppercase;">
+                        {pulse.userName}
+                    </span>
+                </div>
+                <p style="margin:8px 0 0;font-size:13px;color:var(--text);line-height:1.45;">
+                    {pulse.content}
+                </p>
+                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text-tertiary);">
+                    <span>{new Date(pulse.timestamp).toLocaleString()}</span>
+                    <span>ID: {pulse.id}</span>
+                </div>
+            </div>
+            <button
+                type="button"
+                disabled={busy}
+                onClick={handleDelete}
+                style="padding:6px 10px;border-radius:8px;border:none;background:var(--danger-subtle);color:var(--danger);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;"
+            >
+                Delete
+            </button>
         </div>
     );
 }
@@ -181,7 +314,9 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                         disabled={updating}
                         onClick={() => handleAction('resolved')}
                         style="padding:6px 10px;border-radius:8px;border:none;background:var(--success-subtle);color:var(--success);font-size:11px;font-weight:700;cursor:pointer;"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Resolve
@@ -191,7 +326,9 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                         disabled={updating}
                         onClick={() => handleAction('dismissed')}
                         style="padding:6px 10px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:11px;font-weight:700;cursor:pointer;"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Dismiss
@@ -207,25 +344,45 @@ export function AdminDashboard() {
     const [section, setSection] = useState<AdminSection>('overview');
     const [overview, setOverview] = useState<AdminOverview | null>(null);
     const [users, setUsers] = useState<User[]>([]);
+    const [pulses, setPulses] = useState<Awaited<ReturnType<typeof fetchAdminPulses>>>([]);
     const [library, setLibrary] = useState<LibraryItem[]>([]);
     const [reports, setReports] = useState<AdminFlag[]>([]);
+    const [pulseId, setPulseId] = useState('');
     const [loading, setLoading] = useState(true);
+    const [pulseSearchLoading, setPulseSearchLoading] = useState(false);
 
     const loadData = () => {
         setLoading(true);
         Promise.all([
             fetchAdminOverview(),
             fetchAdminUsers(),
+            fetchAdminPulses(),
             fetchAdminLibrary(),
             fetchAdminReports(),
         ])
-            .then(([o, u, items, r]) => {
+            .then(([o, u, p, items, r]) => {
                 setOverview(o);
                 setUsers(u);
+                setPulses(p);
                 setLibrary(items);
                 setReports(r);
             })
             .finally(() => setLoading(false));
+    };
+
+    const searchPulse = async () => {
+        const id = pulseId.trim();
+        if (!id) return;
+
+        setPulseSearchLoading(true);
+        try {
+            const pulse = await fetchAdminPulseById(id);
+            setPulses(pulse ? [pulse] : []);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setPulseSearchLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -304,6 +461,54 @@ export function AdminDashboard() {
                                 {users.map((user) => (
                                     <UserRow key={user.id} user={user} />
                                 ))}
+                            </div>
+                        )}
+
+                        {section === 'pulses' && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                <div
+                                    style={`${surfaceCard};padding:14px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;`}
+                                >
+                                    <input
+                                        value={pulseId}
+                                        onInput={(e) =>
+                                            setPulseId((e.target as HTMLInputElement).value)
+                                        }
+                                        placeholder="Search pulse by ID"
+                                        style="flex:1;min-width:240px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;"
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={pulseSearchLoading}
+                                        onClick={searchPulse}
+                                        style="padding:9px 12px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;"
+                                    >
+                                        Search
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={loadData}
+                                        style="padding:9px 12px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:12px;font-weight:700;cursor:pointer;"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                                {pulses.map((pulse) => (
+                                    <PulseRow key={pulse.id} pulse={pulse} onDelete={loadData} />
+                                ))}
+                                {pulses.length === 0 && (
+                                    <div
+                                        style={`${surfaceCard};padding:32px;text-align:center;color:var(--text-tertiary);`}
+                                    >
+                                        <Search
+                                            size={28}
+                                            style="margin:0 auto 10px;opacity:0.35;"
+                                        />
+                                        <p style="margin:0;font-size:14px;font-weight:600;">
+                                            No pulses found
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
 

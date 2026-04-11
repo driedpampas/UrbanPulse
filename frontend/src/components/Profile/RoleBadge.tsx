@@ -7,11 +7,17 @@ interface Props {
 
 export function RoleBadge({ role, compact = false }: Props) {
     const n = role.toLowerCase();
-    if (n !== 'admin' && n !== 'mod') return null;
+    if (n !== 'admin' && n !== 'mod' && n !== 'banned') return null;
 
-    const label = n === 'admin' ? 'Admin' : 'Mod';
-    const color = n === 'admin' ? 'var(--accent)' : 'var(--warning)';
-    const bg = n === 'admin' ? 'var(--accent-subtle)' : 'var(--warning-subtle)';
+    const label = n === 'admin' ? 'Admin' : n === 'mod' ? 'Mod' : 'Banned';
+    const color =
+        n === 'admin' ? 'var(--accent)' : n === 'mod' ? 'var(--warning)' : 'var(--danger)';
+    const bg =
+        n === 'admin'
+            ? 'var(--accent-subtle)'
+            : n === 'mod'
+              ? 'var(--warning-subtle)'
+              : 'var(--danger-subtle)';
 
     if (compact) {
         return (

@@ -50,11 +50,14 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
     return { success: true, token: token, user: dbUser };
 }
 
-
 export async function loginUser(user: LoginUser): Promise<AuthResult> {
     const [dbUser] = await db.selectUserAuth(user.email);
     if (!dbUser) {
         return { success: false, status: 401 };
+    }
+
+    if (dbUser.role?.toLowerCase() === 'banned') {
+        return { success: false, status: 403 };
     }
 
     const matches = await bun.password.verify(user.password, dbUser.password_hash);
@@ -66,7 +69,6 @@ export async function loginUser(user: LoginUser): Promise<AuthResult> {
     const token = jwt.sign({ id: dbUser.id }, JWT_SECRET, {
         expiresIn: '7d',
     });
-
 
     return { success: true, token, user: { id: dbUser.id, role: dbUser.role } };
 }

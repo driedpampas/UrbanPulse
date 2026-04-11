@@ -291,6 +291,10 @@ export async function updateAdminUserRole(userId: string, role: string): Promise
     });
 }
 
+export async function deleteAdminUser(userId: string): Promise<void> {
+    await request<void>(`/admin/users/${userId}`, { method: 'DELETE' });
+}
+
 export async function fetchAdminOverview(): Promise<{
     totalUsers: number;
     adminUsers: number;

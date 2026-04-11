@@ -326,6 +326,31 @@ export async function deletePulse(id: string): Promise<void> {
     await request<void>(`/pulse/${id}`, { method: 'DELETE' });
 }
 
+export async function fetchAdminPulses(limit = 25, offset = 0): Promise<Pulse[]> {
+    const data = await request<{ pulses: BackendPulse[] }>(
+        `/admin/pulses?limit=${limit}&offset=${offset}`,
+        { method: 'GET' }
+    );
+
+    return data.pulses.map(mapBackendPulse);
+}
+
+export async function fetchAdminPulseById(id: string): Promise<Pulse | null> {
+    if (!id.trim()) {
+        return null;
+    }
+
+    const pulse = await request<BackendPulse>(`/admin/pulses/${encodeURIComponent(id.trim())}`, {
+        method: 'GET',
+    });
+
+    return mapBackendPulse(pulse);
+}
+
+export async function deleteAdminPulse(id: string): Promise<void> {
+    await request<void>(`/admin/pulses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export async function confirmPulse(id: string): Promise<void> {
     await request<void>(`/pulses/${id}/confirm`, { method: 'POST' });
 }

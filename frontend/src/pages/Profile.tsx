@@ -9,6 +9,7 @@ import {
     Moon,
     Pencil,
     Save,
+    ShieldCheck,
     Trash2,
     X,
 } from 'lucide-preact';
@@ -23,7 +24,6 @@ import { AppLayout } from '../components/Layout/AppLayout';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import {
     blockUser,
@@ -31,8 +31,16 @@ import {
     startDirectConversation,
     unblockUser,
 } from '../lib/chatApi';
+import { useTheme } from '../lib/theme';
 import type { User } from '../lib/types';
-import { deleteAccount, fetchCurrentUser, fetchUserById, updateProfile } from '../lib/userApi';
+import {
+    deleteAccount,
+    deleteAdminUser,
+    fetchCurrentUser,
+    fetchUserById,
+    updateAdminUserRole,
+    updateProfile,
+} from '../lib/userApi';
 import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation, isUsableCoordinates } from '../lib/utils';
 
 const DAYS = [
@@ -119,6 +127,7 @@ export function Profile() {
     const [showDel, setShowDel] = useState(false);
     const [blocked, setBlocked] = useState(false);
     const [actionBusy, setActionBusy] = useState(false);
+    const isAdmin = session?.user.role?.toLowerCase() === 'admin';
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -360,6 +369,39 @@ export function Profile() {
         }
     };
 
+    const handleAdminRole = async (nextRole: 'admin' | 'resident' | 'banned') => {
+        if (!selectedUserId || actionBusy) {
+            return;
+        }
+
+        setActionBusy(true);
+        try {
+            await updateAdminUserRole(selectedUserId, nextRole);
+        } catch (error) {
+            console.error(error);
+            window.alert('Could not update user role.');
+        } finally {
+            setActionBusy(false);
+        }
+    };
+
+    const handleDeleteProfile = async () => {
+        if (!selectedUserId || actionBusy) {
+            return;
+        }
+
+        setActionBusy(true);
+        try {
+            await deleteAdminUser(selectedUserId);
+            setLocation('/admin');
+        } catch (error) {
+            console.error(error);
+            window.alert('Could not delete profile.');
+        } finally {
+            setActionBusy(false);
+        }
+    };
+
     const toggleDay = (day: number) => {
         setDraft((d) => {
             const cur = normDays(d.quietDays === undefined ? user?.quietDays : d.quietDays);
@@ -486,13 +528,13 @@ export function Profile() {
                 </div>
 
                 {!isOwnProfile && (
-                    <div style="display:flex;gap:8px;">
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
                         <button
                             type="button"
                             class="btn-primary"
                             onClick={handleMessageUser}
                             disabled={actionBusy}
-                            style="flex:1;height:36px;"
+                            style="flex:1 1 150px;height:36px;"
                         >
                             <MessageSquare size={14} />
                             Message
@@ -502,10 +544,39 @@ export function Profile() {
                             class="btn-ghost"
                             onClick={handleToggleBlock}
                             disabled={actionBusy}
-                            style="flex:1;height:36px;color:var(--danger);border-color:var(--danger-muted);"
+                            style="flex:1 1 110px;height:36px;color:var(--danger);border-color:var(--danger-muted);"
                         >
                             <Ban size={14} />
-                            {blocked ? 'Unblock' : 'Block'}
+                            {blocked ? 'Unblock' : 'Ban'}
+                        </button>
+                    </div>
+                )}
+
+                {isAdmin && !isOwnProfile && (
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                        <button
+                            type="button"
+                            class="btn-ghost"
+                            onClick={() =>
+                                handleAdminRole(
+                                    user.role?.toLowerCase() === 'admin' ? 'resident' : 'admin'
+                                )
+                            }
+                            disabled={actionBusy}
+                            style="height:36px;flex:1 1 120px;color:var(--accent);border-color:var(--accent-muted);"
+                        >
+                            <ShieldCheck size={14} />
+                            {user.role?.toLowerCase() === 'admin' ? 'Demote' : 'Promote'}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn-ghost"
+                            onClick={handleDeleteProfile}
+                            disabled={actionBusy}
+                            style="height:36px;flex:1 1 120px;color:var(--danger);border-color:var(--danger-muted);"
+                        >
+                            <Trash2 size={14} />
+                            Delete
                         </button>
                     </div>
                 )}
@@ -634,7 +705,8 @@ export function Profile() {
                                                         onMouseEnter={(e) =>
                                                             ((
                                                                 e.target as HTMLElement
-                                                            ).style.background = 'var(--danger-muted)')
+                                                            ).style.background =
+                                                                'var(--danger-muted)')
                                                         }
                                                         onMouseLeave={(e) =>
                                                             ((
@@ -648,8 +720,9 @@ export function Profile() {
                                                 </div>
                                                 {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
                                                     <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
-                                                        Tip: Set VITE_MAPBOX_TOKEN in your environment
-                                                        to enable the interactive map preview.
+                                                        Tip: Set VITE_MAPBOX_TOKEN in your
+                                                        environment to enable the interactive map
+                                                        preview.
                                                     </p>
                                                 )}
                                             </div>
@@ -670,7 +743,8 @@ export function Profile() {
 
                                     {editing && (
                                         <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.45;">
-                                            Click the map or drag the pin to set the account location.
+                                            Click the map or drag the pin to set the account
+                                            location.
                                         </p>
                                     )}
 
