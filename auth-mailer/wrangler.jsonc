@@ -18,7 +18,23 @@
 		{
 			"name": "SEND_EMAIL"
 		}
-	]
+	],
+	"queues": {
+		"producers": [
+			{
+				"queue": "urbanpulse-user-emails",
+				"binding": "EMAIL_QUEUE"
+			}
+		],
+		"consumers": [
+			{
+				"queue": "urbanpulse-user-emails",
+				"max_batch_size": 10, // optional: defaults to 10
+				"max_batch_timeout": 5, // optional: defaults to 5 seconds,
+				"max_retries": 3
+			}
+		]
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
