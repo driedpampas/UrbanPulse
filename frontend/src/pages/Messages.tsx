@@ -132,7 +132,7 @@ function getThreadDisplayName(thread: ChatThread, currentUserId: string, fallbac
 }
 
 export function Messages() {
-    const [location] = useLocation();
+    const [location, setLocation] = useLocation();
     const [threads, setThreads] = useState<ChatThread[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
@@ -187,6 +187,8 @@ export function Messages() {
                 if (target) {
                     setActiveThread(target);
                 }
+            } else {
+                setActiveThread(null);
             }
         });
     }, [location, selectedThreadId]);
@@ -319,7 +321,18 @@ export function Messages() {
 
     const openThread = (thread: ChatThread) => {
         markThreadRead(thread.id);
+        setLocation(`/messages?threadId=${encodeURIComponent(thread.id)}`);
         setActiveThread(thread);
+    };
+
+    const handleBackToThreadList = () => {
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+
+        setLocation('/messages');
+        setActiveThread(null);
     };
 
     const handleStartConversation = async (user: AppUser) => {
@@ -376,7 +389,7 @@ export function Messages() {
         return (
             <ChatView
                 thread={activeThread}
-                onBack={() => setActiveThread(null)}
+                onBack={handleBackToThreadList}
                 onThreadUpdate={handleThreadUpdate}
                 onThreadDeleted={handleThreadDeleted}
                 onThreadRefresh={refreshThread}
