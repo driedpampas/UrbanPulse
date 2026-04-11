@@ -152,8 +152,12 @@ export function Auth() {
                                             : 'background:transparent;color:var(--text-tertiary);'
                                     }
 								`}
-                                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                    onMouseEnter={(e) => {(e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
+                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
+                                    }}
+                                    onMouseLeave={(e) => {(e.target as HTMLElement).style.filter = 'none';
+                                    (e.target as HTMLElement).style.background = 'transparent';
+                                    }}
                             >
                                 {m === 'login' ? <LogIn size={13} /> : <UserPlus size={13} />}
                                 {m === 'login' ? 'Sign In' : 'Register'}

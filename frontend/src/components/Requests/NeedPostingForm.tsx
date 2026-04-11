@@ -129,8 +129,12 @@ export function NeedPostingForm({ onClose }: Props) {
                                                 : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                         }
 									`}
-                                                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                                    onMouseEnter={(e) => {(e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
+                                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
+                                                    }}
+                                                    onMouseLeave={(e) => {(e.target as HTMLElement).style.filter = 'none';
+                                                    (e.target as HTMLElement).style.background = 'transparent';
+                                                    }}
                                 >
                                     <Icon size={11} />
                                     {t.label}
