@@ -2,13 +2,13 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
+    Flag,
     MapPin,
     MessageSquare,
     Package,
     PawPrint,
     Trash2,
     Wrench,
-    Flag,
 } from 'lucide-preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
@@ -24,12 +24,7 @@ import {
 } from '../../lib/pulseApi';
 import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
-import {
-    DEFAULT_PULSE_CENTER,
-    distanceInMeters,
-    getCurrentBrowserLocation,
-    isUsableCoordinates,
-} from '../../lib/utils';
+import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { ReportModal } from '../Modals/ReportModal';
 
 interface TypeDef {
@@ -66,7 +61,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [newId, setNewId] = useState<string | null>(null);
-    const [feedCenter, setFeedCenter] = useState(DEFAULT_PULSE_CENTER);
+    const [feedCenter, setFeedCenter] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationResolved, setLocationResolved] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const observerTarget = useRef<HTMLDivElement>(null);
@@ -76,21 +72,31 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     useEffect(() => {
         let cancelled = false;
         const initLocation = async () => {
+            let nextCenter: { lat: number; lng: number } | null = null;
+
             try {
                 const u = await fetchCurrentUser();
                 if (!cancelled && isUsableCoordinates(u.lat, u.lng)) {
-                    setFeedCenter({ lat: u.lat, lng: u.lng });
-                    return;
+                    nextCenter = { lat: u.lat, lng: u.lng };
                 }
             } catch {
                 // Profile might not exist or fetch failed
             }
 
-            try {
-                const loc = await getCurrentBrowserLocation();
-                if (!cancelled) setFeedCenter(loc);
-            } catch (e) {
-                console.warn('Browser geolocation failed:', e);
+            if (!nextCenter) {
+                try {
+                    const loc = await getCurrentBrowserLocation();
+                    if (!cancelled) {
+                        nextCenter = loc;
+                    }
+                } catch (e) {
+                    console.warn('Browser geolocation failed:', e);
+                }
+            }
+
+            if (!cancelled) {
+                setFeedCenter(nextCenter);
+                setLocationResolved(true);
             }
         };
 
@@ -100,12 +106,35 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         };
     }, []);
 
+    useEffect(() => {
+        if (!locationResolved || feedCenter) {
+            return;
+        }
+
+        setPulses([]);
+        setHasMore(false);
+        setLoading(false);
+    }, [feedCenter, locationResolved]);
+
     // Initial load and reset
     useEffect(() => {
+        if (!locationResolved) {
+            return;
+        }
+
         let cancelled = false;
         setLoading(true);
         setLoadError(null);
         setHasMore(true);
+
+        if (!feedCenter) {
+            setPulses([]);
+            setHasMore(false);
+            setLoading(false);
+            return () => {
+                cancelled = true;
+            };
+        }
 
         fetchPulses(feedCenter.lat, feedCenter.lng, radiusFilter, pulseLimit, 0)
             .then((d) => {
@@ -123,11 +152,11 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         return () => {
             cancelled = true;
         };
-    }, [radiusFilter, feedCenter, pulseLimit]);
+    }, [radiusFilter, feedCenter, locationResolved, pulseLimit]);
 
     // Intersection observer for infinite scroll
     useEffect(() => {
-        if (!hasMore || loading || loadingMore) return;
+        if (!hasMore || loading || loadingMore || !feedCenter) return;
 
         const observer = new IntersectionObserver(
             (entries) => {
@@ -144,10 +173,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         return () => {
             if (target) observer.unobserve(target);
         };
-    }, [hasMore, loading, loadingMore, pulses.length]);
+    }, [feedCenter, hasMore, loading, loadingMore, pulses.length]);
 
     const loadMore = async () => {
-        if (loadingMore || !hasMore) return;
+        if (loadingMore || !hasMore || !feedCenter) return;
 
         setLoadingMore(true);
         const newOffset = pulses.length;
@@ -186,6 +215,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 // HOWEVER, the backend currently publishes ALL pulses to the topic.
                 // For now, I'll add a distance check here to avoid showing pulses outside radius that come via WS.
                 if (
+                    feedCenter &&
                     distanceInMeters(
                         feedCenter.lat,
                         feedCenter.lng,
@@ -252,9 +282,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
-            (session.user.id === p.userId ||
-                session.user.role === 'admin' ||
-                session.user.role === 'mod')
+                (session.user.id === p.userId ||
+                    session.user.role === 'admin' ||
+                    session.user.role === 'mod')
         );
 
     /* ── States ── */
@@ -297,10 +327,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 <div class="card" style="padding:40px 24px;text-align:center;">
                     <MapPin size={28} style="color:var(--text-tertiary);margin:0 auto 10px;" />
                     <p style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 4px;">
-                        No pulses yet
+                        {feedCenter ? 'No pulses yet' : 'No home location selected'}
                     </p>
                     <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
-                        Be the first to post in this area.
+                        {feedCenter
+                            ? 'Be the first to post in this area.'
+                            : 'Set a home location or allow location access to see nearby pulses.'}
                     </p>
                 </div>
             </div>
@@ -343,7 +375,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setLocation(`/profile?userId=${encodeURIComponent(pulse.userId)}`)
+                                    setLocation(
+                                        `/profile?userId=${encodeURIComponent(pulse.userId)}`
+                                    )
                                 }
                                 style="padding:0;border:none;background:transparent;cursor:pointer;display:flex;"
                                 aria-label={`Open ${pulse.userName} profile`}

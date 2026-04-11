@@ -68,10 +68,16 @@ function upsertMessageById(
 
         const next = [...messages];
         next[existingIndex] = incoming;
-        return { messages: next, changed: true };
+        return { messages: sortMessagesByTimestamp(next), changed: true };
     }
 
-    return { messages: [...messages, incoming], changed: true };
+    return { messages: sortMessagesByTimestamp([...messages, incoming]), changed: true };
+}
+
+function sortMessagesByTimestamp(messages: ChatMessage[]): ChatMessage[] {
+    return [...messages].sort(
+        (left, right) => left.timestamp - right.timestamp || left.id.localeCompare(right.id)
+    );
 }
 
 function uniqueMessagesById(messages: ChatMessage[]): ChatMessage[] {
@@ -248,23 +254,6 @@ export function Messages() {
             }
         >
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
-                <div
-                    class="card animate-slide-up"
-                    style="padding:14px;display:flex;align-items:center;gap:12px;background:#f0f4ff;border-color:#d1d5ff;"
-                >
-                    <div style="width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:#4f46e5;color:#fff;">
-                        <MessageCircle size={18} />
-                    </div>
-                    <div style="flex:1;min-width:0;">
-                        <p style="margin:0;font-size:15px;font-weight:700;color:#1f2937;letter-spacing:-0.01em;">
-                            Conversations
-                        </p>
-                        <p style="margin:2px 0 0;font-size:13px;color:#6b7280;line-height:1.4;">
-                            Keep chat tied to trust, roles, and live pulses.
-                        </p>
-                    </div>
-                </div>
-
                 {loading ? (
                     [1, 2].map((i) => (
                         <div
@@ -509,13 +498,15 @@ function ChatView({
     }, [thread]);
 
     useEffect(() => {
-        const normalized = uniqueMessagesById([...thread.messages]).map((message) => ({
-            ...message,
-            senderName:
-                participantNameById.get(message.senderId) ||
-                message.senderName ||
-                `Neighbor ${message.senderId.slice(0, 6)}`,
-        }));
+        const normalized = sortMessagesByTimestamp(
+            uniqueMessagesById([...thread.messages]).map((message) => ({
+                ...message,
+                senderName:
+                    participantNameById.get(message.senderId) ||
+                    message.senderName ||
+                    `Neighbor ${message.senderId.slice(0, 6)}`,
+            }))
+        );
 
         setMessages(normalized);
     }, [thread.id, thread.messages, participantNameById]);
@@ -591,7 +582,7 @@ function ChatView({
                 onThreadUpdate({
                     ...threadRef.current,
                     messages: merged.messages,
-                    lastMessage: mappedMessage,
+                    lastMessage: merged.messages[merged.messages.length - 1],
                 });
                 return merged.messages;
             });
@@ -640,7 +631,7 @@ function ChatView({
                 onThreadUpdate({
                     ...threadRef.current,
                     messages: merged.messages,
-                    lastMessage: mappedMessage,
+                    lastMessage: merged.messages[merged.messages.length - 1],
                 });
                 return merged.messages;
             });

@@ -96,6 +96,12 @@ function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): Ch
     };
 }
 
+function sortMessagesByTimestamp(messages: ChatMessage[]): ChatMessage[] {
+    return [...messages].sort(
+        (left, right) => left.timestamp - right.timestamp || left.id.localeCompare(right.id)
+    );
+}
+
 function dispatchEvent(event: ChatSocketEvent) {
     for (const handler of wsHandlers) {
         handler(event);
@@ -259,8 +265,10 @@ async function fetchChatMessages(threadId: string): Promise<ChatMessage[]> {
         method: 'GET',
     });
 
-    return messages.map((message) =>
-        normalizeMessage(message, `Neighbor ${message.senderId.slice(0, 6)}`)
+    return sortMessagesByTimestamp(
+        messages.map((message) =>
+            normalizeMessage(message, `Neighbor ${message.senderId.slice(0, 6)}`)
+        )
     );
 }
 
@@ -293,7 +301,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
                 )
             );
 
-            return normalizeChat(summary, normalizedMessages);
+            return normalizeChat(summary, sortMessagesByTimestamp(normalizedMessages));
         })
     );
 

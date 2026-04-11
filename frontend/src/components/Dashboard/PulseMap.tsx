@@ -10,12 +10,7 @@ import {
 } from '../../lib/pulseApi';
 import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
-import {
-    DEFAULT_PULSE_CENTER,
-    distanceInMeters,
-    getCurrentBrowserLocation,
-    isUsableCoordinates,
-} from '../../lib/utils';
+import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const MAPBOX_STYLE_ID = 'mapbox/light-v11';
@@ -119,27 +114,36 @@ export function PulseMap({
     const [pulseError, setPulseError] = useState<string | null>(null);
     const [loadingPulses, setLoadingPulses] = useState(true);
     const [pulses, setPulses] = useState<Pulse[]>([]);
-    const [mapCenter, setMapCenter] = useState(DEFAULT_PULSE_CENTER);
+    const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+    const [locationResolved, setLocationResolved] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
 
         const initLocation = async () => {
+            let nextCenter: { lat: number; lng: number } | null = null;
+
             try {
                 const user = await fetchCurrentUser();
                 if (!cancelled && isUsableCoordinates(user.lat, user.lng)) {
-                    setMapCenter({ lat: user.lat, lng: user.lng });
-                    return;
+                    nextCenter = { lat: user.lat, lng: user.lng };
                 }
             } catch {
                 // Ignore
             }
 
-            try {
-                const loc = await getCurrentBrowserLocation();
-                if (!cancelled) setMapCenter(loc);
-            } catch (e) {
-                console.warn('Map browser geolocation failed:', e);
+            if (!nextCenter) {
+                try {
+                    const loc = await getCurrentBrowserLocation();
+                    if (!cancelled) nextCenter = loc;
+                } catch (e) {
+                    console.warn('Map browser geolocation failed:', e);
+                }
+            }
+
+            if (!cancelled) {
+                setMapCenter(nextCenter);
+                setLocationResolved(true);
             }
         };
 
@@ -150,7 +154,20 @@ export function PulseMap({
     }, []);
 
     useEffect(() => {
+        if (!locationResolved) {
+            return;
+        }
+
         let cancelled = false;
+
+        if (!mapCenter) {
+            setPulses([]);
+            setLoadingPulses(false);
+            setPulseError(null);
+            return () => {
+                cancelled = true;
+            };
+        }
 
         setLoadingPulses(true);
         setPulseError(null);
@@ -177,11 +194,15 @@ export function PulseMap({
         return () => {
             cancelled = true;
         };
-    }, [radiusFilter, mapCenter, pulseLimit]);
+    }, [radiusFilter, mapCenter, locationResolved, pulseLimit]);
 
     useEffect(() => {
         const handleWS = (event: PulseSocketEvent) => {
             if (event.event === 'pulse.created') {
+                if (!mapCenter) {
+                    return;
+                }
+
                 if (
                     distanceInMeters(
                         mapCenter.lat,
@@ -225,7 +246,7 @@ export function PulseMap({
     useEffect(() => {
         const activeMap = mapRef.current;
 
-        if (!mapLoaded || !activeMap) {
+        if (!mapLoaded || !activeMap || !mapCenter) {
             return;
         }
 
@@ -430,7 +451,7 @@ export function PulseMap({
         const activeMap = mapRef.current;
         const mapboxgl = mapboxGlRef.current;
 
-        if (!mapLoaded || !activeMap || !mapboxgl) {
+        if (!mapLoaded || !activeMap || !mapboxgl || !mapCenter) {
             return;
         }
 
@@ -472,7 +493,29 @@ export function PulseMap({
             });
             markersRef.current = [];
         };
-    }, [mapLoaded, visiblePulses]);
+    }, [mapCenter, mapLoaded, visiblePulses]);
+
+    if (locationResolved && !mapCenter) {
+        return (
+            <div class="mx-4 mt-3 rounded-2xl glass p-5 animate-fade-up">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <MapPin size={20} class="text-primary" />
+                    </div>
+                    <div>
+                        <p class="font-semibold text-sm">No home location selected</p>
+                        <p class="text-xs text-text-secondary">
+                            Set a home location to see nearby pulses
+                        </p>
+                    </div>
+                </div>
+                <div class="rounded-xl bg-surface-dim/40 p-3 text-sm text-text-secondary">
+                    Nearby pulses are hidden until a home location is saved or location access is
+                    allowed.
+                </div>
+            </div>
+        );
+    }
 
     if (mapError) {
         return (
