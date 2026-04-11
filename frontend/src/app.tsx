@@ -11,6 +11,7 @@ import { Library } from './pages/Library';
 import { Messages } from './pages/Messages';
 import { PetMatch } from './pages/PetMatch';
 import { Profile } from './pages/Profile';
+import { Requests } from './pages/Requests';
 import './index.css';
 
 function RouteRedirect({ to }: { to: string }) {
@@ -60,6 +61,7 @@ function AppRoutes() {
             <Route path="/" component={Dashboard} />
             <Route path="/library" component={Library} />
             <Route path="/messages" component={Messages} />
+            <Route path="/requests" component={Requests} />
             <Route path="/profile" component={Profile} />
             <Route path="/pets" component={PetMatch} />
             <Route path="/auth">

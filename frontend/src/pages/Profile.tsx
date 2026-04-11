@@ -2,6 +2,7 @@ import {
     Ban,
     CalendarDays,
     Crosshair,
+    Flag,
     Globe,
     LogOut,
     MapPin,
@@ -21,6 +22,7 @@ import type {
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
+import { ReportModal } from '../components/Modals/ReportModal';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -126,6 +128,7 @@ export function Profile() {
     const [saving, setSaving] = useState(false);
     const [showDel, setShowDel] = useState(false);
     const [blocked, setBlocked] = useState(false);
+    const [showReportUserModal, setShowReportUserModal] = useState(false);
     const [actionBusy, setActionBusy] = useState(false);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
     const [mapError, setMapError] = useState<string | null>(null);
@@ -548,6 +551,16 @@ export function Profile() {
                         >
                             <Ban size={14} />
                             {blocked ? 'Unblock' : 'Ban'}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn-ghost"
+                            onClick={() => setShowReportUserModal(true)}
+                            disabled={actionBusy}
+                            style="flex:1 1 110px;height:36px;color:var(--warning);border-color:var(--warning-muted);"
+                        >
+                            <Flag size={14} />
+                            Report
                         </button>
                     </div>
                 )}
@@ -981,6 +994,15 @@ export function Profile() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {!isOwnProfile && selectedUserId && showReportUserModal && (
+                <ReportModal
+                    targetId={selectedUserId}
+                    targetType="user"
+                    contentSnippet={user.bio?.trim() || user.name}
+                    onClose={() => setShowReportUserModal(false)}
+                />
             )}
         </AppLayout>
     );
