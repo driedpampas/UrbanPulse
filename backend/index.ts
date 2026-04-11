@@ -1163,18 +1163,19 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
 
-                            const blockedCounterpartyIds = await db.selectBlockedCounterpartyIds(
-                                payload.id
-                            );
-                            const blockedSet = new Set(blockedCounterpartyIds);
-                            const blockedInThread = chat.participants.some(
-                                (participant) =>
-                                    participant.userId !== payload.id &&
-                                    blockedSet.has(participant.userId)
-                            );
+                            if (!chat.isGroup) {
+                                const blockedCounterpartyIds =
+                                    await db.selectBlockedCounterpartyIds(payload.id);
+                                const blockedSet = new Set(blockedCounterpartyIds);
+                                const blockedInThread = chat.participants.some(
+                                    (participant) =>
+                                        participant.userId !== payload.id &&
+                                        blockedSet.has(participant.userId)
+                                );
 
-                            if (blockedInThread) {
-                                return withCors(FORBIDDEN);
+                                if (blockedInThread) {
+                                    return withCors(FORBIDDEN);
+                                }
                             }
 
                             const message = await db.insertMessage(

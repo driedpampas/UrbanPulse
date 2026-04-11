@@ -109,12 +109,10 @@ function ChatNotificationsBridge() {
                 return;
             }
 
-            new Notification(
-                notificationEvent.threadName || notificationEvent.senderName || 'New message',
-                {
-                    body: event.message.content,
-                }
-            );
+            new Notification(`New message from ${notificationEvent.senderName}`, {
+                body: event.message.content,
+                tag: event.message.threadId,
+            });
         };
 
         connectChatWebSocket(handleChatEvent);

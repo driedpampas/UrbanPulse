@@ -250,16 +250,16 @@ export function Messages() {
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
                 <div
                     class="card animate-slide-up"
-                    style="padding:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(59,130,246,0.14),rgba(16,185,129,0.10));border-color:rgba(59,130,246,0.14);"
+                    style="padding:14px;display:flex;align-items:center;gap:12px;background:#f0f4ff;border-color:#d1d5ff;"
                 >
-                    <div style="width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#14b8a6);color:#fff;box-shadow:0 12px 30px rgba(59,130,246,0.22);">
+                    <div style="width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:#4f46e5;color:#fff;">
                         <MessageCircle size={18} />
                     </div>
                     <div style="flex:1;min-width:0;">
-                        <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);letter-spacing:-0.01em;">
+                        <p style="margin:0;font-size:15px;font-weight:700;color:#1f2937;letter-spacing:-0.01em;">
                             Conversations
                         </p>
-                        <p style="margin:2px 0 0;font-size:12px;color:var(--text-secondary);line-height:1.4;">
+                        <p style="margin:2px 0 0;font-size:13px;color:#6b7280;line-height:1.4;">
                             Keep chat tied to trust, roles, and live pulses.
                         </p>
                     </div>
@@ -300,28 +300,28 @@ export function Messages() {
                                 style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:transform 0.15s,background 0.15s;animation-delay:${i * 50}ms;border-radius:16px;`}
                             >
                                 <div
-                                    style={`width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(59,130,246,0.10))' : 'linear-gradient(135deg,rgba(16,185,129,0.14),rgba(14,165,233,0.10))'};color:${isGroup ? 'var(--accent)' : 'var(--success)'};`}
+                                    style={`width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? '#e0e7ff' : '#d1fae5'};color:${isGroup ? '#4f46e5' : '#059669'};`}
                                 >
                                     {isGroup ? <Users size={18} /> : <User size={18} />}
                                 </div>
                                 <div style="flex:1;min-width:0;">
                                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                         <p
-                                            style={`font-size:13px;font-weight:${isUnread ? '800' : '700'};color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`}
+                                            style={`font-size:14px;font-weight:${isUnread ? '700' : '600'};color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`}
                                         >
                                             {displayName}
                                         </p>
                                         {isUnread && (
-                                            <span style="width:8px;height:8px;border-radius:999px;background:var(--accent);box-shadow:0 0 0 4px var(--accent-subtle);flex-shrink:0;" />
+                                            <span style="width:8px;height:8px;border-radius:999px;background:#4f46e5;flex-shrink:0;" />
                                         )}
                                         <span
-                                            style={`display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:${isGroup ? 'var(--accent-subtle)' : 'var(--success-subtle)'};color:${isGroup ? 'var(--accent)' : 'var(--success)'};`}
+                                            style={`display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:${isGroup ? '#e0e7ff' : '#d1fae5'};color:${isGroup ? '#4f46e5' : '#059669'};`}
                                         >
                                             {isGroup ? 'Group' : 'Direct'}
                                         </span>
                                     </div>
                                     {thread.lastMessage && (
-                                        <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                             {thread.lastMessage.senderName}:{' '}
                                             {thread.lastMessage.content}
                                         </p>
@@ -329,7 +329,7 @@ export function Messages() {
                                 </div>
                                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
                                     {thread.lastMessage && (
-                                        <span style="font-size:10px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
+                                        <span style="font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
                                             {timeAgo(thread.lastMessage.timestamp)}
                                         </span>
                                     )}
@@ -349,18 +349,18 @@ export function Messages() {
                 >
                     <div
                         class="animate-slide-up"
-                        style="width:100%;max-width:720px;max-height:82dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:20px;background:linear-gradient(180deg,var(--surface),var(--bg));overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,0.28);"
+                        style="width:100%;max-width:720px;max-height:82dvh;display:flex;flex-direction:column;border:1px solid #d1d5db;border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.15);"
                     >
-                        <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(59,130,246,0.11),rgba(16,185,129,0.08));display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                        <div style="padding:16px 16px 14px;border-bottom:1px solid #e5e7eb;background:#f9fafb;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
                             <div style="display:flex;align-items:flex-start;gap:12px;">
-                                <div style="width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#14b8a6);color:#fff;flex-shrink:0;">
+                                <div style="width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:#4f46e5;color:#fff;flex-shrink:0;">
                                     <Sparkles size={18} />
                                 </div>
                                 <div>
-                                    <p style="margin:0;font-size:14px;font-weight:800;color:var(--text);">
+                                    <p style="margin:0;font-size:15px;font-weight:700;color:#1f2937;">
                                         Start a conversation
                                     </p>
-                                    <p style="margin:3px 0 0;font-size:12px;color:var(--text-secondary);line-height:1.4;">
+                                    <p style="margin:3px 0 0;font-size:13px;color:#6b7280;line-height:1.4;">
                                         Search a neighbor, then open a thread with their profile
                                         context.
                                     </p>
@@ -380,25 +380,25 @@ export function Messages() {
                             </button>
                         </div>
 
-                        <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
+                        <div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;">
                             <label
                                 for="chat-user-search"
-                                style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.06em;"
+                                style="display:block;font-size:11px;font-weight:700;color:#6b7280;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.06em;"
                             >
                                 Search users
                             </label>
-                            <div style="display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border:1px solid var(--border);border-radius:14px;background:var(--bg-subtle);box-shadow:none;">
-                                <Search size={14} style="color:var(--text-tertiary);" />
+                            <div style="display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border:1px solid #d1d5db;border-radius:14px;background:#f9fafb;box-shadow:none;">
+                                <Search size={14} style="color:#9ca3af;" />
                                 <input
                                     id="chat-user-search"
                                     value={query}
                                     onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
                                     placeholder="Type a name..."
-                                    style="flex:1;border:none;outline:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;"
+                                    style="flex:1;border:none;outline:none;background:transparent;color:#1f2937;font-size:14px;font-family:inherit;"
                                 />
                             </div>
                             {composeError && (
-                                <p style="margin:8px 0 0;font-size:12px;color:var(--danger);">
+                                <p style="margin:8px 0 0;font-size:13px;color:#dc2626;">
                                     {composeError}
                                 </p>
                             )}
@@ -409,11 +409,11 @@ export function Messages() {
                                 [1, 2, 3].map((i) => (
                                     <div
                                         key={i}
-                                        style="height:64px;border-radius:16px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                                        style="height:64px;border-radius:16px;background:#f3f4f6;animation:pulse 1.5s ease-in-out infinite;"
                                     />
                                 ))
                             ) : queryResults.length === 0 ? (
-                                <div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:12px;">
+                                <div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;">
                                     No users found
                                 </div>
                             ) : (
@@ -426,7 +426,7 @@ export function Messages() {
                                         class="card"
                                         style="padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;border-radius:16px;"
                                     >
-                                        <div style="width:40px;height:40px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg-muted);border:1px solid var(--border);">
+                                        <div style="width:40px;height:40px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f3f4f6;border:1px solid #e5e7eb;">
                                             <img
                                                 src={user.avatar || avatarUrl(user.name)}
                                                 alt=""
@@ -435,14 +435,11 @@ export function Messages() {
                                         </div>
                                         <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
                                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                                <p style="margin:0;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                <p style="margin:0;font-size:14px;font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                                     {user.name}
                                                 </p>
                                                 {user.verified && (
-                                                    <ShieldCheck
-                                                        size={12}
-                                                        style="color:var(--success);"
-                                                    />
+                                                    <ShieldCheck size={12} style="color:#16a34a;" />
                                                 )}
                                             </div>
                                             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -456,7 +453,7 @@ export function Messages() {
                                                 )}
                                             </div>
                                         </div>
-                                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--accent);">
+                                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#4f46e5;">
                                             {startingUserId === user.id ? 'Opening...' : 'Chat'}
                                             <ChevronRight size={12} />
                                         </span>
@@ -693,11 +690,11 @@ function ChatView({
     };
 
     const chatColorMap: { [key: string]: string } = {
-        default: 'linear-gradient(135deg,var(--accent),#0ea5e9)',
-        violet: 'linear-gradient(135deg,#a78bfa,#ec4899)',
-        emerald: 'linear-gradient(135deg,#10b981,#14b8a6)',
-        orange: 'linear-gradient(135deg,#f97316,#f59e0b)',
-        rose: 'linear-gradient(135deg,#f43f5e,#ec4899)',
+        default: '#4f46e5',
+        violet: '#8b5cf6',
+        emerald: '#059669',
+        orange: '#f97316',
+        rose: '#dc2626',
     };
 
     const getAvatarUrl = (userId: string) => {
@@ -735,11 +732,11 @@ function ChatView({
                                 }}
                                 onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
                                 style={`
-                                    max-width:75%;padding:11px 14px;border-radius:18px;font-size:13px;line-height:1.5;transition:all 0.2s;position:relative;border:none;cursor:${isMe ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
+                                    max-width:75%;padding:12px 15px;border-radius:18px;font-size:14px;line-height:1.6;transition:all 0.2s;position:relative;border:none;cursor:${isMe ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                     ${
                                         isMe
-                                            ? `background:${chatColorMap[chatColor]};color:#fff;border-bottom-right-radius:8px;box-shadow:0 4px 16px rgba(99,102,241,0.25);`
-                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:8px;box-shadow:0 2px 8px rgba(15,23,42,0.08);'
+                                            ? `background:#4f46e5;color:#fff;border-bottom-right-radius:8px;box-shadow:0 2px 8px rgba(79,70,229,0.3);`
+                                            : 'background:#f3f4f6;color:#1f2937;border:1px solid #e5e7eb;border-bottom-left-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);'
                                     }
                                 `}
                             >
@@ -752,19 +749,21 @@ function ChatView({
                                                     `/profile?userId=${encodeURIComponent(msg.senderId)}`
                                                 )
                                             }
-                                            style="font-size:11px;font-weight:800;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;letter-spacing:0.02em;"
+                                            style={`font-size:12px;font-weight:700;color:#4f46e5;margin:0;padding:0;background:none;border:none;cursor:pointer;letter-spacing:0.02em;`}
                                         >
                                             {msg.senderName}
                                         </button>
                                     ) : (
-                                        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;opacity:0.75;flex-shrink:0;">
+                                        <span
+                                            style={`font-size:12px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;opacity:0.85;flex-shrink:0;`}
+                                        >
                                             You
                                         </span>
                                     )}
                                     <span
-                                        style={`font-size:11px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.75);' : 'color:var(--text-tertiary);'}`}
+                                        style={`font-size:12px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.8);' : 'color:#6b7280;'}`}
                                     >
-                                        <Clock size={9} />
+                                        <Clock size={10} />
                                         {timeAgo(msg.timestamp)}
                                     </span>
                                 </div>
@@ -851,10 +850,10 @@ function ChatView({
                 class="nav-bar"
                 style="position:fixed;bottom:0;left:0;right:0;padding:10px 12px;display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,0),var(--bg) 25%);"
             >
-                <div style="max-width:720px;width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:18px;background:var(--surface);padding:8px 10px;box-shadow:0 14px 36px rgba(15,23,42,0.08);">
+                <div style="max-width:720px;width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
                     <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                        <MessageCircle size={16} style="color:var(--text-tertiary);" />
-                        <div style="width:1px;height:18px;background:var(--border);" />
+                        <MessageCircle size={16} style="color:#6b7280;" />
+                        <div style="width:1px;height:18px;background:#e5e7eb;" />
                     </div>
                     <input
                         value={input}
@@ -865,7 +864,7 @@ function ChatView({
                             }
                         }}
                         placeholder="Message…"
-                        style="flex:1;padding:8px 0;border:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;outline:none;"
+                        style="flex:1;padding:8px 0;border:none;background:transparent;color:#1f2937;font-size:14px;font-family:inherit;outline:none;"
                     />
                     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                         <button
@@ -881,17 +880,15 @@ function ChatView({
                                     ];
                                 setChatColor(nextColor);
                             }}
-                            style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:transparent;border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;"
+                            style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:transparent;border:1px solid #e5e7eb;cursor:pointer;color:#6b7280;transition:all 0.2s;"
                             title="Change chat color"
                             onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLElement).style.background =
-                                    'var(--accent-subtle)';
-                                (e.currentTarget as HTMLElement).style.color = 'var(--accent)';
+                                (e.currentTarget as HTMLElement).style.background = '#f3f4f6';
+                                (e.currentTarget as HTMLElement).style.color = '#4f46e5';
                             }}
                             onMouseLeave={(e) => {
                                 (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                (e.currentTarget as HTMLElement).style.color =
-                                    'var(--text-tertiary)';
+                                (e.currentTarget as HTMLElement).style.color = '#6b7280';
                             }}
                         >
                             <div
@@ -904,7 +901,7 @@ function ChatView({
                             onClick={handleSend}
                             disabled={!input.trim() || sending}
                             class="btn-primary"
-                            style="height:36px;width:36px;padding:0;background:linear-gradient(135deg,var(--accent),#0ea5e9);border-radius:10px;flex-shrink:0;"
+                            style="height:36px;width:36px;padding:0;background:#4f46e5;border-radius:10px;flex-shrink:0;"
                             aria-label="Send"
                         >
                             <Send size={15} />

@@ -607,10 +607,34 @@ export function Profile() {
                                                     await getCurrentBrowserLocation();
                                                 applyLocation(browserLocation);
                                                 setMapError(null);
-                                            } catch {
-                                                window.alert(
-                                                    'Could not read your current location.'
-                                                );
+                                            } catch (error) {
+                                                let message =
+                                                    'Could not read your current location.';
+                                                if (error instanceof GeolocationPositionError) {
+                                                    if (
+                                                        error.code ===
+                                                        GeolocationPositionError.PERMISSION_DENIED
+                                                    ) {
+                                                        message =
+                                                            'Location access denied. Please enable location permissions in your browser settings.';
+                                                    } else if (
+                                                        error.code ===
+                                                        GeolocationPositionError.POSITION_UNAVAILABLE
+                                                    ) {
+                                                        message =
+                                                            'Location information is unavailable. Please try again.';
+                                                    } else if (
+                                                        error.code ===
+                                                        GeolocationPositionError.TIMEOUT
+                                                    ) {
+                                                        message =
+                                                            'Location request timed out. Please try again.';
+                                                    }
+                                                } else if (error instanceof Error) {
+                                                    message = error.message;
+                                                }
+                                                setMapError(message);
+                                                window.alert(message);
                                             }
                                         }}
                                         style="height:28px;padding:0 10px;font-size:11px;gap:5px;"
