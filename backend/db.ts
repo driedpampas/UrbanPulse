@@ -123,7 +123,6 @@ interface User {
     role?: string;
     passwordHash?: string | null;
     displayName?: string | null;
-    skillsAndResources?: string[] | null;
     radius?: number | null;
     location?: Location | null;
     quietHours?: Timerange[] | null;
@@ -186,7 +185,6 @@ type UserRow = {
     id: string;
     email?: string | null;
     role?: string;
-    skills_and_resources?: string[] | null;
     created_at?: Date | string | number;
     trust_score?: number | string | null;
     display_name?: string | null;
@@ -913,8 +911,6 @@ export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
         WHERE u.id != ${pulse.author_id}::uuid
           AND u.location IS NOT NULL
           AND u.distance_limit_meters IS NOT NULL
-          AND u.skills_and_resources IS NOT NULL
-          AND u.skills_and_resources::jsonb ?| ${pulse.required_skills}
           AND ST_DWithin(
             u.location,
             ST_SetSRID(ST_MakePoint(${pulse.lng}, ${pulse.lat}), 4326)::geography,
@@ -1091,7 +1087,6 @@ export async function searchUsers(
         id,
         email,
         role,
-        skills_and_resources,
         created_at,
         trust_score,
         display_name,
@@ -1146,17 +1141,6 @@ export async function searchUsers(
         AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${userSearch.bio ? `%${userSearch.bio}%` : null})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
-        AND (
-            ${userSearch.anySkillRes}::jsonb IS NULL 
-            OR ${userSearch.skillsAndResources}::jsonb IS NULL OR
-            (skills_and_resources != '[]'::jsonb AND (
-                (${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
-                ) OR (NOT ${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
-                )
-            ))
-        )
         ) OR id = ${userSearch.id})
     LIMIT ${safeLimit}
     OFFSET ${safeOffset}
@@ -1167,7 +1151,6 @@ export async function searchUsers(
             id: rawUser.id,
             email: rawUser.email,
             role: rawUser.role,
-            skillsAndResources: rawUser.skills_and_resources,
             trustScore: rawUser.trust_score,
             createdAt: rawUser.created_at,
             displayName: rawUser.display_name,
@@ -1291,17 +1274,6 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
         AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${userSearch.bio ? `%${userSearch.bio}%` : null})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
-        AND (
-            ${userSearch.anySkillRes}::jsonb IS NULL 
-            OR ${userSearch.skillsAndResources}::jsonb IS NULL OR
-            (skills_and_resources != '[]'::jsonb AND (
-                (${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
-                ) OR (NOT ${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
-                )
-            ))
-        )
         ) OR id = ${userSearch.id}))
     `;
 }
