@@ -380,7 +380,7 @@ export function Messages() {
                                     </div>
                                     {thread.lastMessage && (
                                         <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                            {thread.lastMessage.senderName}:{' '}
+                                            {thread.lastMessage.type === 'notice' ? '' : `${thread.lastMessage.senderName}: `}
                                             {thread.lastMessage.content}
                                         </p>
                                     )}
@@ -607,6 +607,14 @@ function ChatView({
     const [showSidebar, setShowSidebar] = useState(false);
     const [sidebarTab, setSidebarTab] = useState<'info' | 'participants'>('info');
     const [selectedColor, setSelectedColor] = useState<string>('#6366f1');
+    const [wideChatView, setWideChatView] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('wide-chat-view') === 'true';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('wide-chat-view', wideChatView.toString());
+    }, [wideChatView]);
     const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const threadRef = useRef(thread);
@@ -706,6 +714,7 @@ function ChatView({
                 threadId: string;
                 senderId: string;
                 content: string;
+                messageType?: string;
                 timestamp: number;
             };
             messageId?: string;
@@ -757,6 +766,7 @@ function ChatView({
                 senderId: event.message.senderId,
                 senderName,
                 content: event.message.content,
+                type: (event.message.messageType as 'text' | 'notice') ?? 'text',
                 timestamp: Number(event.message.timestamp),
             };
 
@@ -888,12 +898,12 @@ function ChatView({
 
     return (
         <div 
-            style={`min-height:100dvh;display:flex;flex-direction:column;background:var(--bg); --accent: ${selectedColor};`}
+            style={`height:100dvh;display:flex;flex-direction:column;background:var(--bg); --accent: ${selectedColor}; overflow:hidden;`}
         >
             {/* Chat header */}
             <header
                 class="header-bar"
-                style="position:sticky;top:0;z-index:40;height:var(--header-h);display:flex;align-items:center;gap:10px;padding:0 12px;flex-shrink:0;"
+                style="position:relative;z-index:40;height:var(--header-h);display:flex;align-items:center;gap:10px;padding:0 12px;flex-shrink:0;"
             >
                 <button
                     type="button"
@@ -944,229 +954,430 @@ function ChatView({
                 </button>
             </header>
 
-            {showSidebar && (
-                <aside style="position:fixed;top:var(--header-h);right:0;bottom:0;width:min(320px,86vw);z-index:45;background:var(--surface);border-left:1px solid var(--border);box-shadow:-12px 0 32px rgba(0,0,0,0.12);overflow:auto;display:flex;flex-direction:column;">
-                    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;">
-                        <div>
-                            <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
-                                {sidebarTab === 'info' ? 'Chat Info' : 'Participants'}
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            class="btn-icon"
-                            onClick={() => setShowSidebar(false)}
-                            aria-label="Close sidebar"
-                        >
-                            <X size={14} />
-                        </button>
-                    </div>
+            <div style="flex:1;display:flex;overflow:hidden;position:relative;">
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;">
+                    {/* Messages */}
+                    <div style="flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column;padding-bottom:100px;">
+                        <div style={`width:100%;max-width:${wideChatView ? '100%' : '680px'};margin:0 auto;padding:0 16px;display:flex;flex-direction:column;gap:10px;`}>
+                            <div style="height:4px;" />
+                            {messages.map((msg) => {
+                                const isMe = msg.senderId === currentUserId;
+                                const isContextMenuOpen = contextMenuMessageId === msg.id;
 
-                    {sidebarTab === 'info' ? (
-                        <div style="padding:16px;display:flex;flex-direction:column;gap:20px;">
-                            <div style="text-align:center;">
-                                <div
-                                    style={`width:64px;height:64px;border-radius:18px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:var(--bg-muted);overflow:hidden;border:2px solid var(--border);`}
-                                >
-                                    {isGroup ? (
-                                        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
-                                            <Users size={32} />
+                                if (msg.type === 'notice') {
+                                    return (
+                                        <div
+                                            key={msg.id}
+                                            style="display:flex;justify-content:center;margin:12px 0 4px;"
+                                        >
+                                            <div style="background:var(--bg-subtle);color:var(--text-secondary);font-size:11px;font-weight:600;padding:5px 14px;border-radius:20px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,0.02);display:flex;align-items:center;gap:6px;">
+                                                <Info size={12} />
+                                                {msg.content}
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <img
-                                            src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
-                                            alt=""
-                                            style="width:100%;height:100%;object-fit:cover;"
-                                        />
-                                    )}
-                                </div>
-                                <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">{chatTitle}</h3>
-                                {!isGroup && (
-                                    <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">Direct Message</p>
-                                )}
-                            </div>
+                                    );
+                                }
 
-                            {isGroup && (
-                                <button
-                                    type="button"
-                                    class="btn-secondary"
-                                    onClick={() => setSidebarTab('participants')}
-                                    style="width:100%;height:38px;font-size:13px;gap:8px;"
-                                >
-                                    <Users size={14} />
-                                    View Members ({thread.participants.length})
-                                </button>
-                            )}
-
-                            <div style="border-top:1px solid var(--border);padding-top:20px;">
-                                <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Chat Color</p>
-                                <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;">
-                                    {[
-                                        '#3b82f6', // blue
-                                        '#8b5cf6', // violet
-                                        '#ec4899', // pink
-                                        '#f97316', // orange
-                                        '#10b981', // emerald
-                                        '#0ea5e9', // sky
-                                        '#f43f5e', // rose
-                                        '#6366f1', // indigo
-                                        '#14b8a6', // teal
-                                        '#22c55e'  // green
-                                    ].map(color => (
-                                        <button
-                                            key={color}
-                                            type="button"
-                                            onClick={() => setSelectedColor(color)}
-                                            style={`
-                                                aspect-ratio:1;border-radius:8px;border:2px solid ${selectedColor === color ? 'var(--text)' : 'transparent'};
-                                                background:${color};cursor:pointer;transition:transform 0.1s;
-                                            `}
-                                            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
-                                            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                                            aria-label={`Select color ${color}`}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                                <button
-                                    type="button"
-                                    class="btn-icon"
-                                    onClick={() => setSidebarTab('info')}
-                                    style="width:28px;height:28px;"
-                                >
-                                    <ArrowLeft size={14} />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn-ghost"
-                                    onClick={() => setShowAddMembers((current) => !current)}
-                                    style="height:30px;padding:0 10px;font-size:11px;"
-                                >
-                                    Add members
-                                </button>
-                            </div>
-                            
-                            {showAddMembers && (
-                                <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
-                                    <input
-                                        value={addMemberQuery}
-                                        onInput={(e) =>
-                                            setAddMemberQuery((e.target as HTMLInputElement).value)
-                                        }
-                                        placeholder="Search neighbors"
-                                        style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
-                                    />
-                                    {searchingAddMembers ? (
-                                        <div style="font-size:12px;color:var(--text-tertiary);">
-                                            Searching…
-                                        </div>
-                                    ) : (
-                                        addMemberResults.slice(0, 5).map((user) => (
-                                            <button
-                                                key={user.id}
-                                                type="button"
-                                                class="btn-ghost"
-                                                disabled={addingMembers}
-                                                onClick={async () => {
-                                                    setAddingMembers(true);
-                                                    try {
-                                                        await addGroupChatParticipants(thread.id, [
-                                                            user.id,
-                                                        ]);
-                                                        const updated = await fetchChatThread(thread.id);
-                                                        onThreadUpdate(updated);
-                                                        setShowAddMembers(false);
-                                                    } finally {
-                                                        setAddingMembers(false);
-                                                    }
-                                                }}
-                                                style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
-                                            >
-                                                <span>{user.name}</span>
-                                                <span>+</span>
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                            {thread.participants.map((participantId, index) => {
-                                const name =
-                                    thread.participantNames[index] ||
-                                    participantNameById.get(participantId) ||
-                                    `Neighbor ${participantId.slice(0, 6)}`;
-                                const roles = thread.participantRoles?.[participantId] ?? [];
-                                const isOwner =
-                                    thread.ownerId === participantId || roles.includes('owner');
-                                const isAdmin = roles.includes('admin');
                                 return (
                                     <div
-                                        key={participantId}
-                                        style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);display:flex;align-items:center;justify-content:space-between;gap:10px;"
+                                        key={msg.id}
+                                        className="message-row"
+                                        style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;`}
                                     >
+                                        {!isMe && (
+                                            <div style="width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid var(--border);background:var(--bg-subtle);">
+                                                <img
+                                                    src={getAvatarUrl(msg.senderId)}
+                                                    alt={msg.senderName}
+                                                    style="width:100%;height:100%;object-fit:cover;"
+                                                />
+                                            </div>
+                                        )}
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setLocation(
-                                                    `/profile?userId=${encodeURIComponent(participantId)}`
-                                                )
-                                            }
-                                            style="background:none;border:none;padding:0;text-align:left;cursor:pointer;min-width:0;flex:1;"
+                                            onClick={(e) => {
+                                                if (isMe) handleContextMenu(e as any, msg.id);
+                                            }}
+                                            onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
+                                            style={`
+                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
+                                                ${
+                                                    isMe
+                                                        ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
+                                                        : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
+                                                }
+                                            `}
                                         >
-                                            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                {name}
-                                            </div>
-                                            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-                                                {isOwner && (
-                                                    <span
-                                                        class="type-badge"
-                                                        style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
+                                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+                                                {!isMe ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setLocation(
+                                                                `/profile?userId=${encodeURIComponent(msg.senderId)}`
+                                                            )
+                                                        }
+                                                        style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;"
                                                     >
-                                                        Owner
+                                                        {msg.senderName}
+                                                    </button>
+                                                ) : (
+                                                    <span style="font-size:11px;font-weight:600;opacity:0.8;">
+                                                        You
                                                     </span>
                                                 )}
-                                                {isAdmin && (
-                                                    <span
-                                                        class="type-badge"
-                                                        style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
-                                                    >
-                                                        Admin
-                                                    </span>
-                                                )}
+                                                <span
+                                                    style={`font-size:11px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.7);' : 'color:var(--text-tertiary);'}`}
+                                                >
+                                                    <Clock size={9} />
+                                                    {timeAgo(msg.timestamp)}
+                                                </span>
                                             </div>
+                                            <p style="margin:0;word-break:break-word;">{msg.content}</p>
                                         </button>
-                                        {thread.ownerId === currentUserId && !isOwner && (
+
+                                        <div 
+                                            className="delete-trigger-container" 
+                                            style={`display:flex;align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
+                                        >
                                             <button
                                                 type="button"
-                                                class="btn-ghost"
-                                                disabled={participantActionBusy === participantId}
-                                                onClick={async () => {
-                                                    setParticipantActionBusy(participantId);
-                                                    try {
-                                                        await promoteGroupChatParticipant(
-                                                            thread.id,
-                                                            participantId
-                                                        );
-                                                        const updated = await fetchChatThread(thread.id);
-                                                        onThreadUpdate(updated);
-                                                    } finally {
-                                                        setParticipantActionBusy(null);
-                                                    }
-                                                }}
-                                                style="height:28px;padding:0 10px;font-size:11px;"
+                                                className="delete-btn-hover"
+                                                onClick={(e) => handleContextMenu(e as any, msg.id)}
+                                                style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;flex-shrink:0;`}
+                                                aria-label="More options"
                                             >
-                                                Promote
+                                                <Trash2 size={14} />
                                             </button>
+                                        </div>
+
+                                        {isContextMenuOpen && contextMenuPosition && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Close menu"
+                                                    style="position:fixed;inset:0;z-index:49;background:none;border:none;padding:0;width:100%;height:100%;cursor:default;"
+                                                    onClick={() => {
+                                                        setContextMenuMessageId(null);
+                                                        setContextMenuPosition(null);
+                                                    }}
+                                                    onContextMenu={(e) => {
+                                                        e.preventDefault();
+                                                        setContextMenuMessageId(null);
+                                                        setContextMenuPosition(null);
+                                                    }}
+                                                />
+                                                <div
+                                                    style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
+                                                    role="menu"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteMessage(msg, 'me')}
+                                                        disabled={deletingMessageId !== null}
+                                                        role="menuitem"
+                                                        key="delete-me"
+                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                        onMouseEnter={(e) => {
+                                                            (e.currentTarget as HTMLElement).style.background =
+                                                                'var(--bg-muted)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            (e.currentTarget as HTMLElement).style.background =
+                                                                'none';
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        Delete for me
+                                                    </button>
+                                                    {(isMe || (thread.isGroup && (thread.ownerId === currentUserId || thread.participantRoles?.[currentUserId]?.includes('admin')))) && (
+                                                        <>
+                                                            <div style="height:1px;background:var(--border);" />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteMessage(msg, 'everyone')}
+                                                                disabled={deletingMessageId !== null}
+                                                                role="menuitem"
+                                                                key="delete-everyone"
+                                                                style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                                onMouseEnter={(e) => {
+                                                                    (e.currentTarget as HTMLElement).style.background =
+                                                                        'var(--danger-subtle)';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    (e.currentTarget as HTMLElement).style.background =
+                                                                        'none';
+                                                                }}
+                                                            >
+                                                                <Trash2 size={14} />
+                                                                Delete for everyone
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </>
                                         )}
-                                        {(thread.ownerId === currentUserId ||
-                                            (thread.participantRoles?.[currentUserId]?.includes(
-                                                'admin'
-                                            ) ??
-                                                false)) &&
-                                            !isOwner && (
+                                    </div>
+                                );
+                            })}
+                            <div ref={bottomRef} />
+                        </div>
+                    </div>
+
+                    {/* Input bar */}
+                    <div class="nav-bar" style="position:absolute;bottom:0;left:0;right:0;padding:8px 12px;z-index:20;">
+                        <div style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;`}>
+                            <input
+                                value={input}
+                                onInput={(e) => setInput((e.target as HTMLInputElement).value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.repeat && !isBlockedConversation)
+                                        handleSend();
+                                }}
+                                disabled={isBlockedConversation}
+                                placeholder={
+                                    isBlockedConversation ? 'You have blocked this user' : 'Message…'
+                                }
+                                style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
+                                onFocus={(e) => {
+                                    if (isBlockedConversation) return;
+                                    (e.target as HTMLElement).style.borderColor = 'var(--border-focus)';
+                                    (e.target as HTMLElement).style.boxShadow =
+                                        '0 0 0 3px var(--accent-muted)';
+                                }}
+                                onBlur={(e) => {
+                                    if (isBlockedConversation) return;
+                                    (e.target as HTMLElement).style.borderColor = 'var(--border)';
+                                    (e.target as HTMLElement).style.boxShadow = 'none';
+                                }}
+                            />
+                            <button
+                                type="button"
+                                id="send-message-btn"
+                                onClick={handleSend}
+                                disabled={!input.trim() || sending || isBlockedConversation}
+                                class="btn-primary"
+                                style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
+                                aria-label="Send"
+                            >
+                                <Send size={15} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {showSidebar && (
+                    <aside class="animate-slide-in-right" style="width:min(320px, 86vw);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:30;flex-shrink:0;overflow:hidden;">
+                        <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;">
+                            <div>
+                                <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
+                                    {sidebarTab === 'info' ? 'Chat Info' : 'Participants'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                class="btn-icon"
+                                onClick={() => setShowSidebar(false)}
+                                aria-label="Close sidebar"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        {sidebarTab === 'info' ? (
+                            <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px;">
+                                <div style="text-align:center;">
+                                    <div
+                                        style={`width:64px;height:64px;border-radius:18px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:var(--bg-muted);overflow:hidden;border:2px solid var(--border);`}
+                                    >
+                                        {isGroup ? (
+                                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
+                                                <Users size={32} />
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
+                                                alt=""
+                                                style="width:100%;height:100%;object-fit:cover;"
+                                            />
+                                        )}
+                                    </div>
+                                    <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">{chatTitle}</h3>
+                                    {!isGroup && (
+                                        <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">Direct Message</p>
+                                    )}
+                                </div>
+
+                                {isGroup && (
+                                    <button
+                                        type="button"
+                                        class="btn-secondary"
+                                        onClick={() => setSidebarTab('participants')}
+                                        style="width:100%;height:38px;font-size:13px;gap:8px;display:flex;align-items:center;justify-content:center;background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;color:var(--text);"
+                                    >
+                                        <Users size={14} />
+                                        View Members ({thread.participants.length})
+                                    </button>
+                                )}
+
+                                <div style="border-top:1px solid var(--border);padding-top:20px;">
+                                    <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Chat Styles</p>
+                                    
+                                    <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 12px;background:var(--bg-subtle);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;">
+                                        <span style="font-size:13px;font-weight:600;color:var(--text);">Wide chat view</span>
+                                        <div style="position:relative;display:flex;align-items:center;">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={wideChatView} 
+                                                onChange={() => setWideChatView(!wideChatView)}
+                                                style="opacity:0;position:absolute;width:0;height:0;"
+                                            />
+                                            <div style={`width:36px;height:20px;background:${wideChatView ? 'var(--accent)' : 'var(--border-strong)'};border-radius:20px;position:relative;transition:all 0.2s;`}>
+                                                <div style={`width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:3px;left:${wideChatView ? '19px' : '3px'};transition:all 0.2s;box-shadow:var(--shadow-sm);`} />
+                                            </div>
+                                        </div>
+                                    </label>
+
+                                    <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Chat Color</p>
+                                    <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;">
+                                        {[
+                                            '#3b82f6', // blue
+                                            '#8b5cf6', // violet
+                                            '#ec4899', // pink
+                                            '#f97316', // orange
+                                            '#10b981', // emerald
+                                            '#0ea5e9', // sky
+                                            '#f43f5e', // rose
+                                            '#6366f1', // indigo
+                                            '#14b8a6', // teal
+                                            '#22c55e'  // green
+                                        ].map(color => (
+                                            <button
+                                                key={color}
+                                                type="button"
+                                                onClick={() => setSelectedColor(color)}
+                                                style={`
+                                                    aspect-ratio:1;border-radius:8px;border:2px solid ${selectedColor === color ? 'var(--text)' : 'transparent'};
+                                                    background:${color};cursor:pointer;transition:transform 0.1s;
+                                                `}
+                                                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+                                                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                                aria-label={`Select color ${color}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                    <button
+                                        type="button"
+                                        class="btn-icon"
+                                        onClick={() => setSidebarTab('info')}
+                                        style="width:28px;height:28px;"
+                                    >
+                                        <ArrowLeft size={14} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn-ghost"
+                                        onClick={() => setShowAddMembers((current) => !current)}
+                                        style="height:30px;padding:0 10px;font-size:11px;"
+                                    >
+                                        Add members
+                                    </button>
+                                </div>
+                                
+                                {showAddMembers && (
+                                    <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
+                                        <input
+                                            value={addMemberQuery}
+                                            onInput={(e) =>
+                                                setAddMemberQuery((e.target as HTMLInputElement).value)
+                                            }
+                                            placeholder="Search neighbors"
+                                            style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
+                                        />
+                                        {searchingAddMembers ? (
+                                            <div style="font-size:12px;color:var(--text-tertiary);">
+                                                Searching…
+                                            </div>
+                                        ) : (
+                                            addMemberResults.slice(0, 5).map((user) => (
+                                                <button
+                                                    key={user.id}
+                                                    type="button"
+                                                    class="btn-ghost"
+                                                    disabled={addingMembers}
+                                                    onClick={async () => {
+                                                        setAddingMembers(true);
+                                                        try {
+                                                            await addGroupChatParticipants(thread.id, [
+                                                                user.id,
+                                                            ]);
+                                                            const updated = await fetchChatThread(thread.id);
+                                                            onThreadUpdate(updated);
+                                                            setShowAddMembers(false);
+                                                        } finally {
+                                                            setAddingMembers(false);
+                                                        }
+                                                    }}
+                                                    style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
+                                                >
+                                                    <span>{user.name}</span>
+                                                    <span>+</span>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                                {thread.participants.map((participantId, index) => {
+                                    const name =
+                                        thread.participantNames[index] ||
+                                        participantNameById.get(participantId) ||
+                                        `Neighbor ${participantId.slice(0, 6)}`;
+                                    const roles = thread.participantRoles?.[participantId] ?? [];
+                                    const isOwner =
+                                        thread.ownerId === participantId || roles.includes('owner');
+                                    const isAdmin = roles.includes('admin');
+                                    return (
+                                        <div
+                                            key={participantId}
+                                            style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);display:flex;align-items:center;justify-content:space-between;gap:10px;"
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setLocation(
+                                                        `/profile?userId=${encodeURIComponent(participantId)}`
+                                                    )
+                                                }
+                                                style="background:none;border:none;padding:0;text-align:left;cursor:pointer;min-width:0;flex:1;"
+                                            >
+                                                <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                    {name}
+                                                </div>
+                                                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                                                    {isOwner && (
+                                                        <span
+                                                            class="type-badge"
+                                                            style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
+                                                        >
+                                                            Owner
+                                                        </span>
+                                                    )}
+                                                    {isAdmin && (
+                                                        <span
+                                                            class="type-badge"
+                                                            style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
+                                                        >
+                                                            Admin
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </button>
+                                            {thread.ownerId === currentUserId && !isOwner && (
                                                 <button
                                                     type="button"
                                                     class="btn-ghost"
@@ -1174,220 +1385,57 @@ function ChatView({
                                                     onClick={async () => {
                                                         setParticipantActionBusy(participantId);
                                                         try {
-                                                            await removeGroupChatParticipant(
+                                                            await promoteGroupChatParticipant(
                                                                 thread.id,
                                                                 participantId
                                                             );
                                                             const updated = await fetchChatThread(thread.id);
                                                             onThreadUpdate(updated);
-                                                            // We don't close sidebar here because someone else might still be there
                                                         } finally {
                                                             setParticipantActionBusy(null);
                                                         }
                                                     }}
                                                     style="height:28px;padding:0 10px;font-size:11px;"
                                                 >
-                                                    Remove
+                                                    Promote
                                                 </button>
                                             )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </aside>
-            )}
-
-            {/* Messages */}
-            <div style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px;padding-bottom:80px;">
-                <div style="height:4px;" />
-                {messages.map((msg) => {
-                    const isMe = msg.senderId === currentUserId;
-                    const isContextMenuOpen = contextMenuMessageId === msg.id;
-                    return (
-                        <div
-                            key={msg.id}
-                            className="message-row"
-                            style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;`}
-                        >
-                            {!isMe && (
-                                <div style="width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid var(--border);background:var(--bg-subtle);">
-                                    <img
-                                        src={getAvatarUrl(msg.senderId)}
-                                        alt={msg.senderName}
-                                        style="width:100%;height:100%;object-fit:cover;"
-                                    />
-                                </div>
-                            )}
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    if (isMe) handleContextMenu(e as any, msg.id);
-                                }}
-                                onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
-                                style={`
-                                    max-width:78%;padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
-                                    ${
-                                        isMe
-                                            ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
-                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
-                                    }
-                                `}
-                            >
-                                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
-                                    {!isMe ? (
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setLocation(
-                                                    `/profile?userId=${encodeURIComponent(msg.senderId)}`
-                                                )
-                                            }
-                                            style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;"
-                                        >
-                                            {msg.senderName}
-                                        </button>
-                                    ) : (
-                                        <span style="font-size:11px;font-weight:600;opacity:0.8;">
-                                            You
-                                        </span>
-                                    )}
-                                    <span
-                                        style={`font-size:11px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.7);' : 'color:var(--text-tertiary);'}`}
-                                    >
-                                        <Clock size={9} />
-                                        {timeAgo(msg.timestamp)}
-                                    </span>
-                                </div>
-                                <p style="margin:0;word-break:break-word;">{msg.content}</p>
-                            </button>
-
-                            <div 
-                                className="delete-trigger-container" 
-                                style={`display:flex;align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
-                            >
-                                <button
-                                    type="button"
-                                    className="delete-btn-hover"
-                                    onClick={(e) => handleContextMenu(e as any, msg.id)}
-                                    style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;flex-shrink:0;`}
-                                    aria-label="More options"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
+                                            {(thread.ownerId === currentUserId ||
+                                                (thread.participantRoles?.[currentUserId]?.includes(
+                                                    'admin'
+                                                ) ??
+                                                    false)) &&
+                                                !isOwner && (
+                                                    <button
+                                                        type="button"
+                                                        class="btn-ghost"
+                                                        disabled={participantActionBusy === participantId}
+                                                        onClick={async () => {
+                                                            setParticipantActionBusy(participantId);
+                                                            try {
+                                                                await removeGroupChatParticipant(
+                                                                    thread.id,
+                                                                    participantId
+                                                                );
+                                                                const updated = await fetchChatThread(thread.id);
+                                                                onThreadUpdate(updated);
+                                                                // We don't close sidebar here because someone else might still be there
+                                                            } finally {
+                                                                setParticipantActionBusy(null);
+                                                            }
+                                                        }}
+                                                        style="height:28px;padding:0 10px;font-size:11px;"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                )}
+                                        </div>
+                                    );
+                                })}
                             </div>
-
-                            {isContextMenuOpen && contextMenuPosition && (
-                                <>
-                                    <button
-                                        type="button"
-                                        aria-label="Close menu"
-                                        style="position:fixed;inset:0;z-index:49;background:none;border:none;padding:0;width:100%;height:100%;cursor:default;"
-                                        onClick={() => {
-                                            setContextMenuMessageId(null);
-                                            setContextMenuPosition(null);
-                                        }}
-                                        onContextMenu={(e) => {
-                                            e.preventDefault();
-                                            setContextMenuMessageId(null);
-                                            setContextMenuPosition(null);
-                                        }}
-                                    />
-                                    <div
-                                        style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
-                                        role="menu"
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteMessage(msg, 'me')}
-                                            disabled={deletingMessageId !== null}
-                                            role="menuitem"
-                                            key="delete-me"
-                                            style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                            onMouseEnter={(e) => {
-                                                (e.currentTarget as HTMLElement).style.background =
-                                                    'var(--bg-muted)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                (e.currentTarget as HTMLElement).style.background =
-                                                    'none';
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                            Delete for me
-                                        </button>
-                                        {(isMe || (thread.isGroup && (thread.ownerId === currentUserId || thread.participantRoles?.[currentUserId]?.includes('admin')))) && (
-                                            <>
-                                                <div style="height:1px;background:var(--border);" />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteMessage(msg, 'everyone')}
-                                                    disabled={deletingMessageId !== null}
-                                                    role="menuitem"
-                                                    key="delete-everyone"
-                                                    style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                    onMouseEnter={(e) => {
-                                                        (e.currentTarget as HTMLElement).style.background =
-                                                            'var(--danger-subtle)';
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        (e.currentTarget as HTMLElement).style.background =
-                                                            'none';
-                                                    }}
-                                                >
-                                                    <Trash2 size={14} />
-                                                    Delete for everyone
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    );
-                })}
-                <div ref={bottomRef} />
-            </div>
-
-            {/* Input bar */}
-            <div class="nav-bar" style="position:fixed;bottom:0;left:0;right:0;padding:8px 12px;">
-                <div style="max-width:680px;width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;">
-                    <input
-                        value={input}
-                        onInput={(e) => setInput((e.target as HTMLInputElement).value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.repeat && !isBlockedConversation)
-                                handleSend();
-                        }}
-                        disabled={isBlockedConversation}
-                        placeholder={
-                            isBlockedConversation ? 'You have blocked this user' : 'Message…'
-                        }
-                        style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
-                        onFocus={(e) => {
-                            if (isBlockedConversation) return;
-                            (e.target as HTMLElement).style.borderColor = 'var(--border-focus)';
-                            (e.target as HTMLElement).style.boxShadow =
-                                '0 0 0 3px var(--accent-muted)';
-                        }}
-                        onBlur={(e) => {
-                            if (isBlockedConversation) return;
-                            (e.target as HTMLElement).style.borderColor = 'var(--border)';
-                            (e.target as HTMLElement).style.boxShadow = 'none';
-                        }}
-                    />
-                    <button
-                        type="button"
-                        id="send-message-btn"
-                        onClick={handleSend}
-                        disabled={!input.trim() || sending || isBlockedConversation}
-                        class="btn-primary"
-                        style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
-                        aria-label="Send"
-                    >
-                        <Send size={15} />
-                    </button>
-                </div>
+                        )}
+                    </aside>
+                )}
             </div>
         </div>
     );
