@@ -482,9 +482,14 @@ export async function removeGroupChatParticipant(threadId: string, participantId
 }
 
 export async function promoteGroupChatParticipant(threadId: string, participantId: string) {
-    await request<void>(`/chats/${threadId}/participants/${participantId}/admin`, {
-        method: 'POST',
-    });
+    const payload = await request<{ chat: BackendChatSummary }>(
+        `/chats/${threadId}/participants/${participantId}/admin`,
+        {
+            method: 'POST',
+        }
+    );
+
+    return normalizeChat(payload.chat, []);
 }
 
 export async function deleteGroupChat(threadId: string) {

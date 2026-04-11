@@ -1605,7 +1605,16 @@ bun.serve({
                                 participantId.data,
                                 payload.id
                             );
-                            return withCors(SUCCESS);
+
+                            const chatSummary = await db.selectChatSummary(
+                                req.params.id,
+                                payload.id
+                            );
+                            if (!chatSummary) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(Response.json({ chat: chatSummary }, { status: 200 }));
                         })
                     )
                 ),
