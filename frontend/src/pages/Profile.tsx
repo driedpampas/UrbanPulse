@@ -68,7 +68,7 @@ const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const PROFILE_MAPBOX_STYLE = 'mapbox/dark-v11';
 
 const MAP_FRAME_STYLE =
-    'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.03));box-shadow:var(--shadow-sm);min-height:380px;';
+    'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg-subtle);box-shadow:var(--shadow-sm);min-height:380px;';
 
 function resolveLocationValue(
     value:
@@ -665,25 +665,25 @@ export function Profile() {
                                         };`}
                                     />
                                     {displayLocationMap && !mapLoaded && !mapError && (
-                                        <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:linear-gradient(180deg,rgba(255,255,255,0.5),rgba(255,255,255,0.1));">
+                                        <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
                                             <div style="width:36px;height:36px;border-radius:999px;border:2px solid var(--accent-muted);border-top-color:var(--accent);animation:spin 1s linear infinite;" />
                                             Loading map preview…
                                         </div>
                                     )}
                                     {displayLocationMap && mapError && (
-                                        <div style="height:100%;padding:18px;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:flex-start;background:linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0.18));">
+                                        <div style="height:100%;padding:18px;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:flex-start;background:var(--bg-subtle);">
                                             <p style="margin:0;font-size:12px;font-weight:600;color:var(--danger);">
                                                 {mapError}
                                             </p>
                                             <p style="margin:0;font-size:11px;color:var(--text-secondary);line-height:1.45;">
-                                                Set `VITE_MAPBOX_TOKEN` to enable the map preview
-                                                and pin editing.
+                                                Set VITE_MAPBOX_TOKEN to enable the map preview and
+                                                pin editing.
                                             </p>
                                         </div>
                                     )}
                                     {!displayLocationMap && (
-                                        <div style="height:100%;padding:18px;display:flex;align-items:flex-end;background:linear-gradient(135deg,rgba(14,165,233,0.10),rgba(16,185,129,0.08)),linear-gradient(180deg,rgba(255,255,255,0.45),rgba(255,255,255,0.12));">
-                                            <div style="display:flex;flex-direction:column;gap:5px;max-width:220px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.86);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
+                                        <div style="height:100%;padding:18px;display:flex;align-items:flex-end;background:var(--bg-subtle);">
+                                            <div style="display:flex;flex-direction:column;gap:5px;max-width:220px;padding:12px 14px;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
                                                 <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
                                                     Location
                                                 </span>
