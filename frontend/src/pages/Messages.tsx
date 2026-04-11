@@ -6,8 +6,8 @@ import {
     Search,
     Send,
     ShieldCheck,
+    Info,
     Trash2,
-    User,
     Users,
     X,
 } from 'lucide-preact';
@@ -596,7 +596,6 @@ function ChatView({
     const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(
         null
     );
-    const [showParticipants, setShowParticipants] = useState(false);
     const [participantActionBusy, setParticipantActionBusy] = useState<string | null>(null);
     const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
     const [showAddMembers, setShowAddMembers] = useState(false);
@@ -604,6 +603,9 @@ function ChatView({
     const [addMemberResults, setAddMemberResults] = useState<AppUser[]>([]);
     const [searchingAddMembers, setSearchingAddMembers] = useState(false);
     const [addingMembers, setAddingMembers] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(false);
+    const [sidebarTab, setSidebarTab] = useState<'info' | 'participants'>('info');
+    const [selectedColor, setSelectedColor] = useState<string>('var(--accent)');
     const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const threadRef = useRef(thread);
@@ -875,7 +877,9 @@ function ChatView({
     const isGroup = thread.isGroup;
 
     return (
-        <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);">
+        <div 
+            style={`min-height:100dvh;display:flex;flex-direction:column;background:var(--bg); --accent: ${selectedColor};`}
+        >
             {/* Chat header */}
             <header
                 class="header-bar"
@@ -916,161 +920,213 @@ function ChatView({
                         </p>
                     )}
                 </div>
-                {isGroup && (
-                    <button
-                        type="button"
-                        class="btn-icon"
-                        onClick={() => setShowParticipants((current) => !current)}
-                        aria-label="Toggle participants"
-                        style="color:var(--text-secondary);"
-                    >
-                        <Users size={16} />
-                    </button>
-                )}
+                <button
+                    type="button"
+                    class="btn-icon"
+                    onClick={() => {
+                        setShowSidebar(!showSidebar);
+                        if (!showSidebar) setSidebarTab('info');
+                    }}
+                    aria-label="Chat info"
+                    style={`color:${showSidebar && sidebarTab === 'info' ? 'var(--accent)' : 'var(--text-secondary)'};`}
+                >
+                    <Info size={16} />
+                </button>
             </header>
 
-            {isGroup && showParticipants && (
-                <aside style="position:fixed;top:var(--header-h);right:0;bottom:0;width:min(320px,86vw);z-index:45;background:var(--surface);border-left:1px solid var(--border);box-shadow:-12px 0 32px rgba(0,0,0,0.12);overflow:auto;">
-                    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            {showSidebar && (
+                <aside style="position:fixed;top:var(--header-h);right:0;bottom:0;width:min(320px,86vw);z-index:45;background:var(--surface);border-left:1px solid var(--border);box-shadow:-12px 0 32px rgba(0,0,0,0.12);overflow:auto;display:flex;flex-direction:column;">
+                    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;">
                         <div>
                             <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
-                                Participants
-                            </p>
-                            <p style="margin:3px 0 0;font-size:11px;color:var(--text-tertiary);">
-                                {thread.participants.length} members
+                                {sidebarTab === 'info' ? 'Chat Info' : 'Participants'}
                             </p>
                         </div>
                         <button
                             type="button"
                             class="btn-icon"
-                            onClick={() => setShowParticipants(false)}
-                            aria-label="Close participants"
+                            onClick={() => setShowSidebar(false)}
+                            aria-label="Close sidebar"
                         >
                             <X size={14} />
                         </button>
                     </div>
-                    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
-                        <button
-                            type="button"
-                            class="btn-ghost"
-                            onClick={() => setShowAddMembers((current) => !current)}
-                            style="height:30px;padding:0 10px;font-size:11px;align-self:flex-start;"
-                        >
-                            Add members
-                        </button>
-                        {showAddMembers && (
-                            <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
-                                <input
-                                    value={addMemberQuery}
-                                    onInput={(e) =>
-                                        setAddMemberQuery((e.target as HTMLInputElement).value)
-                                    }
-                                    placeholder="Search neighbors"
-                                    style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
-                                />
-                                {searchingAddMembers ? (
-                                    <div style="font-size:12px;color:var(--text-tertiary);">
-                                        Searching…
-                                    </div>
-                                ) : (
-                                    addMemberResults.slice(0, 5).map((user) => (
-                                        <button
-                                            key={user.id}
-                                            type="button"
-                                            class="btn-ghost"
-                                            disabled={addingMembers}
-                                            onClick={async () => {
-                                                setAddingMembers(true);
-                                                try {
-                                                    await addGroupChatParticipants(thread.id, [
-                                                        user.id,
-                                                    ]);
-                                                    setShowAddMembers(false);
-                                                } finally {
-                                                    setAddingMembers(false);
-                                                }
-                                            }}
-                                            style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
-                                        >
-                                            <span>{user.name}</span>
-                                            <span>+</span>
-                                        </button>
-                                    ))
+
+                    {sidebarTab === 'info' ? (
+                        <div style="padding:16px;display:flex;flex-direction:column;gap:20px;">
+                            <div style="text-align:center;">
+                                <div
+                                    style={`width:64px;height:64px;border-radius:18px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:var(--bg-muted);overflow:hidden;border:2px solid var(--border);`}
+                                >
+                                    {isGroup ? (
+                                        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
+                                            <Users size={32} />
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
+                                            alt=""
+                                            style="width:100%;height:100%;object-fit:cover;"
+                                        />
+                                    )}
+                                </div>
+                                <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">{chatTitle}</h3>
+                                {!isGroup && (
+                                    <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">Direct Message</p>
                                 )}
                             </div>
-                        )}
-                        {thread.participants.map((participantId, index) => {
-                            const name =
-                                thread.participantNames[index] ||
-                                participantNameById.get(participantId) ||
-                                `Neighbor ${participantId.slice(0, 6)}`;
-                            const roles = thread.participantRoles?.[participantId] ?? [];
-                            const isOwner =
-                                thread.ownerId === participantId || roles.includes('owner');
-                            const isAdmin = roles.includes('admin');
-                            return (
-                                <div
-                                    key={participantId}
-                                    style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);display:flex;align-items:center;justify-content:space-between;gap:10px;"
+
+                            {isGroup && (
+                                <button
+                                    type="button"
+                                    class="btn-secondary"
+                                    onClick={() => setSidebarTab('participants')}
+                                    style="width:100%;height:38px;font-size:13px;gap:8px;"
                                 >
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setLocation(
-                                                `/profile?userId=${encodeURIComponent(participantId)}`
-                                            )
+                                    <Users size={14} />
+                                    View Members ({thread.participants.length})
+                                </button>
+                            )}
+
+                            <div style="border-top:1px solid var(--border);padding-top:20px;">
+                                <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Chat Color</p>
+                                <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;">
+                                    {[
+                                        '#3b82f6', // blue
+                                        '#8b5cf6', // violet
+                                        '#ec4899', // pink
+                                        '#f97316', // orange
+                                        '#10b981', // emerald
+                                        '#0ea5e9', // sky
+                                        '#f43f5e', // rose
+                                        '#6366f1', // indigo
+                                        '#14b8a6', // teal
+                                        '#22c55e'  // green
+                                    ].map(color => (
+                                        <button
+                                            key={color}
+                                            type="button"
+                                            onClick={() => setSelectedColor(color)}
+                                            style={`
+                                                aspect-ratio:1;border-radius:8px;border:2px solid ${selectedColor === color ? 'var(--text)' : 'transparent'};
+                                                background:${color};cursor:pointer;transition:transform 0.1s;
+                                            `}
+                                            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                            aria-label={`Select color ${color}`}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                <button
+                                    type="button"
+                                    class="btn-icon"
+                                    onClick={() => setSidebarTab('info')}
+                                    style="width:28px;height:28px;"
+                                >
+                                    <ArrowLeft size={14} />
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-ghost"
+                                    onClick={() => setShowAddMembers((current) => !current)}
+                                    style="height:30px;padding:0 10px;font-size:11px;"
+                                >
+                                    Add members
+                                </button>
+                            </div>
+                            
+                            {showAddMembers && (
+                                <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
+                                    <input
+                                        value={addMemberQuery}
+                                        onInput={(e) =>
+                                            setAddMemberQuery((e.target as HTMLInputElement).value)
                                         }
-                                        style="background:none;border:none;padding:0;text-align:left;cursor:pointer;min-width:0;flex:1;"
+                                        placeholder="Search neighbors"
+                                        style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
+                                    />
+                                    {searchingAddMembers ? (
+                                        <div style="font-size:12px;color:var(--text-tertiary);">
+                                            Searching…
+                                        </div>
+                                    ) : (
+                                        addMemberResults.slice(0, 5).map((user) => (
+                                            <button
+                                                key={user.id}
+                                                type="button"
+                                                class="btn-ghost"
+                                                disabled={addingMembers}
+                                                onClick={async () => {
+                                                    setAddingMembers(true);
+                                                    try {
+                                                        await addGroupChatParticipants(thread.id, [
+                                                            user.id,
+                                                        ]);
+                                                        setShowAddMembers(false);
+                                                    } finally {
+                                                        setAddingMembers(false);
+                                                    }
+                                                }}
+                                                style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
+                                            >
+                                                <span>{user.name}</span>
+                                                <span>+</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                            {thread.participants.map((participantId, index) => {
+                                const name =
+                                    thread.participantNames[index] ||
+                                    participantNameById.get(participantId) ||
+                                    `Neighbor ${participantId.slice(0, 6)}`;
+                                const roles = thread.participantRoles?.[participantId] ?? [];
+                                const isOwner =
+                                    thread.ownerId === participantId || roles.includes('owner');
+                                const isAdmin = roles.includes('admin');
+                                return (
+                                    <div
+                                        key={participantId}
+                                        style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);display:flex;align-items:center;justify-content:space-between;gap:10px;"
                                     >
-                                        <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                            {name}
-                                        </div>
-                                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-                                            {isOwner && (
-                                                <span
-                                                    class="type-badge"
-                                                    style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
-                                                >
-                                                    Owner
-                                                </span>
-                                            )}
-                                            {isAdmin && (
-                                                <span
-                                                    class="type-badge"
-                                                    style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
-                                                >
-                                                    Admin
-                                                </span>
-                                            )}
-                                        </div>
-                                    </button>
-                                    {thread.ownerId === currentUserId && !isOwner && (
                                         <button
                                             type="button"
-                                            class="btn-ghost"
-                                            disabled={participantActionBusy === participantId}
-                                            onClick={async () => {
-                                                setParticipantActionBusy(participantId);
-                                                try {
-                                                    await promoteGroupChatParticipant(
-                                                        thread.id,
-                                                        participantId
-                                                    );
-                                                } finally {
-                                                    setParticipantActionBusy(null);
-                                                }
-                                            }}
-                                            style="height:28px;padding:0 10px;font-size:11px;"
+                                            onClick={() =>
+                                                setLocation(
+                                                    `/profile?userId=${encodeURIComponent(participantId)}`
+                                                )
+                                            }
+                                            style="background:none;border:none;padding:0;text-align:left;cursor:pointer;min-width:0;flex:1;"
                                         >
-                                            Promote
+                                            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                {name}
+                                            </div>
+                                            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                                                {isOwner && (
+                                                    <span
+                                                        class="type-badge"
+                                                        style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
+                                                    >
+                                                        Owner
+                                                    </span>
+                                                )}
+                                                {isAdmin && (
+                                                    <span
+                                                        class="type-badge"
+                                                        style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
+                                                    >
+                                                        Admin
+                                                    </span>
+                                                )}
+                                            </div>
                                         </button>
-                                    )}
-                                    {(thread.ownerId === currentUserId ||
-                                        (thread.participantRoles?.[currentUserId]?.includes(
-                                            'admin'
-                                        ) ??
-                                            false)) &&
-                                        !isOwner && (
+                                        {thread.ownerId === currentUserId && !isOwner && (
                                             <button
                                                 type="button"
                                                 class="btn-ghost"
@@ -1078,24 +1134,51 @@ function ChatView({
                                                 onClick={async () => {
                                                     setParticipantActionBusy(participantId);
                                                     try {
-                                                        await removeGroupChatParticipant(
+                                                        await promoteGroupChatParticipant(
                                                             thread.id,
                                                             participantId
                                                         );
-                                                        setShowParticipants(false);
                                                     } finally {
                                                         setParticipantActionBusy(null);
                                                     }
                                                 }}
                                                 style="height:28px;padding:0 10px;font-size:11px;"
                                             >
-                                                Remove
+                                                Promote
                                             </button>
                                         )}
-                                </div>
-                            );
-                        })}
-                    </div>
+                                        {(thread.ownerId === currentUserId ||
+                                            (thread.participantRoles?.[currentUserId]?.includes(
+                                                'admin'
+                                            ) ??
+                                                false)) &&
+                                            !isOwner && (
+                                                <button
+                                                    type="button"
+                                                    class="btn-ghost"
+                                                    disabled={participantActionBusy === participantId}
+                                                    onClick={async () => {
+                                                        setParticipantActionBusy(participantId);
+                                                        try {
+                                                            await removeGroupChatParticipant(
+                                                                thread.id,
+                                                                participantId
+                                                            );
+                                                            // We don't close sidebar here because someone else might still be there
+                                                        } finally {
+                                                            setParticipantActionBusy(null);
+                                                        }
+                                                    }}
+                                                    style="height:28px;padding:0 10px;font-size:11px;"
+                                                >
+                                                    Remove
+                                                </button>
+                                            )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </aside>
             )}
 
