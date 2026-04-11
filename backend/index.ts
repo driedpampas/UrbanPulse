@@ -261,6 +261,17 @@ const updateLibraryItemSchema = z.strictObject({
     isAvailable: z.boolean(),
 });
 
+const createReportSchema = z.strictObject({
+    targetId: z.uuid(),
+    targetType: z.enum(['pulse', 'user', 'message']),
+    reason: z.string().nonempty().max(500),
+    content: z.string().nonempty(),
+});
+
+const updateReportStatusSchema = z.strictObject({
+    status: z.enum(['resolved', 'dismissed']),
+});
+
 type RegisterUserBody = z.infer<typeof registerUserSchema>;
 type LoginUserBody = z.infer<typeof loginUserSchema>;
 type UpdateUserBody = z.infer<typeof updateUserSchema>;
@@ -272,6 +283,8 @@ type CreateMessageBody = z.infer<typeof createMessageSchema>;
 type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
 type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
 type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
+type CreateReportBody = z.infer<typeof createReportSchema>;
+type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
 
 const adminRoleSchema = z.enum(['admin', 'resident']);
 
@@ -832,6 +845,52 @@ bun.serve({
                                 Number.isFinite(offset) ? offset : 0
                             );
                             return withCors(Response.json({ items }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/admin/reports': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const url = new URL(req.url);
+                            const limit = Number(url.searchParams.get('limit') ?? '50');
+                            const offset = Number(url.searchParams.get('offset') ?? '0');
+                            const reports = await db.selectReports(limit, offset);
+                            return withCors(Response.json({ reports }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/admin/reports/:id/status': {
+            PATCH: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const body = updateReportStatusSchema.parse(await req.json());
+                            const updated = await db.updateReportStatus(req.params.id, body.status);
+                            if (!updated) return withCors(NOT_FOUND);
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+        },
+        '/api/reports': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const body = createReportSchema.parse(await req.json());
+                            const report = await db.insertReport({
+                                reporterId: payload.id,
+                                targetId: body.targetId,
+                                targetType: body.targetType,
+                                reason: body.reason,
+                                content: body.content,
+                            });
+                            return withCors(Response.json(report, { status: 201 }));
                         })
                     )
                 ),

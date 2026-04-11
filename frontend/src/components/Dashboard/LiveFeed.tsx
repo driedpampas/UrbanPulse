@@ -8,6 +8,7 @@ import {
     PawPrint,
     Trash2,
     Wrench,
+    Flag,
 } from 'lucide-preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
@@ -29,6 +30,7 @@ import {
     getCurrentBrowserLocation,
     isUsableCoordinates,
 } from '../../lib/utils';
+import { ReportModal } from '../Modals/ReportModal';
 
 interface TypeDef {
     icon: typeof AlertTriangle;
@@ -69,6 +71,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [loadingMore, setLoadingMore] = useState(false);
     const observerTarget = useRef<HTMLDivElement>(null);
     const clearRef = useRef<number | null>(null);
+    const [reportingPulse, setReportingPulse] = useState<Pulse | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -422,12 +425,32 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             Confirm
                                         </button>
                                     )}
+                                    {session && session.user.id !== pulse.userId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setReportingPulse(pulse)}
+                                            style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
+                                            title="Report content"
+                                        >
+                                            <Flag size={10} />
+                                            Report
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     </article>
                 );
             })}
+
+            {reportingPulse && (
+                <ReportModal
+                    targetId={reportingPulse.id}
+                    targetType="pulse"
+                    contentSnippet={reportingPulse.content}
+                    onClose={() => setReportingPulse(null)}
+                />
+            )}
 
             {/* Pagination / Loading Area */}
             <div

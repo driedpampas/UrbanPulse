@@ -41,7 +41,7 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
     }
 
     const hashedPass = await bun.password.hash(user.password);
-    const dbUser = await db.insertUser(user.email, hashedPass, user.displayName);
+    const [dbUser] = await db.insertUser(user.email, hashedPass, user.displayName);
 
     const token = jwt.sign({ id: dbUser.id }, JWT_SECRET, {
         expiresIn: '7d',
@@ -49,6 +49,7 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
 
     return { success: true, token: token, user: dbUser };
 }
+
 
 export async function loginUser(user: LoginUser): Promise<AuthResult> {
     const [dbUser] = await db.selectUserAuth(user.email);
@@ -62,9 +63,10 @@ export async function loginUser(user: LoginUser): Promise<AuthResult> {
         return { success: false, status: 401 };
     }
 
-    const token = jwt.sign({ id: dbUser.id, role: dbUser.role }, JWT_SECRET, {
+    const token = jwt.sign({ id: dbUser.id }, JWT_SECRET, {
         expiresIn: '7d',
     });
+
 
     return { success: true, token, user: { id: dbUser.id, role: dbUser.role } };
 }

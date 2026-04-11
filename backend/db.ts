@@ -227,6 +227,40 @@ type ChatSummaryRow = {
         displayName: string | null;
     }>;
 };
+export interface Report {
+    id: string;
+    targetId: string;
+    targetType: 'pulse' | 'user' | 'message';
+    reason: string;
+    reportedBy: string;
+    timestamp: number;
+    status: 'pending' | 'resolved' | 'dismissed';
+    content: string;
+}
+
+type ReportRow = {
+    id: string;
+    target_id: string;
+    target_type: string;
+    reason: string;
+    reported_by: string;
+    created_at: number | string | Date;
+    status: string;
+    content: string;
+};
+
+function mapReportRow(row: ReportRow): Report {
+    return {
+        id: row.id,
+        targetId: row.target_id,
+        targetType: row.target_type as 'pulse' | 'user' | 'message',
+        reason: row.reason,
+        reportedBy: row.reported_by,
+        timestamp: Number(row.created_at),
+        status: row.status as 'pending' | 'resolved' | 'dismissed',
+        content: row.content,
+    };
+}
 
 function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
     const normalizedType = String(rawPulse.type ?? 'update').toLowerCase() as PulseType;
@@ -1236,4 +1270,76 @@ export async function confirmPulse(
 
         return { success: true, alreadyConfirmed: false };
     });
+}
+
+export async function insertReport(params: {
+    reporterId: string;
+    targetId: string;
+    targetType: string;
+    reason: string;
+    content: string;
+}): Promise<Report> {
+    return await sql.begin(async (tx) => {
+        await tx`
+            CREATE TABLE IF NOT EXISTS app.reports (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                target_id uuid NOT NULL,
+                target_type text NOT NULL,
+                reason text NOT NULL,
+                reported_by uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                created_at timestamptz NOT NULL DEFAULT now(),
+                status text NOT NULL DEFAULT 'pending',
+                content text NOT NULL
+            )
+        `;
+
+        const [row] = (await tx`
+            INSERT INTO app.reports (target_id, target_type, reason, reported_by, content)
+            VALUES (${params.targetId}::uuid, ${params.targetType}, ${params.reason}, ${params.reporterId}::uuid, ${params.content})
+            RETURNING id, target_id, target_type, reason, reported_by, 
+                      ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "created_at",
+                      status, content
+        `) as ReportRow[];
+
+        return mapReportRow(row!);
+    });
+}
+
+export async function selectReports(limit = 50, offset = 0): Promise<Report[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+
+    const rows = (await sql`
+        SELECT 
+            id, target_id, target_type, reason, reported_by, 
+            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "created_at",
+            status, content
+        FROM app.reports
+        ORDER BY status = 'pending' DESC, created_at DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as ReportRow[];
+
+    return rows.map(mapReportRow);
+}
+
+export async function updateReportStatus(id: string, status: string): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.reports
+        SET status = ${status}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
+export async function deleteReport(id: string): Promise<boolean> {
+    const [deleted] = await sql`
+        DELETE FROM app.reports
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(deleted);
 }

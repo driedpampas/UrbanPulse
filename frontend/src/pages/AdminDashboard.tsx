@@ -1,12 +1,13 @@
-import { Activity, LibraryBig, UsersRound } from 'lucide-preact';
+import { Activity, Flag, LibraryBig, UsersRound } from 'lucide-preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { useAuth } from '../lib/auth';
 import { fetchAdminLibrary } from '../lib/libraryApi';
-import type { LibraryItem, User } from '../lib/types';
+import { fetchAdminReports, updateReportStatus } from '../lib/reportsApi';
+import type { AdminFlag, LibraryItem, User } from '../lib/types';
 import { fetchAdminOverview, fetchAdminUsers } from '../lib/userApi';
 
-type AdminSection = 'overview' | 'users' | 'library';
+type AdminSection = 'overview' | 'users' | 'library' | 'reports';
 
 type AdminOverview = Awaited<ReturnType<typeof fetchAdminOverview>>;
 
@@ -14,6 +15,7 @@ const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'users', label: 'Users', icon: UsersRound },
     { id: 'library', label: 'Library', icon: LibraryBig },
+    { id: 'reports', label: 'Reports', icon: Flag },
 ];
 
 const surfaceCard =
@@ -127,23 +129,101 @@ function LibraryRow({ item }: { item: LibraryItem }) {
     );
 }
 
+function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => void }) {
+    const [updating, setUpdating] = useState(false);
+
+    const handleAction = async (status: 'resolved' | 'dismissed') => {
+        setUpdating(true);
+        try {
+            await updateReportStatus(report.id, status);
+            onUpdate();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
+    return (
+        <div
+            style={`${surfaceCard};padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;opacity:${report.status === 'pending' ? 1 : 0.6};`}
+        >
+            <div style="min-width:0;flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span
+                        style={`font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;background:${report.status === 'pending' ? 'var(--warning-subtle)' : 'var(--bg-muted)'};color:${report.status === 'pending' ? 'var(--warning)' : 'var(--text-tertiary)'};text-transform:uppercase;`}
+                    >
+                        {report.status}
+                    </span>
+                    <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;background:var(--bg-muted);color:var(--text-tertiary);text-transform:uppercase;">
+                        {report.targetType}
+                    </span>
+                </div>
+                <h3 style="margin:8px 0 4px;font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;">
+                    {report.reason}
+                </h3>
+                <p style="margin:0;font-size:12px;color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">
+                    "{report.content}"
+                </p>
+                <div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-tertiary);">
+                    <span>{new Date(report.timestamp).toLocaleString()}</span>
+                    <span>•</span>
+                    <span>ID: {report.targetId.slice(0, 8)}...</span>
+                </div>
+            </div>
+            
+            {report.status === 'pending' && (
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                    <button
+                        type="button"
+                        disabled={updating}
+                        onClick={() => handleAction('resolved')}
+                        style="padding:6px 10px;border-radius:8px;border:none;background:var(--success-subtle);color:var(--success);font-size:11px;font-weight:700;cursor:pointer;"
+                    >
+                        Resolve
+                    </button>
+                    <button
+                        type="button"
+                        disabled={updating}
+                        onClick={() => handleAction('dismissed')}
+                        style="padding:6px 10px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:11px;font-weight:700;cursor:pointer;"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function AdminDashboard() {
     const { session } = useAuth();
     const [section, setSection] = useState<AdminSection>('overview');
     const [overview, setOverview] = useState<AdminOverview | null>(null);
     const [users, setUsers] = useState<User[]>([]);
     const [library, setLibrary] = useState<LibraryItem[]>([]);
+    const [reports, setReports] = useState<AdminFlag[]>([]);
     const [loading, setLoading] = useState(true);
-    const currentRole = useMemo(() => session?.user.role?.toLowerCase() ?? 'resident', [session]);
 
-    useEffect(() => {
-        Promise.all([fetchAdminOverview(), fetchAdminUsers(), fetchAdminLibrary()])
-            .then(([o, u, items]) => {
+    const loadData = () => {
+        setLoading(true);
+        Promise.all([
+            fetchAdminOverview(),
+            fetchAdminUsers(),
+            fetchAdminLibrary(),
+            fetchAdminReports(),
+        ])
+            .then(([o, u, items, r]) => {
                 setOverview(o);
                 setUsers(u);
                 setLibrary(items);
+                setReports(r);
             })
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadData();
     }, []);
 
     return (
@@ -161,11 +241,11 @@ export function AdminDashboard() {
                         </p>
                     </div>
                     <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;font-weight:600;">
-                        {currentRole}
+                        Role: {currentRole}
                     </span>
                 </div>
 
-                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                <div style="display:flex;gap:8px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;padding-bottom:4px;">
                     {SECTIONS.map((item) => (
                         <SectionButton
                             key={item.id}
@@ -221,11 +301,22 @@ export function AdminDashboard() {
                             </div>
                         )}
 
-                        {section === 'library' && (
+                        {section === 'reports' && (
                             <div style="display:flex;flex-direction:column;gap:10px;">
-                                {library.map((item) => (
-                                    <LibraryRow key={item.id} item={item} />
-                                ))}
+                                {reports.length === 0 ? (
+                                    <div style={`${surfaceCard};padding:40px;text-align:center;color:var(--text-tertiary);`}>
+                                        <Flag size={32} style="margin:0 auto 12px;opacity:0.3;" />
+                                        <p style="margin:0;font-size:14px;font-weight:600;">No reports found</p>
+                                    </div>
+                                ) : (
+                                    reports.map((report) => (
+                                        <ReportRow 
+                                            key={report.id} 
+                                            report={report} 
+                                            onUpdate={loadData} 
+                                        />
+                                    ))
+                                )}
                             </div>
                         )}
                     </>
