@@ -23,6 +23,7 @@ import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { useAuth } from '../lib/auth';
 import {
     blockUser,
@@ -68,7 +69,7 @@ const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const PROFILE_MAPBOX_STYLE = 'mapbox/dark-v11';
 
 const MAP_FRAME_STYLE =
-    'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg-subtle);box-shadow:var(--shadow-sm);min-height:380px;';
+    'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg-subtle);box-shadow:var(--shadow-sm);height:380px;';
 
 function resolveLocationValue(
     value:
@@ -193,7 +194,6 @@ export function Profile() {
             try {
                 const [{ default: mapboxgl }] = await Promise.all([
                     import('mapbox-gl'),
-                    import('mapbox-gl/dist/mapbox-gl.css'),
                 ]);
 
                 if (disposed || !mapContainerRef.current) {
@@ -659,12 +659,12 @@ export function Profile() {
                                     </div>
                                     <div
                                         ref={mapContainerRef}
-                                        style={`width:100%;height:100%;display:${
+                                        style={`position:absolute;inset:0;width:100%;height:100%;display:${
                                             displayLocationMap && mapLoaded ? 'block' : 'none'
                                         };`}
                                     />
                                     {displayLocationMap && !mapLoaded && !mapError && (
-                                        <div style="height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
+                                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
                                             <div style="width:36px;height:36px;border-radius:999px;border:2px solid var(--accent-muted);border-top-color:var(--accent);animation:spin 1s linear infinite;" />
                                             Loading map preview…
                                         </div>
@@ -719,7 +719,7 @@ export function Profile() {
                                         </div>
                                     )}
                                     {!displayLocationMap && (
-                                        <div style="height:100%;padding:18px;display:flex;align-items:flex-end;background:var(--bg-subtle);">
+                                        <div style="position:absolute;inset:0;padding:18px;display:flex;align-items:flex-end;background:var(--bg-subtle);">
                                             <div style="display:flex;flex-direction:column;gap:5px;max-width:220px;padding:12px 14px;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
                                                 <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
                                                     Location
