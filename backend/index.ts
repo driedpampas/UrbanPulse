@@ -106,7 +106,9 @@ async function adminAuthorize(
 
     const payload = session as JwtPayload;
 
-    if (payload.role !== 'admin') {
+    const currentUser = await db.selectFullUser(payload.id as string);
+
+    if (!currentUser || currentUser.role?.toLowerCase() !== 'admin') {
         return withCors(FORBIDDEN);
     }
 
@@ -245,6 +247,8 @@ const searchUsersSchema = z.strictObject({
         .array(z.string().regex(/^\d{2}:\d{2}-\d{2}:\d{2}(,\d{2}:\d{2}-\d{2}:\d{2})*$/))
         .nullish(),
     bio: z.string().nullish(),
+    limit: z.coerce.number().optional(),
+    offset: z.coerce.number().optional(),
 });
 
 const createLibraryItemSchema = z.strictObject({
@@ -269,6 +273,18 @@ type CreateMessageBody = z.infer<typeof createMessageSchema>;
 type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
 type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
 type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
+
+const adminRoleSchema = z.enum(['admin', 'resident']);
+
+const updateAdminUserRoleBodySchema = z.strictObject({
+    role: adminRoleSchema,
+});
+
+const adminUsersQuerySchema = z.strictObject({
+    role: z.string().nullish(),
+    limit: z.coerce.number().optional(),
+    offset: z.coerce.number().optional(),
+});
 
 function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
     return {
@@ -617,9 +633,15 @@ bun.serve({
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
                             bio: url.searchParams.get('bio'),
+                            limit: url.searchParams.get('limit'),
+                            offset: url.searchParams.get('offset'),
                         });
 
-                        const users = await db.searchUsers(buildSearchParams(query));
+                        const users = await db.searchUsers(
+                            buildSearchParams(query),
+                            query.limit,
+                            query.offset
+                        );
 
                         return withCors(Response.json(users, { status: 200 }));
                     })
@@ -665,6 +687,113 @@ bun.serve({
                     )
                 );
             },
+        },
+        '/api/admin/overview': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const overview = await db.selectAdminOverview();
+                            return withCors(Response.json(overview, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/admin/users': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const url = new URL(req.url);
+                            const query = adminUsersQuerySchema.parse({
+                                role: url.searchParams.get('role'),
+                                limit: url.searchParams.get('limit'),
+                                offset: url.searchParams.get('offset'),
+                            });
+
+                            const users = await db.searchUsers(
+                                buildSearchParams({
+                                    id: null,
+                                    email: null,
+                                    anyskillres: null,
+                                    skillres: null,
+                                    min_trust: null,
+                                    max_trust: null,
+                                    created_before: null,
+                                    created_after: null,
+                                    displayName: null,
+                                    role: query.role,
+                                    verified: null,
+                                    radius: null,
+                                    location: null,
+                                    availableDays: null,
+                                    availableHours: null,
+                                    bio: null,
+                                }),
+                                query.limit,
+                                query.offset
+                            );
+
+                            return withCors(Response.json({ users }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/admin/users/:id/role': {
+            PATCH: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const body = updateAdminUserRoleBodySchema.parse(
+                                await req.json().then((raw) => raw)
+                            );
+                            const updated = await db.updateUserRole(req.params.id, body.role);
+
+                            if (!updated) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+        },
+        '/api/admin/pulses': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const url = new URL(req.url);
+                            const limit = Number(url.searchParams.get('limit') ?? '25');
+                            const offset = Number(url.searchParams.get('offset') ?? '0');
+                            const pulses = await db.selectPulses(
+                                Number.isFinite(limit) ? limit : 25,
+                                null,
+                                null,
+                                null,
+                                Number.isFinite(offset) ? offset : 0
+                            );
+                            return withCors(Response.json({ pulses }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/admin/library': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const url = new URL(req.url);
+                            const limit = Number(url.searchParams.get('limit') ?? '25');
+                            const offset = Number(url.searchParams.get('offset') ?? '0');
+                            const items = await db.selectAdminLibraryItems(
+                                Number.isFinite(limit) ? limit : 25,
+                                Number.isFinite(offset) ? offset : 0
+                            );
+                            return withCors(Response.json({ items }, { status: 200 }));
+                        })
+                    )
+                ),
         },
         '/api/pulse': {
             GET: async (req) =>

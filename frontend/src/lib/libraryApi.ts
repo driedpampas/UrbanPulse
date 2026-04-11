@@ -34,3 +34,11 @@ export async function deleteLibraryItem(itemId: string): Promise<boolean> {
     });
     return res.success;
 }
+
+export async function fetchAdminLibrary(): Promise<LibraryItem[]> {
+    const res = await httpClient<{ items: LibraryItem[] }>('/admin/library', {
+        method: 'GET',
+    });
+
+    return res.items;
+}

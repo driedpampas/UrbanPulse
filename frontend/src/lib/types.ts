@@ -1,5 +1,6 @@
 export interface User {
     id: string;
+    email?: string;
     role?: string;
     name: string;
     avatar: string;
@@ -13,6 +14,7 @@ export interface User {
     quietHoursEnd?: string;
     distanceLimit: number;
     quietDays: number[];
+    createdAt?: number;
 }
 
 export interface Pulse {
@@ -66,6 +68,7 @@ export interface LibraryItem {
     description: string;
     tags: string[];
     available: boolean;
+    createdAt?: number;
 }
 
 export interface PetMatch {

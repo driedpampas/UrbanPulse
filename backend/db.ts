@@ -735,6 +735,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
 
     return {
         id: rawUser.id,
+        email: rawUser.email,
         role: rawUser.role,
         displayName: rawUser.display_name,
         verified: rawUser.is_verified_neighbor,
@@ -749,8 +750,74 @@ export async function selectFullUser(id: string): Promise<User | null> {
     } as User;
 }
 
-export async function searchUsers(userSearch: UserSearchParams): Promise<User[]> {
+export async function selectAdminOverview() {
+    const [userRow] = (await sql`
+        SELECT
+            COUNT(*)::int AS total_users,
+            COUNT(*) FILTER (WHERE role = 'admin')::int AS admin_users,
+            COUNT(*) FILTER (WHERE role = 'mod')::int AS mod_users,
+            COUNT(*) FILTER (WHERE is_verified_neighbor)::int AS verified_users
+        FROM app.users
+    `) as Array<{
+        total_users: number;
+        admin_users: number;
+        mod_users: number;
+        verified_users: number;
+    }>;
+
+    const [pulseRow] = (await sql`
+        SELECT
+            COUNT(*)::int AS total_pulses,
+            COUNT(*) FILTER (WHERE COALESCE(is_verified_info, false))::int AS verified_pulses
+        FROM app.pulses
+    `) as Array<{
+        total_pulses: number;
+        verified_pulses: number;
+    }>;
+
+    const [libraryRow] = (await sql`
+        SELECT
+            COUNT(*)::int AS total_items,
+            COUNT(*) FILTER (WHERE is_available)::int AS available_items
+        FROM app.library_items
+    `) as Array<{
+        total_items: number;
+        available_items: number;
+    }>;
+
+    return {
+        totalUsers: userRow?.total_users ?? 0,
+        adminUsers: userRow?.admin_users ?? 0,
+        modUsers: userRow?.mod_users ?? 0,
+        verifiedUsers: userRow?.verified_users ?? 0,
+        totalPulses: pulseRow?.total_pulses ?? 0,
+        verifiedPulses: pulseRow?.verified_pulses ?? 0,
+        totalLibraryItems: libraryRow?.total_items ?? 0,
+        availableLibraryItems: libraryRow?.available_items ?? 0,
+    };
+}
+
+export async function updateUserRole(id: string, role: string): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.users
+        SET role = ${role}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
+export async function searchUsers(
+    userSearch: UserSearchParams,
+    limit = SEARCH_LIMIT,
+    offset = 0
+): Promise<User[]> {
     const availableDaysQuery = (userSearch.availableDays ?? []).map((day) => Number(day));
+    const safeLimit = Number.isFinite(limit)
+        ? Math.max(1, Math.min(Math.floor(limit), 100))
+        : SEARCH_LIMIT;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
     const results = (await sql`
     SELECT 
         id,
@@ -823,7 +890,8 @@ export async function searchUsers(userSearch: UserSearchParams): Promise<User[]>
             ))
         )
         ) OR id = ${userSearch.id})
-    LIMIT ${SEARCH_LIMIT}
+    LIMIT ${safeLimit}
+    OFFSET ${safeOffset}
     `) as UserRow[];
 
     return results.map((rawUser) => {
@@ -1004,6 +1072,31 @@ export async function selectLibraryItems(
     return rows.map(mapLibraryItemRow);
 }
 
+export async function selectAdminLibraryItems(limit = 50, offset = 0): Promise<LibraryItem[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+
+    const rows = (await sql`
+        SELECT
+            li.id,
+            li.author_id,
+            COALESCE(u.display_name, li.author_id::text) AS "userName",
+            li.item_type,
+            li.title,
+            li.description,
+            li.tags,
+            li.is_available,
+            ROUND(EXTRACT(EPOCH FROM li.created_at) * 1000)::bigint AS created_at
+        FROM app.library_items li
+        JOIN app.users u ON u.id = li.author_id
+        ORDER BY li.created_at DESC, li.id DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as LibraryItemRow[];
+
+    return rows.map(mapLibraryItemRow);
+}
+
 export async function insertLibraryItem(params: {
     authorId: string;
     type: 'item' | 'skill';
@@ -1049,7 +1142,15 @@ export async function updateLibraryItemAvailability(
     const [updated] = await sql`
         UPDATE app.library_items
         SET is_available = ${available}
-        WHERE id = ${itemId} AND author_id = ${authorId}
+        WHERE id = ${itemId} AND (
+            author_id = ${authorId}
+            OR EXISTS (
+                SELECT 1
+                FROM app.users
+                WHERE id = ${authorId}
+                  AND role IN ('admin', 'mod')
+            )
+        )
         RETURNING id
     `;
     return Boolean(updated);

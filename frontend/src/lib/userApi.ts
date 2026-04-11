@@ -4,6 +4,7 @@ import type { User } from './types';
 
 type BackendUser = {
     id: string;
+    createdAt?: number | string | null;
     role?: string;
     email?: string | null;
     displayName?: string | null;
@@ -104,6 +105,7 @@ function mapBackendUser(user: BackendUser): User {
         quietHoursEnd: quiet.end,
         distanceLimit: Math.max(user.radius ?? 1, 1),
         quietDays: normalizeQuietDays(user.quietDays),
+        createdAt: user.createdAt ? Number(user.createdAt) : undefined,
     };
 }
 
@@ -237,8 +239,58 @@ export async function deleteAccount(): Promise<void> {
 }
 
 export async function fetchUsers(params?: { displayName?: string; id?: string }): Promise<User[]> {
-    const users = await request<BackendUser[]>(`/users${buildUserQuery(params)}`, { method: 'GET' });
+    const users = await request<BackendUser[]>(`/users${buildUserQuery(params)}`, {
+        method: 'GET',
+    });
     return users.map(mapBackendUser);
+}
+
+export async function fetchAdminUsers(params?: {
+    role?: string;
+    limit?: number;
+    offset?: number;
+}): Promise<User[]> {
+    const query = new URLSearchParams();
+
+    if (params?.role) query.set('role', params.role);
+    if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
+    if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
+
+    const result = await request<{ users: BackendUser[] }>(
+        `/admin/users${query.toString() ? `?${query.toString()}` : ''}`,
+        { method: 'GET' }
+    );
+
+    return result.users.map(mapBackendUser);
+}
+
+export async function updateAdminUserRole(userId: string, role: string): Promise<void> {
+    await request<void>(`/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+    });
+}
+
+export async function fetchAdminOverview(): Promise<{
+    totalUsers: number;
+    adminUsers: number;
+    modUsers: number;
+    verifiedUsers: number;
+    totalPulses: number;
+    verifiedPulses: number;
+    totalLibraryItems: number;
+    availableLibraryItems: number;
+}> {
+    return request<{
+        totalUsers: number;
+        adminUsers: number;
+        modUsers: number;
+        verifiedUsers: number;
+        totalPulses: number;
+        verifiedPulses: number;
+        totalLibraryItems: number;
+        availableLibraryItems: number;
+    }>('/admin/overview', { method: 'GET' });
 }
 
 export async function fetchUserById(userId: string): Promise<User | null> {

@@ -1,5 +1,6 @@
-import { BookOpen, Home, MessageCircle, PawPrint, User } from 'lucide-preact';
+import { BookOpen, Home, MessageCircle, PawPrint, ShieldCheck, User } from 'lucide-preact';
 import { useLocation } from 'wouter';
+import { useAuth } from '../../lib/auth';
 
 const tabs = [
     { path: '/', icon: Home, label: 'Feed' },
@@ -11,6 +12,12 @@ const tabs = [
 
 export function BottomNav() {
     const [location, setLocation] = useLocation();
+    const { session } = useAuth();
+    const isAdmin = session?.user.role?.toLowerCase() === 'admin';
+
+    const visibleTabs = isAdmin
+        ? [...tabs, { path: '/admin', icon: ShieldCheck, label: 'Admin' }]
+        : tabs;
 
     return (
         <nav
@@ -21,7 +28,7 @@ export function BottomNav() {
                 class="app-container"
                 style="height:100%;display:flex;align-items:center;justify-content:space-around;padding:0 4px;"
             >
-                {tabs.map((tab) => {
+                {visibleTabs.map((tab) => {
                     const active =
                         location === tab.path ||
                         (tab.path !== '/' && location.startsWith(tab.path));

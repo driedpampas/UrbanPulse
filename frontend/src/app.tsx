@@ -24,7 +24,8 @@ function RouteRedirect({ to }: { to: string }) {
 }
 
 function AppRoutes() {
-    const { isAuthenticated, isReady } = useAuth();
+    const { isAuthenticated, isReady, session } = useAuth();
+    const isAdmin = session?.user.role?.toLowerCase() === 'admin';
 
     if (!isReady) {
         return (
@@ -62,7 +63,13 @@ function AppRoutes() {
             <Route path="/auth">
                 <RouteRedirect to="/" />
             </Route>
-            <Route path="/admin" component={AdminDashboard} />
+            <Route path="/admin">
+                {isAdmin ? (
+                    <AdminDashboard />
+                ) : (
+                    <RouteRedirect to={isAuthenticated ? '/' : '/auth'} />
+                )}
+            </Route>
             <Route>
                 <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
                     <span style="color:var(--text-secondary);font-size:13px;">Page not found</span>
