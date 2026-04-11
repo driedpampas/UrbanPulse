@@ -862,8 +862,17 @@ function ChatView({
 
     const handleContextMenu = (e: MouseEvent, messageId: string) => {
         e.preventDefault();
+        const screenWidth = window.innerWidth;
+        const menuWidth = 170; // approximate width of the context menu
+        let x = e.clientX;
+        let y = e.clientY;
+
+        if (x + menuWidth > screenWidth) {
+            x = screenWidth - menuWidth - 12;
+        }
+
         setContextMenuMessageId(messageId);
-        setContextMenuPosition({ x: e.clientX, y: e.clientY });
+        setContextMenuPosition({ x, y });
     };
 
     const getAvatarUrl = (userId: string) => {
@@ -1246,79 +1255,86 @@ function ChatView({
                                 <p style="margin:0;word-break:break-word;">{msg.content}</p>
                             </button>
 
-                            {!isContextMenuOpen && (
-                                <div className="delete-trigger-container" style="display:flex;align-items:center;">
-                                    <button
-                                        type="button"
-                                        className="delete-btn-hover"
-                                        onClick={(e) => handleContextMenu(e as any, msg.id)}
-                                        style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;flex-shrink:0;`}
-                                        aria-label="More options"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {isContextMenuOpen && contextMenuPosition && (
-                                <div
-                                    style="position:fixed;inset:0;z-index:49;"
-                                    onClick={() => {
-                                        setContextMenuMessageId(null);
-                                        setContextMenuPosition(null);
-                                    }}
-                                />
-                            )}
-
-                            {isContextMenuOpen && contextMenuPosition && (
-                                <div
-                                    style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
-                                    role="menu"
+                            <div 
+                                className="delete-trigger-container" 
+                                style={`display:flex;align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
+                            >
+                                <button
+                                    type="button"
+                                    className="delete-btn-hover"
+                                    onClick={(e) => handleContextMenu(e as any, msg.id)}
+                                    style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;flex-shrink:0;`}
+                                    aria-label="More options"
                                 >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+
+                            {isContextMenuOpen && contextMenuPosition && (
+                                <>
                                     <button
                                         type="button"
-                                        onClick={() => handleDeleteMessage(msg, 'me')}
-                                        disabled={deletingMessageId !== null}
-                                        role="menuitem"
-                                        key="delete-me"
-                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                        onMouseEnter={(e) => {
-                                            (e.currentTarget as HTMLElement).style.background =
-                                                'var(--bg-muted)';
+                                        aria-label="Close menu"
+                                        style="position:fixed;inset:0;z-index:49;background:none;border:none;padding:0;width:100%;height:100%;cursor:default;"
+                                        onClick={() => {
+                                            setContextMenuMessageId(null);
+                                            setContextMenuPosition(null);
                                         }}
-                                        onMouseLeave={(e) => {
-                                            (e.currentTarget as HTMLElement).style.background =
-                                                'none';
+                                        onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            setContextMenuMessageId(null);
+                                            setContextMenuPosition(null);
                                         }}
+                                    />
+                                    <div
+                                        style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
+                                        role="menu"
                                     >
-                                        <Trash2 size={14} />
-                                        Delete for me
-                                    </button>
-                                    {(isMe || (thread.isGroup && (thread.ownerId === currentUserId || thread.participantRoles?.[currentUserId]?.includes('admin')))) && (
-                                        <>
-                                            <div style="height:1px;background:var(--border);" />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteMessage(msg, 'everyone')}
-                                                disabled={deletingMessageId !== null}
-                                                role="menuitem"
-                                                key="delete-everyone"
-                                                style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                onMouseEnter={(e) => {
-                                                    (e.currentTarget as HTMLElement).style.background =
-                                                        'var(--danger-subtle)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    (e.currentTarget as HTMLElement).style.background =
-                                                        'none';
-                                                }}
-                                            >
-                                                <Trash2 size={14} />
-                                                Delete for everyone
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteMessage(msg, 'me')}
+                                            disabled={deletingMessageId !== null}
+                                            role="menuitem"
+                                            key="delete-me"
+                                            style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                            onMouseEnter={(e) => {
+                                                (e.currentTarget as HTMLElement).style.background =
+                                                    'var(--bg-muted)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                (e.currentTarget as HTMLElement).style.background =
+                                                    'none';
+                                            }}
+                                        >
+                                            <Trash2 size={14} />
+                                            Delete for me
+                                        </button>
+                                        {(isMe || (thread.isGroup && (thread.ownerId === currentUserId || thread.participantRoles?.[currentUserId]?.includes('admin')))) && (
+                                            <>
+                                                <div style="height:1px;background:var(--border);" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteMessage(msg, 'everyone')}
+                                                    disabled={deletingMessageId !== null}
+                                                    role="menuitem"
+                                                    key="delete-everyone"
+                                                    style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                    onMouseEnter={(e) => {
+                                                        (e.currentTarget as HTMLElement).style.background =
+                                                            'var(--danger-subtle)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        (e.currentTarget as HTMLElement).style.background =
+                                                            'none';
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete for everyone
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </>
                             )}
                         </div>
                     );
