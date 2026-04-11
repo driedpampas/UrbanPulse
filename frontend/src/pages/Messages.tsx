@@ -968,10 +968,11 @@ function ChatView({
                                     return (
                                         <div
                                             key={msg.id}
-                                            style="display:flex;justify-content:center;margin:12px 0 4px;"
+                                            className="animate-fade-in"
+                                            style="display:flex;justify-content:center;margin:16px 0 8px;"
                                         >
-                                            <div style="background:var(--bg-subtle);color:var(--text-secondary);font-size:11px;font-weight:600;padding:5px 14px;border-radius:20px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,0.02);display:flex;align-items:center;gap:6px;">
-                                                <Info size={12} />
+                                            <div style="background:var(--type-update-bg);color:var(--type-update-text);font-size:11px;font-weight:600;padding:5px 14px;border-radius:20px;border:1px solid var(--type-update-border);box-shadow:0 2px 6px rgba(0,0,0,0.02);display:flex;align-items:center;gap:6px;">
+                                                <Info size={12} style="opacity:0.8;" />
                                                 {msg.content}
                                             </div>
                                         </div>
