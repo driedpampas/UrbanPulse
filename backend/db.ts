@@ -1077,6 +1077,16 @@ export async function confirmPulse(
     userId: string
 ): Promise<{ success: boolean; alreadyConfirmed: boolean }> {
     return await sql.begin(async (tx) => {
+        await tx`CREATE SCHEMA IF NOT EXISTS app`;
+        await tx`
+            CREATE TABLE IF NOT EXISTS app.pulse_confirmations (
+                pulse_id uuid NOT NULL REFERENCES app.pulses(id) ON DELETE CASCADE,
+                user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                confirmed_at timestamptz NOT NULL DEFAULT now(),
+                PRIMARY KEY (pulse_id, user_id)
+            )
+        `;
+
         // 1. Check if user already confirmed or is author
         const [pulse] = await tx`
             SELECT author_id, urgency_level

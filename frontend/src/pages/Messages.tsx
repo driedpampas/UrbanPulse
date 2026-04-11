@@ -1,19 +1,35 @@
-import { ArrowLeft, Plus, Search, Send, Trash2, User, Users, X } from 'lucide-preact';
+import {
+    ArrowLeft,
+    ChevronRight,
+    Clock,
+    MessageCircle,
+    Plus,
+    Search,
+    Send,
+    ShieldCheck,
+    Sparkles,
+    Trash2,
+    User,
+    Users,
+    X,
+} from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
+import { RoleBadge } from '../components/Profile/RoleBadge';
+import { TrustBadge } from '../components/Profile/TrustBadge';
+import { readStoredAuthSession } from '../lib/auth';
 import {
     connectChatWebSocket,
-    disconnectChatWebSocket,
     deleteChatMessage,
+    disconnectChatWebSocket,
     fetchChats,
     sendMessage,
     startDirectConversation,
     subscribeChatThread,
     unsubscribeChatThread,
 } from '../lib/chatApi';
-import { readStoredAuthSession } from '../lib/auth';
-import type { ChatMessage, ChatThread, User as AppUser } from '../lib/types';
+import type { User as AppUser, ChatMessage, ChatThread } from '../lib/types';
 import { fetchUsers } from '../lib/userApi';
 
 function timeAgo(ts: number) {
@@ -22,6 +38,10 @@ function timeAgo(ts: number) {
     if (d < 3600000) return `${Math.floor(d / 60000)}m`;
     if (d < 86400000) return `${Math.floor(d / 3600000)}h`;
     return `${Math.floor(d / 86400000)}d`;
+}
+
+function avatarUrl(seed: string) {
+    return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
 }
 
 function upsertMessageById(
@@ -162,7 +182,9 @@ export function Messages() {
             setShowCompose(false);
             setQuery('');
         } catch (error) {
-            setComposeError(error instanceof Error ? error.message : 'Could not start conversation');
+            setComposeError(
+                error instanceof Error ? error.message : 'Could not start conversation'
+            );
         } finally {
             setStartingUserId(null);
         }
@@ -196,17 +218,36 @@ export function Messages() {
                 </button>
             }
         >
-            <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                <div
+                    class="card animate-slide-up"
+                    style="padding:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(59,130,246,0.14),rgba(16,185,129,0.10));border-color:rgba(59,130,246,0.14);"
+                >
+                    <div style="width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#14b8a6);color:#fff;box-shadow:0 12px 30px rgba(59,130,246,0.22);">
+                        <MessageCircle size={18} />
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);letter-spacing:-0.01em;">
+                            Conversations
+                        </p>
+                        <p style="margin:2px 0 0;font-size:12px;color:var(--text-secondary);line-height:1.4;">
+                            Keep chat tied to trust, roles, and live pulses.
+                        </p>
+                    </div>
+                </div>
+
                 {loading ? (
                     [1, 2].map((i) => (
                         <div
                             key={i}
-                            style="height:64px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                            style="height:74px;border-radius:14px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
                         />
                     ))
                 ) : threads.length === 0 ? (
-                    <div style="padding:56px 24px;text-align:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);">
-                        <Users size={28} style="color:var(--text-tertiary);margin:0 auto 8px;" />
+                    <div style="padding:56px 24px;text-align:center;border:1px solid var(--border);border-radius:16px;background:var(--surface);">
+                        <div style="width:48px;height:48px;margin:0 auto 10px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
+                            <Users size={24} />
+                        </div>
                         <p style="font-size:13px;color:var(--text-secondary);margin:0;">
                             No conversations yet
                         </p>
@@ -225,30 +266,39 @@ export function Messages() {
                                 id={`thread-${thread.id}`}
                                 onClick={() => setActiveThread(thread)}
                                 class="card animate-slide-up"
-                                style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:background 0.15s;animation-delay:${i * 50}ms;`}
+                                style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:transform 0.15s,background 0.15s;animation-delay:${i * 50}ms;border-radius:16px;`}
                             >
-                                {/* Avatar */}
                                 <div
-                                    style={`width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'var(--accent-subtle)' : 'var(--type-item-bg)'};color:${isGroup ? 'var(--accent)' : 'var(--type-item-text)'};`}
+                                    style={`width:44px;height:44px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isGroup ? 'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(59,130,246,0.10))' : 'linear-gradient(135deg,rgba(16,185,129,0.14),rgba(14,165,233,0.10))'};color:${isGroup ? 'var(--accent)' : 'var(--success)'};`}
                                 >
-                                    {isGroup ? <Users size={16} /> : <User size={16} />}
+                                    {isGroup ? <Users size={18} /> : <User size={18} />}
                                 </div>
                                 <div style="flex:1;min-width:0;">
-                                    <p style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                        {displayName}
-                                    </p>
+                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        <p style="font-size:13px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            {displayName}
+                                        </p>
+                                        <span
+                                            style={`display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:${isGroup ? 'var(--accent-subtle)' : 'var(--success-subtle)'};color:${isGroup ? 'var(--accent)' : 'var(--success)'};`}
+                                        >
+                                            {isGroup ? 'Group' : 'Direct'}
+                                        </span>
+                                    </div>
                                     {thread.lastMessage && (
-                                        <p style="font-size:11px;color:var(--text-tertiary);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                             {thread.lastMessage.senderName}:{' '}
                                             {thread.lastMessage.content}
                                         </p>
                                     )}
                                 </div>
-                                {thread.lastMessage && (
-                                    <span style="font-size:10px;color:var(--text-tertiary);flex-shrink:0;font-variant-numeric:tabular-nums;">
-                                        {timeAgo(thread.lastMessage.timestamp)}
-                                    </span>
-                                )}
+                                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
+                                    {thread.lastMessage && (
+                                        <span style="font-size:10px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;">
+                                            {timeAgo(thread.lastMessage.timestamp)}
+                                        </span>
+                                    )}
+                                    <ChevronRight size={14} style="color:var(--text-tertiary);" />
+                                </div>
                             </button>
                         );
                     })
@@ -259,16 +309,27 @@ export function Messages() {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    style="position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;padding:14px;background:rgba(15,17,23,0.48);backdrop-filter:blur(4px);"
+                    style="position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;padding:14px;background:rgba(15,17,23,0.52);backdrop-filter:blur(8px);"
                 >
                     <div
                         class="animate-slide-up"
-                        style="width:100%;max-width:640px;max-height:80dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;"
+                        style="width:100%;max-width:680px;max-height:82dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:20px;background:linear-gradient(180deg,var(--surface),var(--bg));overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,0.28);"
                     >
-                        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);">
-                            <p style="margin:0;font-size:13px;font-weight:700;color:var(--text);">
-                                Start a conversation
-                            </p>
+                        <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,rgba(59,130,246,0.11),rgba(16,185,129,0.08));display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                            <div style="display:flex;align-items:flex-start;gap:12px;">
+                                <div style="width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#14b8a6);color:#fff;flex-shrink:0;">
+                                    <Sparkles size={18} />
+                                </div>
+                                <div>
+                                    <p style="margin:0;font-size:14px;font-weight:800;color:var(--text);">
+                                        Start a conversation
+                                    </p>
+                                    <p style="margin:3px 0 0;font-size:12px;color:var(--text-secondary);line-height:1.4;">
+                                        Search a neighbor, then open a thread with their profile
+                                        context.
+                                    </p>
+                                </div>
+                            </div>
                             <button
                                 type="button"
                                 class="btn-icon"
@@ -283,14 +344,14 @@ export function Messages() {
                             </button>
                         </div>
 
-                        <div style="padding:12px 14px;border-bottom:1px solid var(--border);">
+                        <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
                             <label
                                 for="chat-user-search"
-                                style="display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;"
+                                style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:7px;text-transform:uppercase;letter-spacing:0.06em;"
                             >
                                 Search users
                             </label>
-                            <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:38px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);">
+                            <div style="display:flex;align-items:center;gap:10px;padding:0 12px;height:44px;border:1px solid var(--border);border-radius:14px;background:var(--bg-subtle);box-shadow:inset 0 1px 0 rgba(255,255,255,0.4);">
                                 <Search size={14} style="color:var(--text-tertiary);" />
                                 <input
                                     id="chat-user-search"
@@ -307,16 +368,16 @@ export function Messages() {
                             )}
                         </div>
 
-                        <div style="overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;">
+                        <div style="overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;">
                             {searching ? (
                                 [1, 2, 3].map((i) => (
                                     <div
                                         key={i}
-                                        style="height:52px;border-radius:8px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
+                                        style="height:64px;border-radius:16px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;"
                                     />
                                 ))
                             ) : queryResults.length === 0 ? (
-                                <div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:12px;">
+                                <div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:12px;">
                                     No users found
                                 </div>
                             ) : (
@@ -327,23 +388,41 @@ export function Messages() {
                                         onClick={() => handleStartConversation(user)}
                                         disabled={startingUserId !== null}
                                         class="card"
-                                        style="padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left;"
+                                        style="padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;border-radius:16px;"
                                     >
-                                        <img
-                                            src={user.avatar}
-                                            alt=""
-                                            style="width:34px;height:34px;border-radius:50%;border:1px solid var(--border);object-fit:cover;background:var(--bg-muted);"
-                                        />
-                                        <div style="flex:1;min-width:0;">
-                                            <p style="margin:0;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                {user.name}
-                                            </p>
-                                            <p style="margin:1px 0 0;font-size:11px;color:var(--text-tertiary);">
-                                                Trust {user.trustScore}
-                                            </p>
+                                        <div style="width:40px;height:40px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg-muted);border:1px solid var(--border);">
+                                            <img
+                                                src={user.avatar || avatarUrl(user.name)}
+                                                alt=""
+                                                style="width:100%;height:100%;object-fit:cover;"
+                                            />
                                         </div>
-                                        <span style="font-size:11px;font-weight:600;color:var(--accent);">
+                                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+                                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                                <p style="margin:0;font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                    {user.name}
+                                                </p>
+                                                {user.verified && (
+                                                    <ShieldCheck
+                                                        size={12}
+                                                        style="color:var(--success);"
+                                                    />
+                                                )}
+                                            </div>
+                                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                <TrustBadge
+                                                    score={user.trustScore}
+                                                    verified={user.verified}
+                                                    compact
+                                                />
+                                                {user.role && (
+                                                    <RoleBadge role={user.role} compact />
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--accent);">
                                             {startingUserId === user.id ? 'Opening...' : 'Chat'}
+                                            <ChevronRight size={12} />
                                         </span>
                                     </button>
                                 ))
@@ -376,8 +455,9 @@ function ChatView({
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
-    const directOtherUserId =
-        !thread.isGroup ? thread.participants.find((participantId) => participantId !== currentUserId) : null;
+    const directOtherUserId = !thread.isGroup
+        ? thread.participants.find((participantId) => participantId !== currentUserId)
+        : null;
 
     const participantNameById = useMemo(() => {
         const nameMap = new Map<string, string>();
@@ -454,12 +534,12 @@ function ChatView({
             const mappedMessage: ChatMessage = {
                 id: event.message.id,
                 senderId: event.message.senderId,
-                senderName:
-                    isMe
-                        ? currentUserName
-                        : senderIndex >= 0
-                            ? thread.participantNames[senderIndex] || `Neighbor ${event.message.senderId.slice(0, 6)}`
-                            : `Neighbor ${event.message.senderId.slice(0, 6)}`,
+                senderName: isMe
+                    ? currentUserName
+                    : senderIndex >= 0
+                      ? thread.participantNames[senderIndex] ||
+                        `Neighbor ${event.message.senderId.slice(0, 6)}`
+                      : `Neighbor ${event.message.senderId.slice(0, 6)}`,
                 content: event.message.content,
                 timestamp: Number(event.message.timestamp),
             };
@@ -486,7 +566,14 @@ function ChatView({
             unsubscribeChatThread(thread.id);
             disconnectChatWebSocket(handleChatSocket);
         };
-    }, [thread.id, onThreadUpdate, currentUserId, currentUserName, thread.participants, thread.participantNames]);
+    }, [
+        thread.id,
+        onThreadUpdate,
+        currentUserId,
+        currentUserName,
+        thread.participants,
+        thread.participantNames,
+    ]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -585,65 +672,102 @@ function ChatView({
                     <ArrowLeft size={18} />
                 </button>
                 <div style="flex:1;min-width:0;">
-                    {directOtherUserId ? (
-                        <button
-                            type="button"
-                            onClick={() =>
-                                setLocation(`/profile?userId=${encodeURIComponent(directOtherUserId)}`)
-                            }
-                            style="font-size:14px;font-weight:700;color:var(--text);margin:0;padding:0;background:none;border:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                        <div
+                            style={`width:38px;height:38px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${thread.isGroup ? 'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(59,130,246,0.10))' : 'linear-gradient(135deg,rgba(16,185,129,0.16),rgba(14,165,233,0.10))'};color:${thread.isGroup ? 'var(--accent)' : 'var(--success)'};`}
                         >
-                            {title}
-                        </button>
-                    ) : (
-                        <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                            {title}
-                        </p>
-                    )}
-                    <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
-                        {thread.participantNames.length} members
-                    </p>
+                            {thread.isGroup ? <Users size={17} /> : <User size={17} />}
+                        </div>
+                        <div style="min-width:0;">
+                            {directOtherUserId ? (
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setLocation(
+                                            `/profile?userId=${encodeURIComponent(directOtherUserId)}`
+                                        )
+                                    }
+                                    style="display:block;font-size:14px;font-weight:800;color:var(--text);margin:0;padding:0;background:none;border:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;"
+                                >
+                                    {title}
+                                </button>
+                            ) : (
+                                <p style="font-size:14px;font-weight:800;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    {title}
+                                </p>
+                            )}
+                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;">
+                                <span
+                                    style={`display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:${thread.isGroup ? 'var(--accent-subtle)' : 'var(--success-subtle)'};color:${thread.isGroup ? 'var(--accent)' : 'var(--success)'};`}
+                                >
+                                    {thread.isGroup ? 'Group' : 'Direct'}
+                                </span>
+                                <span style="font-size:11px;color:var(--text-tertiary);margin:0;display:inline-flex;align-items:center;gap:4px;">
+                                    <Clock size={10} />
+                                    {thread.participantNames.length} members
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </header>
 
             {/* Messages */}
-            <div style="flex:1;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:8px;padding-bottom:72px;">
+            <div style="flex:1;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:10px;padding-bottom:88px;">
                 {messages.map((msg) => {
                     const isMe = msg.senderId === currentUserId;
                     return (
                         <div
                             key={msg.id}
-                            style={`display:flex;justify-content:${isMe ? 'flex-end' : 'flex-start'};`}
+                            style={`display:flex;gap:8px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};`}
                         >
+                            {!isMe && (
+                                <div style="width:30px;height:30px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg-subtle);border:1px solid var(--border);color:var(--text-tertiary);">
+                                    <User size={14} />
+                                </div>
+                            )}
                             <div
                                 style={`
-                                    max-width:78%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;
-                                    ${isMe
-                                        ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
-                                        : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
+                                    max-width:78%;padding:10px 13px;border-radius:16px;font-size:13px;line-height:1.5;box-shadow:0 8px 24px rgba(15,23,42,0.05);
+                                    ${
+                                        isMe
+                                            ? 'background:linear-gradient(135deg,var(--accent),#0ea5e9);color:#fff;border-bottom-right-radius:6px;'
+                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:6px;'
                                     }
                                 `}
                             >
-                                {!isMe && (
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setLocation(
-                                                `/profile?userId=${encodeURIComponent(msg.senderId)}`
-                                            )
-                                        }
-                                        style="font-size:10px;font-weight:700;color:var(--accent);margin:0 0 3px;padding:0;background:none;border:none;cursor:pointer;"
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px;">
+                                    {!isMe ? (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setLocation(
+                                                    `/profile?userId=${encodeURIComponent(msg.senderId)}`
+                                                )
+                                            }
+                                            style="font-size:10px;font-weight:800;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;letter-spacing:0.02em;"
+                                        >
+                                            {msg.senderName}
+                                        </button>
+                                    ) : (
+                                        <span style="font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;opacity:0.78;">
+                                            You
+                                        </span>
+                                    )}
+                                    <span
+                                        style={`font-size:10px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:4px;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
                                     >
-                                        {msg.senderName}
-                                    </button>
-                                )}
+                                        <Clock size={9} />
+                                        {timeAgo(msg.timestamp)}
+                                    </span>
+                                </div>
                                 <p style="margin:0;">{msg.content}</p>
-                                <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
+                                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;flex-wrap:wrap;">
                                     <button
                                         type="button"
                                         onClick={() => handleDeleteMessage(msg, 'me')}
                                         disabled={deletingMessageId !== null}
-                                        style="display:inline-flex;align-items:center;gap:3px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.75;"
+                                        style="display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.8;"
                                     >
                                         <Trash2 size={10} />
                                         Delete for me
@@ -653,7 +777,7 @@ function ChatView({
                                             type="button"
                                             onClick={() => handleDeleteMessage(msg, 'everyone')}
                                             disabled={deletingMessageId !== null}
-                                            style="display:inline-flex;align-items:center;gap:3px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.75;"
+                                            style="display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.8;"
                                         >
                                             <Trash2 size={10} />
                                             Delete for everyone
@@ -670,9 +794,10 @@ function ChatView({
             {/* Input bar */}
             <div
                 class="nav-bar"
-                style="position:fixed;bottom:0;left:0;right:0;padding:8px 12px;display:flex;align-items:center;gap:8px;"
+                style="position:fixed;bottom:0;left:0;right:0;padding:10px 12px;display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,0),var(--bg) 25%);"
             >
-                <div style="max-width:680px;width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;">
+                <div style="max-width:720px;width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:18px;background:var(--surface);padding:8px 10px;box-shadow:0 14px 36px rgba(15,23,42,0.08);">
+                    <MessageCircle size={16} style="color:var(--text-tertiary);flex-shrink:0;" />
                     <input
                         value={input}
                         onInput={(e) => setInput((e.target as HTMLInputElement).value)}
@@ -682,16 +807,7 @@ function ChatView({
                             }
                         }}
                         placeholder="Message…"
-                        style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
-                        onFocus={(e) => {
-                            (e.target as HTMLElement).style.borderColor = 'var(--border-focus)';
-                            (e.target as HTMLElement).style.boxShadow =
-                                '0 0 0 3px var(--accent-muted)';
-                        }}
-                        onBlur={(e) => {
-                            (e.target as HTMLElement).style.borderColor = 'var(--border)';
-                            (e.target as HTMLElement).style.boxShadow = 'none';
-                        }}
+                        style="flex:1;padding:8px 0;border:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;outline:none;"
                     />
                     <button
                         type="button"
@@ -699,7 +815,7 @@ function ChatView({
                         onClick={handleSend}
                         disabled={!input.trim() || sending}
                         class="btn-primary"
-                        style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
+                        style="height:40px;width:40px;padding:0;background:linear-gradient(135deg,var(--accent),#0ea5e9);border-radius:14px;flex-shrink:0;"
                         aria-label="Send"
                     >
                         <Send size={15} />

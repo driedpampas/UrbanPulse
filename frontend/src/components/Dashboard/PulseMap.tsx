@@ -1,5 +1,5 @@
 import { AlertCircle, Clock, MapPin } from 'lucide-preact';
-import type { ErrorEvent as MapboxErrorEvent, Map as MapboxMap } from 'mapbox-gl';
+import type { GeoJSONSource, ErrorEvent as MapboxErrorEvent, Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
@@ -24,6 +24,19 @@ const MAPBOX_STYLE_URL = `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE_ID}`;
 type MapboxGL = typeof import('mapbox-gl')['default'];
 type MarkerHandle = { remove(): void };
 
+const PULSE_DENSITY_SOURCE_ID = 'pulse-density-source';
+const PULSE_DENSITY_LAYER_ID = 'pulse-density-heat';
+const PULSE_DENSITY_FILL_LAYER_ID = 'pulse-density-fill';
+
+type DensityFeatureCollection = {
+    type: 'FeatureCollection';
+    features: Array<{
+        type: 'Feature';
+        geometry: { type: 'Point'; coordinates: [number, number] };
+        properties: { weight: number; type: string };
+    }>;
+};
+
 const typeColors: Record<string, string> = {
     need: '#f59e0b',
     skill: '#8b5cf6',
@@ -39,6 +52,21 @@ function timeAgo(ts: number) {
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     return `${Math.floor(diff / 86400000)}d ago`;
+}
+
+function buildDensityData(pulses: Pulse[]): DensityFeatureCollection {
+    return {
+        type: 'FeatureCollection',
+        features: pulses.map((pulse) => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [pulse.lng, pulse.lat] },
+            properties: {
+                weight:
+                    Math.max(1, pulse.confirmations || 0) + (pulse.type === 'emergency' ? 2 : 0),
+                type: pulse.type,
+            },
+        })),
+    };
 }
 
 function ensureMapboxToken(token: string) {
@@ -247,6 +275,110 @@ export function PulseMap({
                     return;
                 }
 
+                if (!map?.getSource(PULSE_DENSITY_SOURCE_ID)) {
+                    map?.addSource(PULSE_DENSITY_SOURCE_ID, {
+                        type: 'geojson',
+                        data: buildDensityData([]),
+                    });
+
+                    map?.addLayer({
+                        id: PULSE_DENSITY_LAYER_ID,
+                        type: 'heatmap',
+                        source: PULSE_DENSITY_SOURCE_ID,
+                        maxzoom: 15,
+                        paint: {
+                            'heatmap-weight': [
+                                'interpolate',
+                                ['linear'],
+                                ['get', 'weight'],
+                                0,
+                                0,
+                                6,
+                                1.2,
+                                12,
+                                2.2,
+                            ],
+                            'heatmap-intensity': [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                0,
+                                0.7,
+                                12,
+                                1.6,
+                                15,
+                                2.4,
+                            ],
+                            'heatmap-radius': [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                0,
+                                16,
+                                9,
+                                30,
+                                12,
+                                44,
+                                15,
+                                60,
+                            ],
+                            'heatmap-opacity': [
+                                'interpolate',
+                                ['linear'],
+                                ['zoom'],
+                                10,
+                                0.78,
+                                15,
+                                0.52,
+                            ],
+                            'heatmap-color': [
+                                'interpolate',
+                                ['linear'],
+                                ['heatmap-density'],
+                                0,
+                                'rgba(14,165,233,0)',
+                                0.2,
+                                'rgba(59,130,246,0.22)',
+                                0.4,
+                                'rgba(16,185,129,0.36)',
+                                0.6,
+                                'rgba(250,204,21,0.50)',
+                                0.8,
+                                'rgba(249,115,22,0.62)',
+                                1,
+                                'rgba(239,68,68,0.72)',
+                            ],
+                        },
+                    });
+
+                    map?.addLayer({
+                        id: PULSE_DENSITY_FILL_LAYER_ID,
+                        type: 'circle',
+                        source: PULSE_DENSITY_SOURCE_ID,
+                        minzoom: 12,
+                        paint: {
+                            'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 5, 15, 11],
+                            'circle-color': [
+                                'match',
+                                ['get', 'type'],
+                                'emergency',
+                                '#ef4444',
+                                'need',
+                                '#f59e0b',
+                                'skill',
+                                '#8b5cf6',
+                                'item',
+                                '#10b981',
+                                'pet',
+                                '#ec4899',
+                                '#0ea5e9',
+                            ],
+                            'circle-opacity': 0.28,
+                            'circle-blur': 0.85,
+                        },
+                    });
+                }
+
                 map?.resize();
                 setMapLoaded(true);
             });
@@ -302,6 +434,13 @@ export function PulseMap({
             return;
         }
 
+        const densitySource = activeMap.getSource(PULSE_DENSITY_SOURCE_ID) as
+            | GeoJSONSource
+            | undefined;
+        if (densitySource) {
+            densitySource.setData(buildDensityData(visiblePulses) as never);
+        }
+
         markersRef.current.forEach((marker) => {
             marker.remove();
         });
@@ -353,6 +492,9 @@ export function PulseMap({
                 expanded ? 'flex-1 min-h-[50dvh]' : ''
             }`}
         >
+            <div class="absolute left-4 top-4 z-20 rounded-2xl border border-border/70 bg-white/90 px-3 py-2 text-[11px] font-medium text-text-secondary shadow-lg backdrop-blur-sm">
+                Heatmap shows pulse density and urgency
+            </div>
             {pulseError && (
                 <div class="border-b border-danger/20 bg-danger/5 px-4 py-3 text-xs text-danger">
                     Live pulse feed unavailable. {pulseError}
