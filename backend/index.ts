@@ -1506,6 +1506,14 @@ bun.serve({
                                         })
                                     );
                                 }
+
+                                server.publish(
+                                    `chat-${req.params.id}`,
+                                    JSON.stringify({
+                                        event: 'chat.members.updated',
+                                        threadId: req.params.id,
+                                    })
+                                );
                             }
 
                             return withCors(
@@ -1574,13 +1582,23 @@ bun.serve({
                                     })
                                 );
                             }
+
+                            if (server) {
+                                server.publish(
+                                    `chat-${req.params.id}`,
+                                    JSON.stringify({
+                                        event: 'chat.members.updated',
+                                        threadId: req.params.id,
+                                    })
+                                );
+                            }
                             return withCors(SUCCESS);
                         })
                     )
                 ),
         },
         '/api/chats/:id/participants/:userId/admin': {
-            POST: async (req) =>
+            POST: async (req, server) =>
                 validate(req, async () =>
                     authorize(req, async (session) =>
                         caught(async () => {
@@ -1605,6 +1623,16 @@ bun.serve({
                                 participantId.data,
                                 payload.id
                             );
+
+                            if (server) {
+                                server.publish(
+                                    `chat-${req.params.id}`,
+                                    JSON.stringify({
+                                        event: 'chat.members.updated',
+                                        threadId: req.params.id,
+                                    })
+                                );
+                            }
 
                             const chatSummary = await db.selectChatSummary(
                                 req.params.id,

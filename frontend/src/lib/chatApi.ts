@@ -17,6 +17,8 @@ export type ChatSocketEvent =
     | { event: 'chat.subscribed'; threadId: string }
     | { event: 'chat.unsubscribed'; threadId: string }
     | { event: 'chat.error'; threadId: string; reason: string }
+    | { event: 'chat.updated'; threadId: string }
+    | { event: 'chat.members.updated'; threadId: string }
     | {
           event: 'notification.message';
           message: ChatSocketMessage;
@@ -271,6 +273,20 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
         if (parsed.event === 'chat.unsubscribed' && typeof parsed.threadId === 'string') {
             return {
                 event: 'chat.unsubscribed',
+                threadId: parsed.threadId,
+            };
+        }
+
+        if (parsed.event === 'chat.updated' && typeof parsed.threadId === 'string') {
+            return {
+                event: 'chat.updated',
+                threadId: parsed.threadId,
+            };
+        }
+
+        if (parsed.event === 'chat.members.updated' && typeof parsed.threadId === 'string') {
+            return {
+                event: 'chat.members.updated',
                 threadId: parsed.threadId,
             };
         }
