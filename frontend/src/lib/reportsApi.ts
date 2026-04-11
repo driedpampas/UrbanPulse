@@ -7,23 +7,22 @@ export async function createReport(params: {
     reason: string;
     content: string;
 }): Promise<AdminFlag> {
-    const res = await httpClient.post('/api/reports', {
+    return httpClient<AdminFlag>('/api/reports', {
+        method: 'POST',
         body: JSON.stringify(params),
     });
-    if (!res.ok) throw new Error('Failed to submit report');
-    return res.json();
 }
 
 export async function fetchAdminReports(limit = 50, offset = 0): Promise<AdminFlag[]> {
-    const res = await httpClient.get(`/api/admin/reports?limit=${limit}&offset=${offset}`);
-    if (!res.ok) throw new Error('Failed to fetch reports');
-    const data = await res.json();
+    const data = await httpClient<{ reports: AdminFlag[] }>(
+        `/api/admin/reports?limit=${limit}&offset=${offset}`
+    );
     return data.reports;
 }
 
 export async function updateReportStatus(id: string, status: 'resolved' | 'dismissed'): Promise<void> {
-    const res = await httpClient.patch(`/api/admin/reports/${id}/status`, {
+    await httpClient(`/api/admin/reports/${id}/status`, {
+        method: 'PATCH',
         body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error('Failed to update report status');
 }

@@ -1,5 +1,5 @@
 import { Activity, Flag, LibraryBig, UsersRound } from 'lucide-preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { useAuth } from '../lib/auth';
 import { fetchAdminLibrary } from '../lib/libraryApi';
@@ -241,7 +241,7 @@ export function AdminDashboard() {
                         </p>
                     </div>
                     <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;font-weight:600;">
-                        Role: {currentRole}
+                        Role: {session?.user.role ?? 'Unknown'}
                     </span>
                 </div>
 
@@ -297,6 +297,14 @@ export function AdminDashboard() {
                             <div style="display:flex;flex-direction:column;gap:10px;">
                                 {users.map((user) => (
                                     <UserRow key={user.id} user={user} />
+                                ))}
+                            </div>
+                        )}
+
+                        {section === 'library' && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                {library.map((item) => (
+                                    <LibraryRow key={item.id} item={item} />
                                 ))}
                             </div>
                         )}
