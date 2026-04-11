@@ -13,12 +13,15 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../lib/auth';
+import { fetchMyLibraryItems } from '../../lib/libraryApi';
 import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
+    acceptPulseRequest,
     confirmPulse,
     connectWebSocket,
     deletePulse,
     disconnectWebSocket,
+    fetchAcceptedPulseInteractions,
     fetchPulses,
     mergePulses,
 } from '../../lib/pulseApi';
@@ -54,6 +57,64 @@ interface Props {
     pulseLimit?: number;
 }
 
+const MIN_RESOURCE_TOKEN_LENGTH = 3;
+
+function normalizeResourceText(value: string): string {
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function resourceTokens(values: string[]): Set<string> {
+    const tokens = new Set<string>();
+
+    for (const value of values) {
+        const normalized = normalizeResourceText(value);
+        if (!normalized) {
+            continue;
+        }
+
+        tokens.add(normalized);
+        for (const token of normalized.split(' ')) {
+            if (token.length >= MIN_RESOURCE_TOKEN_LENGTH) {
+                tokens.add(token);
+            }
+        }
+    }
+
+    return tokens;
+}
+
+function pulseCanBeAcceptedByUser(pulse: Pulse, userTokens: Set<string>): boolean {
+    const required = pulse.requiredSkills ?? [];
+    if (required.length === 0) {
+        return false;
+    }
+
+    const requiredTokens = resourceTokens(required);
+    if (requiredTokens.size === 0) {
+        return false;
+    }
+
+    const candidates = Array.from(userTokens);
+    for (const token of requiredTokens) {
+        if (
+            candidates.some(
+                (candidate) =>
+                    candidate === token ||
+                    (token.length >= MIN_RESOURCE_TOKEN_LENGTH && candidate.includes(token)) ||
+                    (candidate.length >= MIN_RESOURCE_TOKEN_LENGTH && token.includes(candidate))
+            )
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const { session } = useAuth();
     const [, setLocation] = useLocation();
@@ -68,6 +129,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const observerTarget = useRef<HTMLDivElement>(null);
     const clearRef = useRef<number | null>(null);
     const [reportingPulse, setReportingPulse] = useState<Pulse | null>(null);
+    const [myResourceTokens, setMyResourceTokens] = useState<Set<string>>(new Set());
+    const [acceptedPulseIds, setAcceptedPulseIds] = useState<Set<string>>(new Set());
+    const [acceptingPulseId, setAcceptingPulseId] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -105,6 +169,45 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             cancelled = true;
         };
     }, []);
+
+    useEffect(() => {
+        if (!session) {
+            setMyResourceTokens(new Set());
+            setAcceptedPulseIds(new Set());
+            return;
+        }
+
+        let cancelled = false;
+
+        Promise.all([fetchMyLibraryItems(), fetchAcceptedPulseInteractions(100, 0)])
+            .then(([items, accepted]) => {
+                if (cancelled) {
+                    return;
+                }
+
+                const values: string[] = [];
+                for (const item of items) {
+                    if (!item.available) {
+                        continue;
+                    }
+                    values.push(item.title, ...item.tags);
+                }
+                setMyResourceTokens(resourceTokens(values));
+
+                setAcceptedPulseIds(
+                    new Set(accepted.map((acceptedInteraction) => acceptedInteraction.pulse.id))
+                );
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setMyResourceTokens(new Set());
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [session]);
 
     useEffect(() => {
         if (!locationResolved || feedCenter) {
@@ -279,6 +382,35 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         }
     };
 
+    const handleAcceptRequest = async (pulseId: string) => {
+        if (acceptingPulseId) {
+            return;
+        }
+
+        setAcceptingPulseId(pulseId);
+        try {
+            await acceptPulseRequest(pulseId);
+            setAcceptedPulseIds((current) => {
+                const next = new Set(current);
+                next.add(pulseId);
+                return next;
+            });
+        } catch (apiError) {
+            if (apiError instanceof Error && apiError.message === 'Already accepted') {
+                setAcceptedPulseIds((current) => {
+                    const next = new Set(current);
+                    next.add(pulseId);
+                    return next;
+                });
+            } else {
+                console.error(apiError);
+                alert(apiError instanceof Error ? apiError.message : 'Could not accept request.');
+            }
+        } finally {
+            setAcceptingPulseId(null);
+        }
+    };
+
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
@@ -363,6 +495,13 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 const isVerified = pulse.verified || pulse.confirmations >= 3;
                 const mayDelete = canDelete(pulse);
                 const p = def.cssPrefix;
+                const canAcceptRequest = Boolean(
+                    session &&
+                        session.user.id !== pulse.userId &&
+                        !acceptedPulseIds.has(pulse.id) &&
+                        pulseCanBeAcceptedByUser(pulse, myResourceTokens)
+                );
+                const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
 
                 return (
                     <article
@@ -381,8 +520,13 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                 }
                                 style="padding:0;border:none;background:transparent;cursor:pointer;display:flex;"
                                 aria-label={`Open ${pulse.userName} profile`}
-                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                onMouseEnter={(e) =>
+                                    ((e.target as HTMLElement).style.filter =
+                                        'var(--hover-brightness)')
+                                }
+                                onMouseLeave={(e) =>
+                                    ((e.target as HTMLElement).style.filter = 'none')
+                                }
                             >
                                 <img
                                     src={pulse.userAvatar}
@@ -403,8 +547,13 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                 )
                                             }
                                             style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;padding:0;cursor:pointer;text-align:left;"
-                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                            onMouseEnter={(e) =>
+                                                ((e.target as HTMLElement).style.filter =
+                                                    'var(--hover-brightness)')
+                                            }
+                                            onMouseLeave={(e) =>
+                                                ((e.target as HTMLElement).style.filter = 'none')
+                                            }
                                         >
                                             {pulse.userName}
                                         </button>
@@ -430,8 +579,13 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
                                             title="Delete"
                                             aria-label="Delete pulse"
-                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                            onMouseEnter={(e) =>
+                                                ((e.target as HTMLElement).style.filter =
+                                                    'var(--hover-brightness)')
+                                            }
+                                            onMouseLeave={(e) =>
+                                                ((e.target as HTMLElement).style.filter = 'none')
+                                            }
                                         >
                                             <Trash2 size={11} />
                                         </button>
@@ -460,12 +614,36 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             type="button"
                                             onClick={() => handleConfirm(pulse.id)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
-                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                            onMouseEnter={(e) =>
+                                                ((e.target as HTMLElement).style.filter =
+                                                    'var(--hover-brightness)')
+                                            }
+                                            onMouseLeave={(e) =>
+                                                ((e.target as HTMLElement).style.filter = 'none')
+                                            }
                                         >
                                             <CheckCircle size={10} />
                                             Confirm
                                         </button>
+                                    )}
+                                    {canAcceptRequest && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleAcceptRequest(pulse.id)}
+                                            disabled={acceptingPulseId === pulse.id}
+                                            style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--success);font-weight:700;background:none;border:none;padding:0;cursor:pointer;"
+                                        >
+                                            <CheckCircle size={10} />
+                                            {acceptingPulseId === pulse.id
+                                                ? 'Accepting...'
+                                                : 'Accept Request'}
+                                        </button>
+                                    )}
+                                    {hasAcceptedRequest && (
+                                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--success);font-weight:700;">
+                                            <CheckCircle size={10} />
+                                            Accepted
+                                        </span>
                                     )}
                                     {session && session.user.id !== pulse.userId && (
                                         <button
@@ -473,8 +651,13 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             onClick={() => setReportingPulse(pulse)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
                                             title="Report content"
-                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                            onMouseEnter={(e) =>
+                                                ((e.target as HTMLElement).style.filter =
+                                                    'var(--hover-brightness)')
+                                            }
+                                            onMouseLeave={(e) =>
+                                                ((e.target as HTMLElement).style.filter = 'none')
+                                            }
                                         >
                                             <Flag size={10} />
                                             Report

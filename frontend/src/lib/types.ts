@@ -36,6 +36,52 @@ export interface Pulse {
     requiredSkills?: string[];
 }
 
+export interface ResourceCatalogEntry {
+    value: string;
+    type: 'item' | 'skill';
+}
+
+export interface HeroMatchUser {
+    id: string;
+    displayName: string | null;
+    matchedResources: string[];
+    suppressedByQuietHours: boolean;
+}
+
+export type PulseInteractionStatus = 'accepted' | 'successful';
+
+export interface PulseInteraction {
+    id: string;
+    pulseId: string;
+    authorId: string;
+    helperId: string;
+    helperName: string;
+    status: PulseInteractionStatus;
+    acceptedAt: number;
+    confirmedAt: number | null;
+    trustAwarded: number;
+}
+
+export interface AuthorPulseRequest extends Pulse {
+    acceptedCount: number;
+    successfulCount: number;
+}
+
+export interface AcceptedInteraction {
+    interaction: PulseInteraction;
+    pulse: {
+        id: string;
+        content: string;
+        type: Pulse['type'];
+        timestamp: number;
+        urgencyLevel: number;
+    };
+    author: {
+        id: string;
+        name: string;
+    };
+}
+
 export interface WeatherData {
     temp: number;
     description: string;

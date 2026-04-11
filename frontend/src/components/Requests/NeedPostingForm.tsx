@@ -1,5 +1,7 @@
 import {
     AlertTriangle,
+    Check,
+    Loader2,
     MapPin,
     MessageSquare,
     Package,
@@ -8,9 +10,11 @@ import {
     Wrench,
     X,
 } from 'lucide-preact';
-import { useState } from 'preact/hooks';
-import { postPulse } from '../../lib/pulseApi';
-import type { Pulse } from '../../lib/types';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import { fetchPulseResourceCatalog, matchPulseHeroes, postPulse } from '../../lib/pulseApi';
+import type { HeroMatchUser, Pulse, ResourceCatalogEntry } from '../../lib/types';
+import { fetchCurrentUser } from '../../lib/userApi';
+import { DEFAULT_PULSE_CENTER, isUsableCoordinates } from '../../lib/utils';
 
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
@@ -29,13 +33,167 @@ interface Props {
 export function NeedPostingForm({ onClose }: Props) {
     const [type, setType] = useState<Pulse['type']>('update');
     const [content, setContent] = useState('');
-    const [skillsString, setSkillsString] = useState('');
+    const [resourceQuery, setResourceQuery] = useState('');
+    const [selectedResources, setSelectedResources] = useState<string[]>([]);
+    const [catalog, setCatalog] = useState<ResourceCatalogEntry[]>([]);
+    const [catalogLoading, setCatalogLoading] = useState(false);
+    const [catalogError, setCatalogError] = useState<string | null>(null);
+    const [heroMatches, setHeroMatches] = useState<HeroMatchUser[]>([]);
+    const [matchingHeroes, setMatchingHeroes] = useState(false);
+    const [heroMatchError, setHeroMatchError] = useState<string | null>(null);
+    const [location, setLocation] = useState<{ lat: number; lng: number }>(DEFAULT_PULSE_CENTER);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const left = MAX - content.length;
 
-    const showSkills = type === 'need' || type === 'emergency' || type === 'skill';
+    const showResourceSelector =
+        type === 'need' || type === 'emergency' || type === 'skill' || type === 'item';
+
+    const catalogHint = useMemo(() => {
+        if (!showResourceSelector) {
+            return 'Skill/item targeting is available for Need, Emergency, Skill, and Item pulses.';
+        }
+        if (selectedResources.length === 0) {
+            return 'Select at least one skill or item to target matching heroes.';
+        }
+
+        return `${selectedResources.length} target${selectedResources.length === 1 ? '' : 's'} selected`;
+    }, [showResourceSelector, selectedResources.length]);
+
+    const suppressedMatches = heroMatches.filter((match) => match.suppressedByQuietHours).length;
+    const activeMatches = heroMatches.length - suppressedMatches;
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetchCurrentUser()
+            .then((currentUser) => {
+                if (cancelled) {
+                    return;
+                }
+
+                const userLocation = currentUser.location;
+                if (
+                    userLocation &&
+                    isUsableCoordinates(Number(userLocation.lat), Number(userLocation.lng))
+                ) {
+                    setLocation({
+                        lat: Number(userLocation.lat),
+                        lng: Number(userLocation.lng),
+                    });
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setLocation(DEFAULT_PULSE_CENTER);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!showResourceSelector) {
+            setResourceQuery('');
+            setSelectedResources([]);
+            setCatalog([]);
+            setHeroMatches([]);
+            setCatalogError(null);
+            setHeroMatchError(null);
+            return;
+        }
+
+        let cancelled = false;
+        setCatalogLoading(true);
+        setCatalogError(null);
+
+        const timer = window.setTimeout(() => {
+            fetchPulseResourceCatalog(resourceQuery, 120)
+                .then((resources) => {
+                    if (!cancelled) {
+                        setCatalog(resources);
+                    }
+                })
+                .catch((apiError) => {
+                    if (!cancelled) {
+                        setCatalogError(
+                            apiError instanceof Error
+                                ? apiError.message
+                                : 'Could not load skills/items.'
+                        );
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setCatalogLoading(false);
+                    }
+                });
+        }, 180);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [resourceQuery, showResourceSelector]);
+
+    useEffect(() => {
+        if (!showResourceSelector || selectedResources.length === 0) {
+            setHeroMatches([]);
+            setHeroMatchError(null);
+            setMatchingHeroes(false);
+            return;
+        }
+
+        let cancelled = false;
+        setMatchingHeroes(true);
+        setHeroMatchError(null);
+
+        const timer = window.setTimeout(() => {
+            matchPulseHeroes(selectedResources, location)
+                .then((matches) => {
+                    if (!cancelled) {
+                        setHeroMatches(matches);
+                    }
+                })
+                .catch((apiError) => {
+                    if (!cancelled) {
+                        setHeroMatchError(
+                            apiError instanceof Error
+                                ? apiError.message
+                                : 'Could not match heroes for the selected targets.'
+                        );
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setMatchingHeroes(false);
+                    }
+                });
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [location, selectedResources, showResourceSelector]);
+
+    const toggleResource = (resourceValue: string) => {
+        const normalized = resourceValue.trim().toLowerCase();
+        if (!normalized) {
+            return;
+        }
+
+        setSelectedResources((current) => {
+            const exists = current.some((value) => value.trim().toLowerCase() === normalized);
+            if (exists) {
+                return current.filter((value) => value.trim().toLowerCase() !== normalized);
+            }
+            return [...current, resourceValue.trim()];
+        });
+    };
 
     const handleSubmit = async (e: Event) => {
         e.preventDefault();
@@ -43,18 +201,13 @@ export function NeedPostingForm({ onClose }: Props) {
         setSending(true);
         setError(null);
 
-        const requiredSkills = skillsString
-            .split(',')
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0);
-
         try {
             await postPulse({
                 type,
                 content,
-                lat: 40.7128,
-                lng: -74.006,
-                requiredSkills: requiredSkills.length > 0 ? requiredSkills : undefined,
+                lat: location.lat,
+                lng: location.lng,
+                requiredSkills: selectedResources.length > 0 ? selectedResources : undefined,
             });
             onClose();
         } catch (err) {
@@ -101,7 +254,9 @@ export function NeedPostingForm({ onClose }: Props) {
                         onClick={onClose}
                         aria-label="Close"
                         style="color:var(--text-secondary);"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
@@ -129,8 +284,13 @@ export function NeedPostingForm({ onClose }: Props) {
                                                 : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                         }
 									`}
-                                                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                    onMouseEnter={(e) =>
+                                        ((e.target as HTMLElement).style.filter =
+                                            'var(--hover-brightness)')
+                                    }
+                                    onMouseLeave={(e) =>
+                                        ((e.target as HTMLElement).style.filter = 'none')
+                                    }
                                 >
                                     <Icon size={11} />
                                     {t.label}
@@ -160,21 +320,105 @@ export function NeedPostingForm({ onClose }: Props) {
                         </span>
                     </div>
 
-                    {showSkills && (
-                        <div style="margin-bottom: 14px; animate-fade-in">
-                            <label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em;">
-                                Required Hero Skills (comma separated)
+                    {showResourceSelector && (
+                        <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
+                            <label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;">
+                                Skills / Items Selector
                             </label>
-                            <input
-                                type="text"
-                                value={skillsString}
-                                onInput={(e) =>
-                                    setSkillsString((e.target as HTMLInputElement).value)
-                                }
-                                placeholder="e.g. medical, plumbing, first aid"
-                                class="input-field"
-                                style="height:34px;font-size:12px;padding:0 12px;background:var(--surface-raised);"
-                            />
+
+                            <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised);">
+                                <input
+                                    type="text"
+                                    value={resourceQuery}
+                                    onInput={(e) =>
+                                        setResourceQuery((e.target as HTMLInputElement).value)
+                                    }
+                                    placeholder="Search available skills or items"
+                                    style="flex:1;border:none;background:transparent;outline:none;color:var(--text);font-size:12px;font-family:inherit;"
+                                />
+                                {catalogLoading && <Loader2 size={12} class="animate-spin" />}
+                            </div>
+
+                            <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);">
+                                {catalog.length === 0 && !catalogLoading ? (
+                                    <p style="margin:0;padding:10px 12px;font-size:12px;color:var(--text-tertiary);">
+                                        {catalogError || 'No matching skills/items found.'}
+                                    </p>
+                                ) : (
+                                    catalog.map((resource) => {
+                                        const isSelected = selectedResources.some(
+                                            (value) =>
+                                                value.trim().toLowerCase() ===
+                                                resource.value.trim().toLowerCase()
+                                        );
+
+                                        return (
+                                            <button
+                                                key={`${resource.type}:${resource.value}`}
+                                                type="button"
+                                                onClick={() => toggleResource(resource.value)}
+                                                style={`
+                                                    width:100%;display:flex;align-items:center;justify-content:space-between;
+                                                    gap:10px;padding:8px 10px;border:none;border-bottom:1px solid var(--border);
+                                                    background:${isSelected ? 'var(--accent-subtle)' : 'transparent'};
+                                                    color:${isSelected ? 'var(--accent)' : 'var(--text-secondary)'};
+                                                    font-size:12px;font-weight:600;cursor:pointer;text-align:left;
+                                                `}
+                                            >
+                                                <span style="display:flex;align-items:center;gap:7px;">
+                                                    {resource.type === 'skill' ? (
+                                                        <Wrench size={11} />
+                                                    ) : (
+                                                        <Package size={11} />
+                                                    )}
+                                                    {resource.value}
+                                                </span>
+                                                {isSelected && <Check size={12} />}
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {selectedResources.length > 0 && (
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                    {selectedResources.map((resource) => (
+                                        <button
+                                            key={resource}
+                                            type="button"
+                                            onClick={() => toggleResource(resource)}
+                                            style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;"
+                                        >
+                                            {resource}
+                                            <X size={10} />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div style="display:flex;flex-direction:column;gap:3px;">
+                                <p style="margin:0;font-size:11px;color:var(--text-tertiary);">
+                                    {catalogHint}
+                                </p>
+                                {matchingHeroes ? (
+                                    <p style="margin:0;font-size:11px;color:var(--text-secondary);">
+                                        Matching heroes nearby...
+                                    </p>
+                                ) : (
+                                    <p style="margin:0;font-size:11px;color:var(--text-secondary);">
+                                        {activeMatches} hero match{activeMatches === 1 ? '' : 'es'}
+                                        ready to receive alerts
+                                        {suppressedMatches > 0
+                                            ? ` (${suppressedMatches} currently in quiet time)`
+                                            : ''}
+                                    </p>
+                                )}
+                                {heroMatchError && (
+                                    <p style="margin:0;font-size:11px;color:var(--danger);">
+                                        {heroMatchError}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -196,7 +440,9 @@ export function NeedPostingForm({ onClose }: Props) {
                         disabled={!content.trim() || sending || left < 0}
                         class="btn-primary"
                         style="margin-top:14px;width:100%;height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <Send size={13} />

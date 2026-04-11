@@ -12,6 +12,10 @@ export async function fetchLibrary(): Promise<LibraryItem[]> {
     return httpClient<LibraryItem[]>('/library');
 }
 
+export async function fetchMyLibraryItems(): Promise<LibraryItem[]> {
+    return httpClient<LibraryItem[]>('/library/mine');
+}
+
 export async function postLibraryItem(item: {
     type: 'item' | 'skill';
     title: string;

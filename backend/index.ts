@@ -160,6 +160,27 @@ const createPulseSchema = z.strictObject({
         lng: z.number(),
     }),
     requiredSkills: z.array(z.string()).optional(),
+    selectedResources: z.array(z.string()).optional(),
+});
+
+const pulseMatchSchema = z.strictObject({
+    resources: z.array(z.string().trim().min(1)).min(1).max(30),
+    location: z
+        .object({
+            lat: z.number(),
+            lng: z.number(),
+        })
+        .optional(),
+});
+
+const pulseListQuerySchema = z.strictObject({
+    limit: z.coerce.number().optional(),
+    offset: z.coerce.number().optional(),
+});
+
+const resourceCatalogQuerySchema = z.strictObject({
+    q: z.string().trim().optional(),
+    limit: z.coerce.number().optional(),
 });
 
 const createChatSchema = z.strictObject({
@@ -319,6 +340,9 @@ type UpdateUserBody = z.infer<typeof updateUserSchema>;
 type UpdatePassBody = z.infer<typeof updatePassSchema>;
 type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
 type CreatePulseBody = z.infer<typeof createPulseSchema>;
+type PulseMatchBody = z.infer<typeof pulseMatchSchema>;
+type PulseListQuery = z.infer<typeof pulseListQuerySchema>;
+type ResourceCatalogQuery = z.infer<typeof resourceCatalogQuerySchema>;
 type CreateChatBody = z.infer<typeof createChatSchema>;
 type CreateMessageBody = z.infer<typeof createMessageSchema>;
 type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
@@ -864,6 +888,22 @@ bun.serve({
                     )
                 ),
         },
+        '/api/admin/users/:id': {
+            DELETE: async (req) =>
+                validate(req, async () =>
+                    adminAuthorize(req, async () =>
+                        caught(async () => {
+                            const deleted = await db.deleteUser(req.params.id);
+
+                            if (!deleted) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(new Response(null, { status: 204 }));
+                        })
+                    )
+                ),
+        },
         '/api/admin/pulses': {
             GET: async (req) =>
                 validate(req, async () =>
@@ -1015,6 +1055,59 @@ bun.serve({
                     )
                 ),
         },
+        '/api/pulse/resources': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    caught(async () => {
+                        const url = new URL(req.url);
+                        const query = resourceCatalogQuerySchema.parse({
+                            q: url.searchParams.get('q') ?? undefined,
+                            limit: url.searchParams.get('limit') ?? undefined,
+                        });
+
+                        const resources = await db.selectResourceCatalog(
+                            query.q,
+                            query.limit ?? 120
+                        );
+                        return withCors(Response.json({ resources }, { status: 200 }));
+                    })
+                ),
+        },
+        '/api/pulse/match': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const body: PulseMatchBody = await req
+                                .json()
+                                .then((raw) => pulseMatchSchema.parse(raw));
+
+                            let location = body.location;
+                            if (!location) {
+                                const fullUser = await db.selectFullUser(payload.id);
+                                if (!fullUser?.location) {
+                                    return withCors(BAD_REQUEST);
+                                }
+
+                                location = {
+                                    lat: Number(fullUser.location.lat),
+                                    lng: Number(fullUser.location.lng),
+                                };
+                            }
+
+                            const matches = await db.matchHeroesByResources({
+                                authorId: payload.id,
+                                lat: location.lat,
+                                lng: location.lng,
+                                requestedResources: body.resources,
+                            });
+
+                            return withCors(Response.json({ matches }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
         '/api/pulse': {
             GET: async (req) =>
                 validate(req, async () =>
@@ -1057,6 +1150,13 @@ bun.serve({
                                 const pulseType = body.type.toLowerCase() as PulseType;
                                 const urgencyLevel =
                                     body.urgencyLevel ?? DEFAULT_PULSE_URGENCY[pulseType];
+                                const selectedResources = (
+                                    body.selectedResources ??
+                                    body.requiredSkills ??
+                                    []
+                                )
+                                    .map((value) => value.trim())
+                                    .filter((value) => value.length > 0);
 
                                 const createdPulse = await db.insertPulse({
                                     authorId: payload.id,
@@ -1064,7 +1164,7 @@ bun.serve({
                                     urgencyLevel,
                                     content: body.content,
                                     location: body.location,
-                                    requiredSkills: body.requiredSkills ?? [],
+                                    requiredSkills: selectedResources,
                                 });
 
                                 server.publish(
@@ -1076,13 +1176,24 @@ bun.serve({
                                 );
 
                                 // Hero Alerts
-                                const heroes = await db.findHeroesForPulse(createdPulse.id);
-                                for (const heroId of heroes) {
+                                const heroMatches = await db.matchHeroesByResources({
+                                    authorId: payload.id,
+                                    lat: createdPulse.lat,
+                                    lng: createdPulse.lng,
+                                    requestedResources: selectedResources,
+                                });
+
+                                for (const match of heroMatches) {
+                                    if (match.suppressedByQuietHours) {
+                                        continue;
+                                    }
+
                                     server.publish(
-                                        `user-${heroId}`,
+                                        `user-${match.id}`,
                                         JSON.stringify({
                                             event: 'hero.alert',
                                             pulse: createdPulse,
+                                            matchedResources: match.matchedResources,
                                         })
                                     );
                                 }
@@ -1144,6 +1255,119 @@ bun.serve({
                             );
 
                             return withCors(new Response(null, { status: 204 }));
+                        })
+                    )
+                ),
+        },
+        '/api/pulses/me': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const url = new URL(req.url);
+                            const query: PulseListQuery = pulseListQuerySchema.parse({
+                                limit: url.searchParams.get('limit') ?? undefined,
+                                offset: url.searchParams.get('offset') ?? undefined,
+                            });
+
+                            const pulses = await db.selectPulsesByAuthor(
+                                payload.id,
+                                query.limit,
+                                query.offset
+                            );
+
+                            return withCors(Response.json({ pulses }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/pulses/accepted': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const url = new URL(req.url);
+                            const query: PulseListQuery = pulseListQuerySchema.parse({
+                                limit: url.searchParams.get('limit') ?? undefined,
+                                offset: url.searchParams.get('offset') ?? undefined,
+                            });
+
+                            const accepted = await db.selectAcceptedInteractionsForHelper(
+                                payload.id,
+                                query.limit,
+                                query.offset
+                            );
+
+                            return withCors(Response.json({ accepted }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/pulses/:id/accept': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const result = await db.insertPulseInteraction({
+                                pulseId: req.params.id,
+                                helperId: payload.id,
+                            });
+
+                            if (!result.success && result.alreadyAccepted) {
+                                return withCors(
+                                    Response.json({ error: 'Already accepted' }, { status: 409 })
+                                );
+                            }
+
+                            if (!result.success || !result.interaction) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            return withCors(
+                                Response.json({ interaction: result.interaction }, { status: 201 })
+                            );
+                        })
+                    )
+                ),
+        },
+        '/api/pulses/:id/interactions': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const interactions = await db.selectPulseInteractions(
+                                req.params.id,
+                                payload.id
+                            );
+
+                            return withCors(Response.json({ interactions }, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/pulses/:id/interactions/:interactionId/confirm': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const result = await db.confirmPulseInteraction({
+                                pulseId: req.params.id,
+                                interactionId: req.params.interactionId,
+                                authorId: payload.id,
+                            });
+
+                            if (!result.success || !result.interaction) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            return withCors(
+                                Response.json({ interaction: result.interaction }, { status: 200 })
+                            );
                         })
                     )
                 ),
@@ -1764,6 +1988,18 @@ bun.serve({
                             });
 
                             return withCors(Response.json(item, { status: 201 }));
+                        })
+                    )
+                ),
+        },
+        '/api/library/mine': {
+            GET: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const items = await db.selectLibraryItemsByAuthor(payload.id);
+                            return withCors(Response.json(items, { status: 200 }));
                         })
                     )
                 ),

@@ -63,6 +63,47 @@ export interface PulseFeedItem {
     requiredSkills: string[];
 }
 
+export interface HeroMatchUser {
+    id: string;
+    displayName: string | null;
+    matchedResources: string[];
+    suppressedByQuietHours: boolean;
+}
+
+export type InteractionStatus = 'accepted' | 'successful';
+
+export interface PulseInteraction {
+    id: string;
+    pulseId: string;
+    authorId: string;
+    helperId: string;
+    helperName: string;
+    status: InteractionStatus;
+    acceptedAt: number;
+    confirmedAt: number | null;
+    trustAwarded: number;
+}
+
+export interface AuthorPulseRequest extends PulseFeedItem {
+    acceptedCount: number;
+    successfulCount: number;
+}
+
+export interface AcceptedInteraction {
+    interaction: PulseInteraction;
+    pulse: {
+        id: string;
+        content: string;
+        type: PulseType;
+        timestamp: number;
+        urgencyLevel: number;
+    };
+    author: {
+        id: string;
+        name: string;
+    };
+}
+
 export interface Message {
     id: string;
     threadId: string;
@@ -109,6 +150,11 @@ export interface LibraryItem {
     tags: string[];
     available: boolean;
     createdAt: number;
+}
+
+export interface ResourceCatalogEntry {
+    value: string;
+    type: 'item' | 'skill';
 }
 
 interface UpdateLibraryItemParams {
@@ -180,6 +226,41 @@ type PulseRow = {
     urgency_level?: number | string | null;
     type?: string | null;
     required_skills?: string[] | null;
+    accepted_count?: number | string | null;
+    successful_count?: number | string | null;
+};
+
+type HeroCandidateRow = {
+    id: string;
+    display_name?: string | null;
+    quiet_hours?: Timerange[] | null;
+    quiet_days?: number[] | null;
+};
+
+type UserResourceRow = {
+    author_id: string;
+    title: string;
+    tags: string[] | null;
+};
+
+type PulseInteractionRow = {
+    id: string;
+    pulse_id: string;
+    author_id: string;
+    helper_id: string;
+    helper_name?: string | null;
+    status: string;
+    accepted_at: number | string | Date;
+    confirmed_at: number | string | Date | null;
+    trust_awarded?: number | string | null;
+};
+
+type AcceptedInteractionRow = PulseInteractionRow & {
+    pulse_content: string;
+    pulse_type: string;
+    pulse_timestamp: number | string | Date;
+    pulse_urgency_level: number | string | null;
+    author_name?: string | null;
 };
 
 type UserRow = {
@@ -237,6 +318,12 @@ type LibraryItemRow = {
     tags: string[] | null;
     is_available: boolean;
     created_at: Date | string | number;
+};
+
+type LibraryResourceRow = {
+    item_type: string;
+    title: string;
+    tags: string[] | null;
 };
 
 type ChatSummaryRow = {
@@ -307,6 +394,224 @@ function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
         urgencyLevel: Number(rawPulse.urgencyLevel ?? rawPulse.urgency_level ?? 1),
         requiredSkills: rawPulse.required_skills ?? [],
     };
+}
+
+function mapAuthorPulseRow(rawPulse: PulseRow): AuthorPulseRequest {
+    return {
+        ...mapPulseRow(rawPulse),
+        acceptedCount: Number(rawPulse.accepted_count ?? 0),
+        successfulCount: Number(rawPulse.successful_count ?? 0),
+    };
+}
+
+function mapPulseInteractionRow(row: PulseInteractionRow): PulseInteraction {
+    const status: InteractionStatus = row.status === 'successful' ? 'successful' : 'accepted';
+    const helperFallback = `Neighbor ${row.helper_id.slice(0, 6)}`;
+
+    return {
+        id: row.id,
+        pulseId: row.pulse_id,
+        authorId: row.author_id,
+        helperId: row.helper_id,
+        helperName: row.helper_name?.trim() || helperFallback,
+        status,
+        acceptedAt: Number(row.accepted_at),
+        confirmedAt: row.confirmed_at !== null ? Number(row.confirmed_at) : null,
+        trustAwarded: Number(row.trust_awarded ?? 0),
+    };
+}
+
+function mapAcceptedInteractionRow(row: AcceptedInteractionRow): AcceptedInteraction {
+    const interaction = mapPulseInteractionRow(row);
+    const normalizedType = String(row.pulse_type ?? 'update').toLowerCase() as PulseType;
+
+    return {
+        interaction,
+        pulse: {
+            id: row.pulse_id,
+            content: row.pulse_content,
+            type: PULSE_TYPE_VALUES.includes(normalizedType) ? normalizedType : 'update',
+            timestamp: Number(row.pulse_timestamp),
+            urgencyLevel: Number(row.pulse_urgency_level ?? 1),
+        },
+        author: {
+            id: row.author_id,
+            name: row.author_name?.trim() || `Neighbor ${row.author_id.slice(0, 6)}`,
+        },
+    };
+}
+
+const MIN_RESOURCE_TOKEN_LENGTH = 3;
+
+function normalizeResourceText(value: string): string {
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function toResourceTokens(value: string): string[] {
+    const normalized = normalizeResourceText(value);
+    if (!normalized) {
+        return [];
+    }
+
+    const tokens = new Set<string>([normalized]);
+    for (const token of normalized.split(' ')) {
+        if (token.length >= MIN_RESOURCE_TOKEN_LENGTH) {
+            tokens.add(token);
+        }
+    }
+
+    return Array.from(tokens);
+}
+
+function buildResourceTokenSet(values: string[]): Set<string> {
+    const tokens = new Set<string>();
+    for (const value of values) {
+        for (const token of toResourceTokens(value)) {
+            tokens.add(token);
+        }
+    }
+    return tokens;
+}
+
+function normalizeQuietDays(days: Array<number | string> | null | undefined): number[] {
+    return Array.from(
+        new Set(
+            (days ?? [])
+                .map((day) => Number(day))
+                .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+        )
+    );
+}
+
+function parseClockMinutes(clock: string | undefined): number | null {
+    if (!clock) {
+        return null;
+    }
+
+    const match = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(clock.trim());
+    if (!match) {
+        return null;
+    }
+
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+
+    if (Number.isNaN(hour) || Number.isNaN(minute) || minute < 0 || minute > 59) {
+        return null;
+    }
+
+    if (hour === 24 && minute === 0) {
+        return 24 * 60;
+    }
+
+    if (hour < 0 || hour > 23) {
+        return null;
+    }
+
+    return hour * 60 + minute;
+}
+
+function isMinuteWithinRange(minute: number, start: number, end: number): boolean {
+    if (start === end) {
+        return true;
+    }
+
+    if (start < end) {
+        return minute >= start && minute < end;
+    }
+
+    return minute >= start || minute < end;
+}
+
+function isWithinQuietHours(
+    quietHours: Array<{ start?: string; end?: string }> | null | undefined,
+    now: Date = new Date()
+): boolean {
+    if (!quietHours || quietHours.length === 0) {
+        return false;
+    }
+
+    const minute = now.getHours() * 60 + now.getMinutes();
+
+    for (const range of quietHours) {
+        const start = parseClockMinutes(range.start);
+        const end = parseClockMinutes(range.end);
+        if (start === null || end === null) {
+            continue;
+        }
+        if (isMinuteWithinRange(minute, start, end)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isSuppressedByQuietWindow(
+    quietDays: Array<number | string> | null | undefined,
+    quietHours: Array<{ start?: string; end?: string }> | null | undefined,
+    now: Date = new Date()
+): boolean {
+    const day = now.getDay();
+    if (normalizeQuietDays(quietDays).includes(day)) {
+        return true;
+    }
+
+    return isWithinQuietHours(quietHours, now);
+}
+
+function tokensMatch(needle: string, candidate: string): boolean {
+    if (!needle || !candidate) {
+        return false;
+    }
+
+    if (needle === candidate) {
+        return true;
+    }
+
+    if (needle.length >= MIN_RESOURCE_TOKEN_LENGTH && candidate.includes(needle)) {
+        return true;
+    }
+
+    if (candidate.length >= MIN_RESOURCE_TOKEN_LENGTH && needle.includes(candidate)) {
+        return true;
+    }
+
+    return false;
+}
+
+function findMatchedRequestedResources(
+    requestedResources: string[],
+    userResourceTokens: Set<string>
+): string[] {
+    if (requestedResources.length === 0 || userResourceTokens.size === 0) {
+        return [];
+    }
+
+    const matched = new Set<string>();
+    const candidateTokens = Array.from(userResourceTokens);
+
+    for (const requestedResource of requestedResources) {
+        const normalizedRequested = normalizeResourceText(requestedResource);
+        if (!normalizedRequested) {
+            continue;
+        }
+
+        const requestedTokens = toResourceTokens(requestedResource);
+        const hasMatch = requestedTokens.some((requestedToken) =>
+            candidateTokens.some((candidateToken) => tokensMatch(requestedToken, candidateToken))
+        );
+
+        if (hasMatch) {
+            matched.add(normalizedRequested);
+        }
+    }
+
+    return Array.from(matched);
 }
 
 function mapMessageRow(rawMessage: MessageRow): Message {
@@ -406,6 +711,44 @@ async function ensureSchema() {
                 )
             `;
         }
+
+        // Check pulse_interactions table
+        const interactionsTable = await tx`
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'pulse_interactions'
+            LIMIT 1
+        `;
+        if (interactionsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.pulse_interactions (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    pulse_id uuid NOT NULL REFERENCES app.pulses(id) ON DELETE CASCADE,
+                    author_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    helper_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    status text NOT NULL DEFAULT 'accepted',
+                    accepted_at timestamptz NOT NULL DEFAULT now(),
+                    confirmed_at timestamptz,
+                    trust_awarded integer NOT NULL DEFAULT 0,
+                    CONSTRAINT pulse_interactions_unique_accept UNIQUE (pulse_id, helper_id),
+                    CONSTRAINT pulse_interactions_status_check CHECK (status IN ('accepted', 'successful'))
+                )
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS pulse_interactions_author_id_idx
+            ON app.pulse_interactions (author_id)
+        `;
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS pulse_interactions_helper_id_idx
+            ON app.pulse_interactions (helper_id)
+        `;
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS pulse_interactions_pulse_id_idx
+            ON app.pulse_interactions (pulse_id)
+        `;
 
         // Check app.messages.message_type
         const messageTypeCol = await tx`
@@ -528,6 +871,48 @@ export async function selectPulseById(id: string): Promise<PulseFeedItem | null>
     return pulse ? mapPulseRow(pulse) : null;
 }
 
+export async function selectPulsesByAuthor(
+    authorId: string,
+    limit = 50,
+    offset = 0
+): Promise<AuthorPulseRequest[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+
+    const pulses = (await sql`
+        SELECT
+            pulses.id,
+            pulses.author_id AS "userId",
+            COALESCE(NULLIF(users.display_name, ''), pulses.author_id::text) AS "userName",
+            LOWER(pulses.pulse_type) AS type,
+            pulses.content,
+            ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
+            ST_Y(pulses.location::geometry) AS lat,
+            ST_X(pulses.location::geometry) AS lng,
+            COALESCE(pulses.is_verified_info, false) AS verified,
+            COALESCE(pulses.confirmation_count, 0) AS confirmations,
+            COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+            COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills",
+            COALESCE(interactions.accepted_count, 0) AS accepted_count,
+            COALESCE(interactions.successful_count, 0) AS successful_count
+        FROM app.pulses AS pulses
+        LEFT JOIN app.users AS users ON users.id = pulses.author_id
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(*)::int AS accepted_count,
+                COUNT(*) FILTER (WHERE status = 'successful')::int AS successful_count
+            FROM app.pulse_interactions
+            WHERE pulse_id = pulses.id
+        ) AS interactions ON true
+        WHERE pulses.author_id = ${authorId}::uuid
+        ORDER BY pulses.created_at DESC, pulses.id DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as PulseRow[];
+
+    return pulses.map((pulse) => mapAuthorPulseRow(pulse));
+}
+
 export async function selectChats(userId: string): Promise<{ chatId: string }[]> {
     const chats = await sql`
         SELECT thread_id AS "chatId"
@@ -593,7 +978,10 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
     }));
 }
 
-export async function selectChatSummary(chatId: string, userId: string): Promise<ChatSummary | null> {
+export async function selectChatSummary(
+    chatId: string,
+    userId: string
+): Promise<ChatSummary | null> {
     const [chat] = (await sql.begin(async (tx) => {
         await ensureSchema();
 
@@ -1068,6 +1456,128 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     return (await selectPulseById(insertedPulse.id))!;
 }
 
+export async function selectPulseMatchingResources(pulseId: string): Promise<string[]> {
+    const [row] = (await sql`
+        SELECT required_skills
+        FROM app.pulses
+        WHERE id = ${pulseId}::uuid
+        LIMIT 1
+    `) as Array<{ required_skills: string[] | null }>;
+
+    return (row?.required_skills ?? []).filter((value) => value.trim().length > 0);
+}
+
+async function selectUserResourceRows(userIds: string[]): Promise<UserResourceRow[]> {
+    if (userIds.length === 0) {
+        return [];
+    }
+
+    const csvUserIds = userIds.join(',');
+    return (await sql`
+        SELECT
+            li.author_id::text AS author_id,
+            li.title,
+            COALESCE(li.tags, '[]'::jsonb) AS tags
+        FROM app.library_items AS li
+        WHERE li.is_available = true
+          AND li.author_id = ANY(string_to_array(${csvUserIds}, ',')::uuid[])
+    `) as UserResourceRow[];
+}
+
+export async function matchHeroesByResources(params: {
+    authorId: string;
+    lat: number;
+    lng: number;
+    requestedResources: string[];
+}): Promise<HeroMatchUser[]> {
+    const requestedResources = params.requestedResources
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+    if (requestedResources.length === 0) {
+        return [];
+    }
+
+    const candidates = (await sql`
+        SELECT
+            u.id::text AS id,
+            NULLIF(u.display_name, '') AS display_name,
+            COALESCE(
+                (
+                    SELECT jsonb_agg(
+                        jsonb_build_object(
+                            'start', lower(rng)::text,
+                            'end', upper(rng)::text
+                        )
+                    )
+                    FROM unnest(u.quiet_hours) AS rng
+                ),
+                '[]'::jsonb
+            ) AS quiet_hours,
+            COALESCE(to_jsonb(u.quiet_days), '[]'::jsonb) AS quiet_days
+        FROM app.users AS u
+        WHERE u.id != ${params.authorId}::uuid
+          AND u.location IS NOT NULL
+          AND u.distance_limit_meters IS NOT NULL
+          AND ST_DWithin(
+              u.location,
+              ST_SetSRID(ST_MakePoint(${params.lng}, ${params.lat}), 4326)::geography,
+              u.distance_limit_meters
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM app.blocked_users bu
+              WHERE (bu.blocker_id = u.id AND bu.blocked_id = ${params.authorId}::uuid)
+                 OR (bu.blocker_id = ${params.authorId}::uuid AND bu.blocked_id = u.id)
+          )
+    `) as HeroCandidateRow[];
+
+    if (candidates.length === 0) {
+        return [];
+    }
+
+    const resourceRows = await selectUserResourceRows(candidates.map((candidate) => candidate.id));
+    const resourcesByUser = new Map<string, string[]>();
+
+    for (const row of resourceRows) {
+        const current = resourcesByUser.get(row.author_id) ?? [];
+        current.push(row.title);
+        for (const tag of row.tags ?? []) {
+            current.push(tag);
+        }
+        resourcesByUser.set(row.author_id, current);
+    }
+
+    const results: HeroMatchUser[] = [];
+    const now = new Date();
+
+    for (const candidate of candidates) {
+        const candidateResources = resourcesByUser.get(candidate.id) ?? [];
+        const candidateTokenSet = buildResourceTokenSet(candidateResources);
+        const matchedResources = findMatchedRequestedResources(
+            requestedResources,
+            candidateTokenSet
+        );
+
+        if (matchedResources.length === 0) {
+            continue;
+        }
+
+        results.push({
+            id: candidate.id,
+            displayName: candidate.display_name?.trim() || null,
+            matchedResources,
+            suppressedByQuietHours: isSuppressedByQuietWindow(
+                candidate.quiet_days,
+                candidate.quiet_hours,
+                now
+            ),
+        });
+    }
+
+    return results;
+}
+
 export async function deletePulse(id: string): Promise<boolean> {
     const [deletedPulse] = await sql`
         DELETE FROM app.pulses
@@ -1093,25 +1603,14 @@ export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
         return [];
     }
 
-    const heroes = (await sql`
-        SELECT u.id::text
-        FROM app.users u
-        WHERE u.id != ${pulse.author_id}::uuid
-          AND u.location IS NOT NULL
-          AND u.distance_limit_meters IS NOT NULL
-          AND ST_DWithin(
-            u.location,
-            ST_SetSRID(ST_MakePoint(${pulse.lng}, ${pulse.lat}), 4326)::geography,
-            u.distance_limit_meters
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM app.blocked_users bu
-            WHERE (bu.blocker_id = u.id AND bu.blocked_id = ${pulse.author_id}::uuid)
-               OR (bu.blocker_id = ${pulse.author_id}::uuid AND bu.blocked_id = u.id)
-          )
-    `) as { id: string }[];
+    const matches = await matchHeroesByResources({
+        authorId: pulse.author_id,
+        lat: pulse.lat,
+        lng: pulse.lng,
+        requestedResources: pulse.required_skills,
+    });
 
-    return heroes.map((h) => h.id);
+    return matches.filter((match) => !match.suppressedByQuietHours).map((match) => match.id);
 }
 
 export async function insertUser(email: string, hashedPass: string, displayname: string) {
@@ -1413,10 +1912,13 @@ export async function updateUserProfile(user: User) {
 }
 
 export async function deleteUser(id: string) {
-    return await sql`
+    const [deleted] = await sql`
         DELETE FROM app.users 
         WHERE id = ${id}
+        RETURNING id
     `;
+
+    return Boolean(deleted);
 }
 
 export async function deleteUsers(deleterID: string, userSearch: UserSearchParams) {
@@ -1495,6 +1997,27 @@ export async function selectLibraryItems(
     return rows.map(mapLibraryItemRow);
 }
 
+export async function selectLibraryItemsByAuthor(authorId: string): Promise<LibraryItem[]> {
+    const rows = (await sql`
+        SELECT
+            li.id,
+            li.author_id,
+            COALESCE(u.display_name, li.author_id::text) AS "userName",
+            li.item_type,
+            li.title,
+            li.description,
+            li.tags,
+            li.is_available,
+            ROUND(EXTRACT(EPOCH FROM li.created_at) * 1000)::bigint AS created_at
+        FROM app.library_items li
+        JOIN app.users u ON u.id = li.author_id
+        WHERE li.author_id = ${authorId}::uuid
+        ORDER BY li.created_at DESC, li.id DESC
+    `) as LibraryItemRow[];
+
+    return rows.map(mapLibraryItemRow);
+}
+
 export async function selectAdminLibraryItems(limit = 50, offset = 0): Promise<LibraryItem[]> {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
     const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
@@ -1518,6 +2041,68 @@ export async function selectAdminLibraryItems(limit = 50, offset = 0): Promise<L
     `) as LibraryItemRow[];
 
     return rows.map(mapLibraryItemRow);
+}
+
+export async function selectResourceCatalog(
+    search?: string,
+    limit = 120
+): Promise<ResourceCatalogEntry[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 300)) : 120;
+    const query = search?.trim() ? `%${search.trim().toLowerCase()}%` : null;
+
+    const rows = (await sql`
+        SELECT
+            li.item_type,
+            li.title,
+            li.tags
+        FROM app.library_items AS li
+        WHERE li.is_available = true
+          AND (
+              ${query}::text IS NULL
+              OR LOWER(li.title) LIKE ${query}
+              OR EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements_text(COALESCE(li.tags, '[]'::jsonb)) AS tag
+                  WHERE LOWER(tag) LIKE ${query}
+              )
+          )
+        ORDER BY li.created_at DESC, li.id DESC
+        LIMIT ${safeLimit}
+    `) as LibraryResourceRow[];
+
+    const seen = new Set<string>();
+    const resources: ResourceCatalogEntry[] = [];
+
+    const pushValue = (value: string, type: 'item' | 'skill') => {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return;
+        }
+
+        const normalized = normalizeResourceText(trimmed);
+        if (!normalized) {
+            return;
+        }
+
+        const key = `${type}:${normalized}`;
+        if (seen.has(key)) {
+            return;
+        }
+
+        seen.add(key);
+        resources.push({ value: trimmed, type });
+    };
+
+    for (const row of rows) {
+        const type: 'item' | 'skill' = row.item_type === 'skill' ? 'skill' : 'item';
+        pushValue(row.title, type);
+
+        for (const tag of row.tags ?? []) {
+            pushValue(tag, type);
+        }
+    }
+
+    return resources.slice(0, safeLimit);
 }
 
 export async function insertLibraryItem(params: {
@@ -1681,6 +2266,239 @@ export async function confirmPulse(
 
         return { success: true, alreadyConfirmed: false };
     });
+}
+
+export async function insertPulseInteraction(params: {
+    pulseId: string;
+    helperId: string;
+}): Promise<{ success: boolean; alreadyAccepted: boolean; interaction?: PulseInteraction }> {
+    return await sql.begin(async (tx) => {
+        await ensureSchema();
+
+        const [pulse] = (await tx`
+            SELECT id, author_id
+            FROM app.pulses
+            WHERE id = ${params.pulseId}::uuid
+            LIMIT 1
+        `) as Array<{ id: string; author_id: string }>;
+
+        if (!pulse) {
+            return { success: false, alreadyAccepted: false };
+        }
+
+        if (pulse.author_id === params.helperId) {
+            return { success: false, alreadyAccepted: false };
+        }
+
+        const [existing] = (await tx`
+            SELECT id
+            FROM app.pulse_interactions
+            WHERE pulse_id = ${params.pulseId}::uuid
+              AND helper_id = ${params.helperId}::uuid
+            LIMIT 1
+        `) as Array<{ id: string }>;
+
+        if (existing) {
+            return { success: false, alreadyAccepted: true };
+        }
+
+        const [inserted] = (await tx`
+            INSERT INTO app.pulse_interactions (pulse_id, author_id, helper_id)
+            VALUES (${params.pulseId}::uuid, ${pulse.author_id}::uuid, ${params.helperId}::uuid)
+            RETURNING
+                id::text AS id,
+                pulse_id::text AS pulse_id,
+                author_id::text AS author_id,
+                helper_id::text AS helper_id,
+                'accepted'::text AS status,
+                ROUND(EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at,
+                NULL::bigint AS confirmed_at,
+                trust_awarded
+        `) as PulseInteractionRow[];
+
+        if (!inserted) {
+            return { success: false, alreadyAccepted: false };
+        }
+
+        const [helper] = (await tx`
+            SELECT NULLIF(display_name, '') AS display_name
+            FROM app.users
+            WHERE id = ${params.helperId}::uuid
+            LIMIT 1
+        `) as Array<{ display_name: string | null }>;
+
+        const mappedInteraction = mapPulseInteractionRow({
+            ...inserted,
+            helper_name: helper?.display_name ?? null,
+        });
+
+        return { success: true, alreadyAccepted: false, interaction: mappedInteraction };
+    });
+}
+
+export async function selectPulseInteractions(
+    pulseId: string,
+    authorId: string
+): Promise<PulseInteraction[]> {
+    const rows = (await sql`
+        SELECT
+            pi.id::text AS id,
+            pi.pulse_id::text AS pulse_id,
+            pi.author_id::text AS author_id,
+            pi.helper_id::text AS helper_id,
+            NULLIF(helper.display_name, '') AS helper_name,
+            pi.status,
+            ROUND(EXTRACT(EPOCH FROM pi.accepted_at) * 1000)::bigint AS accepted_at,
+            CASE
+                WHEN pi.confirmed_at IS NULL THEN NULL
+                ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
+            END AS confirmed_at,
+            pi.trust_awarded
+        FROM app.pulse_interactions AS pi
+        LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
+        WHERE pi.pulse_id = ${pulseId}::uuid
+          AND pi.author_id = ${authorId}::uuid
+        ORDER BY pi.accepted_at ASC, pi.id ASC
+    `) as PulseInteractionRow[];
+
+    return rows.map((row) => mapPulseInteractionRow(row));
+}
+
+function trustAwardForUrgency(urgencyLevel: number): number {
+    if (urgencyLevel >= 5) {
+        return 5;
+    }
+    if (urgencyLevel >= 4) {
+        return 4;
+    }
+    if (urgencyLevel >= 3) {
+        return 3;
+    }
+    if (urgencyLevel >= 2) {
+        return 2;
+    }
+    return 1;
+}
+
+export async function confirmPulseInteraction(params: {
+    pulseId: string;
+    interactionId: string;
+    authorId: string;
+}): Promise<{ success: boolean; interaction?: PulseInteraction }> {
+    return await sql.begin(async (tx) => {
+        await ensureSchema();
+
+        const [interaction] = (await tx`
+            SELECT
+                pi.id::text AS id,
+                pi.pulse_id::text AS pulse_id,
+                pi.author_id::text AS author_id,
+                pi.helper_id::text AS helper_id,
+                NULLIF(helper.display_name, '') AS helper_name,
+                pi.status,
+                ROUND(EXTRACT(EPOCH FROM pi.accepted_at) * 1000)::bigint AS accepted_at,
+                CASE
+                    WHEN pi.confirmed_at IS NULL THEN NULL
+                    ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
+                END AS confirmed_at,
+                pi.trust_awarded,
+                COALESCE(p.urgency_level, 1) AS pulse_urgency_level
+            FROM app.pulse_interactions AS pi
+            JOIN app.pulses AS p ON p.id = pi.pulse_id
+            LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
+            WHERE pi.id = ${params.interactionId}::uuid
+              AND pi.pulse_id = ${params.pulseId}::uuid
+              AND pi.author_id = ${params.authorId}::uuid
+            LIMIT 1
+        `) as Array<PulseInteractionRow & { pulse_urgency_level: number | string | null }>;
+
+        if (!interaction) {
+            return { success: false };
+        }
+
+        if (interaction.status === 'successful') {
+            return { success: true, interaction: mapPulseInteractionRow(interaction) };
+        }
+
+        const trustAward = trustAwardForUrgency(Number(interaction.pulse_urgency_level ?? 1));
+
+        const [updated] = (await tx`
+            UPDATE app.pulse_interactions
+            SET
+                status = 'successful',
+                confirmed_at = now(),
+                trust_awarded = ${trustAward}
+            WHERE id = ${params.interactionId}::uuid
+              AND pulse_id = ${params.pulseId}::uuid
+              AND author_id = ${params.authorId}::uuid
+            RETURNING
+                id::text AS id,
+                pulse_id::text AS pulse_id,
+                author_id::text AS author_id,
+                helper_id::text AS helper_id,
+                status,
+                ROUND(EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at,
+                ROUND(EXTRACT(EPOCH FROM confirmed_at) * 1000)::bigint AS confirmed_at,
+                trust_awarded
+        `) as PulseInteractionRow[];
+
+        if (!updated) {
+            return { success: false };
+        }
+
+        await tx`
+            UPDATE app.users
+            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
+            WHERE id = ${updated.helper_id}::uuid
+        `;
+
+        const mappedInteraction = mapPulseInteractionRow({
+            ...updated,
+            helper_name: interaction.helper_name ?? null,
+        });
+
+        return { success: true, interaction: mappedInteraction };
+    });
+}
+
+export async function selectAcceptedInteractionsForHelper(
+    helperId: string,
+    limit = 50,
+    offset = 0
+): Promise<AcceptedInteraction[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+
+    const rows = (await sql`
+        SELECT
+            pi.id::text AS id,
+            pi.pulse_id::text AS pulse_id,
+            pi.author_id::text AS author_id,
+            pi.helper_id::text AS helper_id,
+            NULLIF(helper.display_name, '') AS helper_name,
+            pi.status,
+            ROUND(EXTRACT(EPOCH FROM pi.accepted_at) * 1000)::bigint AS accepted_at,
+            CASE
+                WHEN pi.confirmed_at IS NULL THEN NULL
+                ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
+            END AS confirmed_at,
+            pi.trust_awarded,
+            p.content AS pulse_content,
+            LOWER(p.pulse_type) AS pulse_type,
+            ROUND(EXTRACT(EPOCH FROM p.created_at) * 1000)::bigint AS pulse_timestamp,
+            COALESCE(p.urgency_level, 1) AS pulse_urgency_level,
+            COALESCE(NULLIF(author.display_name, ''), pi.author_id::text) AS author_name
+        FROM app.pulse_interactions AS pi
+        JOIN app.pulses AS p ON p.id = pi.pulse_id
+        LEFT JOIN app.users AS author ON author.id = pi.author_id
+        LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
+        WHERE pi.helper_id = ${helperId}::uuid
+        ORDER BY pi.accepted_at DESC, pi.id DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as AcceptedInteractionRow[];
+
+    return rows.map((row) => mapAcceptedInteractionRow(row));
 }
 
 export async function insertReport(params: {

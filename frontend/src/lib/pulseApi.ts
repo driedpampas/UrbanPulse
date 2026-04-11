@@ -1,6 +1,13 @@
 import { API_BASE_URL, PULSE_FEED_WS_URL } from './api';
 import { readStoredAuthSession } from './auth';
-import type { Pulse } from './types';
+import type {
+    AcceptedInteraction,
+    AuthorPulseRequest,
+    HeroMatchUser,
+    Pulse,
+    PulseInteraction,
+    ResourceCatalogEntry,
+} from './types';
 
 type BackendPulse = {
     id: string;
@@ -26,12 +33,56 @@ type CreatePulseInput = {
     requiredSkills?: string[];
 };
 
+type BackendResourceCatalogEntry = {
+    value: string;
+    type: 'item' | 'skill';
+};
+
+type BackendHeroMatchUser = {
+    id: string;
+    displayName: string | null;
+    matchedResources?: string[];
+    suppressedByQuietHours?: boolean;
+};
+
+type BackendPulseInteraction = {
+    id: string;
+    pulseId: string;
+    authorId: string;
+    helperId: string;
+    helperName: string;
+    status: 'accepted' | 'successful';
+    acceptedAt: number | string;
+    confirmedAt: number | string | null;
+    trustAwarded: number | string;
+};
+
+type BackendAuthorPulseRequest = BackendPulse & {
+    acceptedCount: number | string;
+    successfulCount: number | string;
+};
+
+type BackendAcceptedInteraction = {
+    interaction: BackendPulseInteraction;
+    pulse: {
+        id: string;
+        content: string;
+        type: Pulse['type'];
+        timestamp: number | string;
+        urgencyLevel: number | string;
+    };
+    author: {
+        id: string;
+        name: string;
+    };
+};
+
 type PulseSocketHandler = (event: PulseSocketEvent) => void;
 
 export type PulseSocketEvent =
     | { event: 'pulse.created'; pulse: Pulse }
     | { event: 'pulse.deleted'; pulseId: string }
-    | { event: 'hero.alert'; pulse: Pulse };
+    | { event: 'hero.alert'; pulse: Pulse; matchedResources?: string[] };
 
 const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
     need: 4,
@@ -94,6 +145,60 @@ function mapBackendPulse(pulse: BackendPulse): Pulse {
         verified: Boolean(pulse.verified),
         confirmations: Number(pulse.confirmations ?? 0),
         requiredSkills: pulse.requiredSkills ?? [],
+    };
+}
+
+function mapBackendResource(entry: BackendResourceCatalogEntry): ResourceCatalogEntry {
+    return {
+        value: entry.value,
+        type: entry.type,
+    };
+}
+
+function mapBackendHeroMatch(user: BackendHeroMatchUser): HeroMatchUser {
+    return {
+        id: user.id,
+        displayName: user.displayName,
+        matchedResources: user.matchedResources ?? [],
+        suppressedByQuietHours: Boolean(user.suppressedByQuietHours),
+    };
+}
+
+function mapBackendPulseInteraction(interaction: BackendPulseInteraction): PulseInteraction {
+    return {
+        id: interaction.id,
+        pulseId: interaction.pulseId,
+        authorId: interaction.authorId,
+        helperId: interaction.helperId,
+        helperName: interaction.helperName,
+        status: interaction.status,
+        acceptedAt: Number(interaction.acceptedAt),
+        confirmedAt: interaction.confirmedAt === null ? null : Number(interaction.confirmedAt),
+        trustAwarded: Number(interaction.trustAwarded),
+    };
+}
+
+function mapBackendAuthorPulseRequest(pulse: BackendAuthorPulseRequest): AuthorPulseRequest {
+    return {
+        ...mapBackendPulse(pulse),
+        acceptedCount: Number(pulse.acceptedCount ?? 0),
+        successfulCount: Number(pulse.successfulCount ?? 0),
+    };
+}
+
+function mapBackendAcceptedInteraction(
+    acceptedInteraction: BackendAcceptedInteraction
+): AcceptedInteraction {
+    return {
+        interaction: mapBackendPulseInteraction(acceptedInteraction.interaction),
+        pulse: {
+            id: acceptedInteraction.pulse.id,
+            content: acceptedInteraction.pulse.content,
+            type: normalizePulseType(acceptedInteraction.pulse.type),
+            timestamp: Number(acceptedInteraction.pulse.timestamp),
+            urgencyLevel: Number(acceptedInteraction.pulse.urgencyLevel),
+        },
+        author: acceptedInteraction.author,
     };
 }
 
@@ -160,7 +265,12 @@ function dispatchPulseEvent(event: PulseSocketEvent) {
 function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
     try {
         const parsed = JSON.parse(rawMessage) as
-            | { event?: string; pulse?: BackendPulse; pulseId?: string }
+            | {
+                  event?: string;
+                  pulse?: BackendPulse;
+                  pulseId?: string;
+                  matchedResources?: string[];
+              }
             | BackendPulse;
 
         if (
@@ -203,7 +313,13 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
             parsed.event === 'hero.alert' &&
             parsed.pulse
         ) {
-            return { event: 'hero.alert', pulse: mapBackendPulse(parsed.pulse) };
+            return {
+                event: 'hero.alert',
+                pulse: mapBackendPulse(parsed.pulse),
+                matchedResources: Array.isArray(parsed.matchedResources)
+                    ? parsed.matchedResources
+                    : undefined,
+            };
         }
     } catch {
         return null;
@@ -309,6 +425,7 @@ export async function postPulse(input: CreatePulseInput): Promise<Pulse> {
             lng: input.lng,
         },
         requiredSkills: input.requiredSkills ?? [],
+        selectedResources: input.requiredSkills ?? [],
     };
 
     const response = await request<BackendPulse>('/pulse', {
@@ -353,6 +470,117 @@ export async function deleteAdminPulse(id: string): Promise<void> {
 
 export async function confirmPulse(id: string): Promise<void> {
     await request<void>(`/pulses/${id}/confirm`, { method: 'POST' });
+}
+
+export async function fetchPulseResourceCatalog(
+    search?: string,
+    limit = 120
+): Promise<ResourceCatalogEntry[]> {
+    const params = new URLSearchParams();
+
+    if (search?.trim()) {
+        params.set('q', search.trim());
+    }
+    if (Number.isFinite(limit)) {
+        params.set('limit', String(limit));
+    }
+
+    const query = params.toString();
+    const data = await request<{ resources: BackendResourceCatalogEntry[] }>(
+        `/pulse/resources${query ? `?${query}` : ''}`,
+        {
+            method: 'GET',
+        }
+    );
+
+    return data.resources.map(mapBackendResource);
+}
+
+export async function matchPulseHeroes(
+    resources: string[],
+    location?: { lat: number; lng: number }
+): Promise<HeroMatchUser[]> {
+    const payload: {
+        resources: string[];
+        location?: { lat: number; lng: number };
+    } = {
+        resources,
+    };
+
+    if (location) {
+        payload.location = location;
+    }
+
+    const data = await request<{ matches: BackendHeroMatchUser[] }>('/pulse/match', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    return data.matches.map(mapBackendHeroMatch);
+}
+
+export async function acceptPulseRequest(pulseId: string): Promise<PulseInteraction> {
+    const data = await request<{ interaction: BackendPulseInteraction }>(
+        `/pulses/${pulseId}/accept`,
+        {
+            method: 'POST',
+        }
+    );
+
+    return mapBackendPulseInteraction(data.interaction);
+}
+
+export async function fetchMyPostedPulses(limit = 50, offset = 0): Promise<AuthorPulseRequest[]> {
+    const data = await request<{ pulses: BackendAuthorPulseRequest[] }>(
+        `/pulses/me?limit=${limit}&offset=${offset}`,
+        {
+            method: 'GET',
+        }
+    );
+
+    return data.pulses.map(mapBackendAuthorPulseRequest);
+}
+
+export async function fetchPulseInteractions(pulseId: string): Promise<PulseInteraction[]> {
+    const data = await request<{ interactions: BackendPulseInteraction[] }>(
+        `/pulses/${pulseId}/interactions`,
+        {
+            method: 'GET',
+        }
+    );
+
+    return data.interactions.map(mapBackendPulseInteraction);
+}
+
+export async function confirmPulseInteraction(
+    pulseId: string,
+    interactionId: string
+): Promise<PulseInteraction> {
+    const data = await request<{ interaction: BackendPulseInteraction }>(
+        `/pulses/${pulseId}/interactions/${interactionId}/confirm`,
+        {
+            method: 'POST',
+        }
+    );
+
+    return mapBackendPulseInteraction(data.interaction);
+}
+
+export async function fetchAcceptedPulseInteractions(
+    limit = 50,
+    offset = 0
+): Promise<AcceptedInteraction[]> {
+    const data = await request<{ accepted: BackendAcceptedInteraction[] }>(
+        `/pulses/accepted?limit=${limit}&offset=${offset}`,
+        {
+            method: 'GET',
+        }
+    );
+
+    return data.accepted.map(mapBackendAcceptedInteraction);
 }
 
 export function connectWebSocket(handler: PulseSocketHandler) {

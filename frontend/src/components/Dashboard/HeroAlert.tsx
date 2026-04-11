@@ -1,10 +1,12 @@
-import { Bell, ShieldAlert, X } from 'lucide-preact';
+import { Bell, CheckCircle, ShieldAlert, X } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
-import { connectWebSocket, disconnectWebSocket } from '../../lib/pulseApi';
+import { acceptPulseRequest, connectWebSocket, disconnectWebSocket } from '../../lib/pulseApi';
 import type { Pulse } from '../../lib/types';
 
 export function HeroAlert() {
     const [activeAlert, setActiveAlert] = useState<Pulse | null>(null);
+    const [matchedResources, setMatchedResources] = useState<string[]>([]);
+    const [accepting, setAccepting] = useState(false);
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
@@ -13,6 +15,9 @@ export function HeroAlert() {
         const handleEvent = (event: any) => {
             if (event.event === 'hero.alert') {
                 setActiveAlert(event.pulse);
+                setMatchedResources(
+                    Array.isArray(event.matchedResources) ? event.matchedResources : []
+                );
 
                 // System notification if permitted
                 if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -25,6 +30,7 @@ export function HeroAlert() {
                 // Auto-hide after 15 seconds
                 setTimeout(() => {
                     setActiveAlert((curr) => (curr?.id === event.pulse.id ? null : curr));
+                    setMatchedResources((curr) => (curr.length > 0 ? [] : curr));
                 }, 15000);
             }
         };
@@ -37,6 +43,28 @@ export function HeroAlert() {
         if (typeof Notification === 'undefined') return;
         const result = await Notification.requestPermission();
         setPermissionStatus(result);
+    };
+
+    const handleAcceptRequest = async () => {
+        if (!activeAlert || accepting) {
+            return;
+        }
+
+        setAccepting(true);
+        try {
+            await acceptPulseRequest(activeAlert.id);
+            setActiveAlert(null);
+            setMatchedResources([]);
+        } catch (error) {
+            if (error instanceof Error && error.message === 'Already accepted') {
+                setActiveAlert(null);
+                setMatchedResources([]);
+            } else {
+                alert(error instanceof Error ? error.message : 'Could not accept request.');
+            }
+        } finally {
+            setAccepting(false);
+        }
     };
 
     if (!activeAlert) {
@@ -56,7 +84,9 @@ export function HeroAlert() {
                         onClick={requestNotificationPermission}
                         class="btn-primary"
                         style="height:32px;padding:0 12px;font-size:11px;background:var(--accent);"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Enable
@@ -92,7 +122,9 @@ export function HeroAlert() {
                         type="button"
                         onClick={() => setActiveAlert(null)}
                         style="background:rgba(0,0,0,0.1);border:none;color:var(--text);padding:4px;border-radius:50%;cursor:pointer;display:flex;"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
@@ -119,7 +151,10 @@ export function HeroAlert() {
                 </div>
 
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-                    {activeAlert.requiredSkills?.map((skill) => (
+                    {(matchedResources.length > 0
+                        ? matchedResources
+                        : (activeAlert.requiredSkills ?? [])
+                    ).map((skill) => (
                         <span
                             key={skill}
                             style="background:var(--accent);color:white;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;"
@@ -132,13 +167,17 @@ export function HeroAlert() {
                 <div style="display:flex;gap:12px;">
                     <button
                         type="button"
-                        onClick={() => setActiveAlert(null)}
+                        onClick={handleAcceptRequest}
+                        disabled={accepting}
                         class="btn-primary"
                         style="flex:1;height:42px;background:var(--accent);border-radius:10px;font-weight:700;box-shadow:0 4px 15px var(--accent-muted);"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
-                        I can help!
+                        <CheckCircle size={14} />
+                        {accepting ? 'Accepting...' : 'Accept Request'}
                     </button>
                 </div>
             </div>

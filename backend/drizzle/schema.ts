@@ -217,6 +217,34 @@ export const pulseConfirmations = app.table(
     (table) => [primaryKey({ columns: [table.pulseId, table.userId] })]
 );
 
+export const pulseInteractions = app.table(
+    'pulse_interactions',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        pulseId: uuid('pulse_id')
+            .notNull()
+            .references(() => pulses.id, { onDelete: 'cascade' }),
+        authorId: uuid('author_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        helperId: uuid('helper_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        status: text('status').notNull().default('accepted'),
+        acceptedAt: timestamp('accepted_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+        confirmedAt: timestamp('confirmed_at', { withTimezone: true, mode: 'date' }),
+        trustAwarded: integer('trust_awarded').notNull().default(0),
+    },
+    (table) => [
+        uniqueIndex('pulse_interactions_unique_accept').on(table.pulseId, table.helperId),
+        index('pulse_interactions_author_id_idx').on(table.authorId),
+        index('pulse_interactions_helper_id_idx').on(table.helperId),
+        index('pulse_interactions_pulse_id_idx').on(table.pulseId),
+    ]
+);
+
 export const reports = app.table(
     'reports',
     {
@@ -248,3 +276,4 @@ export type ChatThread = typeof chatThreads.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type LibraryItem = typeof libraryItems.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type PulseInteraction = typeof pulseInteractions.$inferSelect;
