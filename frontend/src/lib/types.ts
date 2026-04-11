@@ -57,6 +57,8 @@ export interface ChatThread {
     id: string;
     participants: string[];
     participantNames: string[];
+    participantRoles?: Record<string, Array<'owner' | 'admin'>>;
+    ownerId?: string | null;
     isGroup: boolean;
     name?: string;
     lastMessage?: ChatMessage;

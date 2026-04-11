@@ -178,6 +178,10 @@ const deleteMessageSchema = z.strictObject({
     scope: z.enum(['me', 'everyone']).optional(),
 });
 
+const addChatParticipantsSchema = z.strictObject({
+    participantIds: z.array(z.uuid()).min(1).max(20),
+});
+
 const subscribeChatSocketSchema = z.strictObject({
     action: z.literal('chat.subscribe'),
     threadId: z.uuid(),
@@ -294,6 +298,7 @@ type CreatePulseBody = z.infer<typeof createPulseSchema>;
 type CreateChatBody = z.infer<typeof createChatSchema>;
 type CreateMessageBody = z.infer<typeof createMessageSchema>;
 type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
+type AddChatParticipantsBody = z.infer<typeof addChatParticipantsSchema>;
 type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
 type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 type CreateReportBody = z.infer<typeof createReportSchema>;
@@ -1265,10 +1270,20 @@ bun.serve({
                             const role = (
                                 await db.selectUserRole(payload.id as string)
                             )?.toLowerCase();
+                            const chat = await db.selectChat(threadId, payload.id);
+                            if (!chat) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            const participantRoles = await db.selectChatParticipantRoles(threadId);
+                            const currentRoles = participantRoles[payload.id as string] ?? [];
+                            const isChatOwner = chat.ownerId === payload.id;
+                            const canManageChat = isChatOwner || currentRoles.includes('admin');
                             const canDeleteMessage =
                                 role === 'admin' ||
                                 role === 'mod' ||
-                                payload.id === message.senderId;
+                                payload.id === message.senderId ||
+                                canManageChat;
 
                             if (!canDeleteMessage) {
                                 return withCors(FORBIDDEN);
@@ -1378,6 +1393,110 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
                             return withCors(Response.json(participants, { status: 200 }));
+                        })
+                    )
+                ),
+        },
+        '/api/chats/:id/participants': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const body: AddChatParticipantsBody = await req
+                                .json()
+                                .then((raw) => addChatParticipantsSchema.parse(raw));
+
+                            const chat = await db.selectChat(req.params.id, payload.id);
+                            if (!chat || !chat.isGroup) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const existingUsers = await db.selectExistingUserIds([
+                                payload.id,
+                                ...body.participantIds,
+                            ]);
+                            if (existingUsers.length !== body.participantIds.length + 1) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            await db.addChatParticipants(
+                                req.params.id,
+                                body.participantIds,
+                                payload.id
+                            );
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+        },
+        '/api/chats/:id/participants/:userId': {
+            DELETE: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const participantId = z.uuid().safeParse(req.params.userId);
+                            if (!participantId.success) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const chat = await db.selectChat(req.params.id, payload.id);
+                            if (!chat || !chat.isGroup) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const participantRoles = await db.selectChatParticipantRoles(
+                                req.params.id
+                            );
+                            const currentRoles = participantRoles[payload.id as string] ?? [];
+                            const canRemove =
+                                chat.ownerId === payload.id || currentRoles.includes('admin');
+                            if (!canRemove) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            if (participantId.data === chat.ownerId) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            await db.removeChatParticipant(
+                                req.params.id,
+                                participantId.data,
+                                payload.id
+                            );
+                            return withCors(SUCCESS);
+                        })
+                    )
+                ),
+        },
+        '/api/chats/:id/participants/:userId/admin': {
+            POST: async (req) =>
+                validate(req, async () =>
+                    authorize(req, async (session) =>
+                        caught(async () => {
+                            const payload = session as JwtPayload;
+                            const participantId = z.uuid().safeParse(req.params.userId);
+                            if (!participantId.success) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            const chat = await db.selectChat(req.params.id, payload.id);
+                            if (!chat || !chat.isGroup || chat.ownerId !== payload.id) {
+                                return withCors(FORBIDDEN);
+                            }
+
+                            const targetRoles = await db.selectChatParticipantRoles(req.params.id);
+                            if ((targetRoles[participantId.data] ?? []).includes('owner')) {
+                                return withCors(BAD_REQUEST);
+                            }
+
+                            await db.promoteChatParticipantToAdmin(
+                                req.params.id,
+                                participantId.data,
+                                payload.id
+                            );
+                            return withCors(SUCCESS);
                         })
                     )
                 ),

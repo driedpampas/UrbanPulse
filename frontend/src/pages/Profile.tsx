@@ -24,6 +24,7 @@ import { AppLayout } from '../components/Layout/AppLayout';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import {
     blockUser,
@@ -66,7 +67,8 @@ const S = {
 };
 
 const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
-const PROFILE_MAPBOX_STYLE = 'mapbox/dark-v11';
+const PROFILE_MAPBOX_STYLE_DARK = 'mapbox/dark-v11';
+const PROFILE_MAPBOX_STYLE_LIGHT = 'mapbox/light-v11';
 
 const MAP_FRAME_STYLE =
     'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg-subtle);box-shadow:var(--shadow-sm);height:380px;';
@@ -108,6 +110,7 @@ const focusOff = (e: Event) => {
 };
 
 export function Profile() {
+    const { theme } = useTheme();
     const [location, setLocation] = useLocation();
     const { logout, session, updateLocalUser } = useAuth();
     const [user, setUser] = useState<User | null>(null);
@@ -136,6 +139,7 @@ export function Profile() {
     const selectedLocation = resolveLocationValue(editing ? draft : user);
     const editableLocationMap = isOwnProfile && editing;
     const displayLocationMap = Boolean(selectedLocation || editableLocationMap);
+    const mapStyle = theme === 'dark' ? PROFILE_MAPBOX_STYLE_DARK : PROFILE_MAPBOX_STYLE_LIGHT;
 
     const applyLocation = (nextLocation: { lat: number; lng: number }) => {
         setDraft((current) => ({
@@ -192,9 +196,7 @@ export function Profile() {
             }
 
             try {
-                const [{ default: mapboxgl }] = await Promise.all([
-                    import('mapbox-gl'),
-                ]);
+                const [{ default: mapboxgl }] = await Promise.all([import('mapbox-gl')]);
 
                 if (disposed || !mapContainerRef.current) {
                     return;
@@ -206,7 +208,7 @@ export function Profile() {
                 const initialLocation = selectedLocation ?? DEFAULT_PULSE_CENTER;
                 const map = new mapboxgl.Map({
                     container: mapContainerRef.current,
-                    style: `mapbox://styles/${PROFILE_MAPBOX_STYLE}`,
+                    style: `mapbox://styles/${mapStyle}`,
                     center: [initialLocation.lng, initialLocation.lat],
                     zoom: 13,
                     interactive: editableLocationMap,
@@ -228,6 +230,7 @@ export function Profile() {
 
                     locationMarkerRef.current = marker;
                     setMapLoaded(true);
+                    setMapError(null);
 
                     if (editableLocationMap) {
                         marker.on('dragend', () => {
@@ -241,12 +244,18 @@ export function Profile() {
                             applyLocation(next);
                         });
                     }
+
+                    // Force a resize after render to ensure the map fills the container
+                    requestAnimationFrame(() => {
+                        map.resize();
+                    });
                 });
 
                 map.on('error', (event: MapboxErrorEvent) => {
                     const message =
                         event.error?.message || 'Mapbox failed to render the location picker.';
                     setMapError(message);
+                    setMapLoaded(false);
                 });
             } catch (error) {
                 if (!disposed) {
@@ -280,6 +289,12 @@ export function Profile() {
         marker.setLngLat([selectedLocation.lng, selectedLocation.lat]);
         map.setCenter([selectedLocation.lng, selectedLocation.lat]);
     }, [mapLoaded, selectedLocation]);
+
+    useEffect(() => {
+        if (mapRef.current && mapLoaded) {
+            mapRef.current.setStyle(`mapbox://styles/${mapStyle}`);
+        }
+    }, [mapStyle, mapLoaded]);
 
     const mapTitle = editableLocationMap ? 'Adjust your location' : 'Home location';
     const mapSubtitle = editableLocationMap
@@ -660,11 +675,11 @@ export function Profile() {
                                     <div
                                         ref={mapContainerRef}
                                         style={`position:absolute;inset:0;width:100%;height:100%;display:${
-                                            displayLocationMap && mapLoaded ? 'block' : 'none'
+                                            displayLocationMap ? 'block' : 'none'
                                         };`}
                                     />
                                     {displayLocationMap && !mapLoaded && !mapError && (
-                                        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
+                                        <div style="position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
                                             <div style="width:36px;height:36px;border-radius:999px;border:2px solid var(--accent-muted);border-top-color:var(--accent);animation:spin 1s linear infinite;" />
                                             Loading map preview…
                                         </div>
@@ -698,12 +713,14 @@ export function Profile() {
                                                     onClick={() => setMapError(null)}
                                                     style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
                                                     onMouseEnter={(e) =>
-                                                        ((e.target as HTMLElement).style.background =
-                                                            'var(--danger-muted)')
+                                                        ((
+                                                            e.target as HTMLElement
+                                                        ).style.background = 'var(--danger-muted)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                        ((e.target as HTMLElement).style.background =
-                                                            'transparent')
+                                                        ((
+                                                            e.target as HTMLElement
+                                                        ).style.background = 'transparent')
                                                     }
                                                     aria-label="Clear error"
                                                 >
@@ -712,8 +729,8 @@ export function Profile() {
                                             </div>
                                             {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
                                                 <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
-                                                    Tip: Set VITE_MAPBOX_TOKEN in your environment to
-                                                    enable the interactive map preview.
+                                                    Tip: Set VITE_MAPBOX_TOKEN in your environment
+                                                    to enable the interactive map preview.
                                                 </p>
                                             )}
                                         </div>

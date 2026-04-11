@@ -73,11 +73,15 @@ export interface Message {
 
 export type DeleteMessageScope = 'me' | 'everyone';
 
+export type ChatParticipantRole = 'owner' | 'admin';
+
 export interface Chat {
     id: string;
     participants: {
         userId: string;
     }[];
+    participantRoles: Record<string, ChatParticipantRole[]>;
+    ownerId: string | null;
     isGroup: boolean;
     timestamp: number;
 }
@@ -87,7 +91,9 @@ export interface ChatSummary {
     participants: {
         userId: string;
         displayName: string | null;
+        roles: ChatParticipantRole[];
     }[];
+    ownerId: string | null;
     isGroup: boolean;
     timestamp: number;
 }
@@ -198,12 +204,20 @@ type ChatParticipantRow = {
     thread_id: string;
     user_id: string;
     created_at: number | string | Date;
+    roles?: string[];
 };
 
 type ChatThreadRow = {
     id: string;
     is_group: boolean;
     timestamp: number | string | Date;
+    owner_id?: string | null;
+};
+
+type ChatRoleRow = {
+    thread_id: string;
+    user_id: string;
+    role: string;
 };
 
 type LibraryItemRow = {
@@ -222,10 +236,14 @@ type ChatSummaryRow = {
     id: string;
     is_group: boolean;
     timestamp: number | string | Date;
-    participants: Array<{
-        userId: string;
-        displayName: string | null;
-    }>;
+    participants:
+        | Array<{
+              userId: string;
+              displayName: string | null;
+              roles: string[];
+          }>
+        | unknown;
+    owner_id: string | null;
 };
 export interface Report {
     id: string;
@@ -292,6 +310,56 @@ function mapMessageRow(rawMessage: MessageRow): Message {
         content: String(rawMessage.content),
         timestamp: Number(rawMessage.timestamp ?? Date.now()),
     };
+}
+
+function normalizeChatRoles(roles: string[] | null | undefined): ChatParticipantRole[] {
+    return Array.from(
+        new Set(
+            (roles ?? []).filter(
+                (role): role is ChatParticipantRole => role === 'owner' || role === 'admin'
+            )
+        )
+    );
+}
+
+async function ensureChatParticipantRoleTable(tx: SqlRunner) {
+    await tx`
+        ALTER TABLE app.chat_threads
+        ADD COLUMN IF NOT EXISTS owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
+    `;
+
+    await tx`
+        CREATE TABLE IF NOT EXISTS app.chat_participant_roles (
+            thread_id uuid NOT NULL REFERENCES app.chat_threads(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+            role text NOT NULL,
+            assigned_by uuid REFERENCES app.users(id) ON DELETE SET NULL,
+            assigned_at timestamptz NOT NULL DEFAULT now(),
+            PRIMARY KEY (thread_id, user_id, role)
+        )
+    `;
+}
+
+async function getChatParticipantRoles(
+    threadId: string
+): Promise<Map<string, ChatParticipantRole[]>> {
+    const rows = (await sql`
+        SELECT thread_id::text AS thread_id, user_id::text AS user_id, role
+        FROM app.chat_participant_roles
+        WHERE thread_id = ${threadId}::uuid
+    `) as ChatRoleRow[];
+
+    const rolesByUser = new Map<string, ChatParticipantRole[]>();
+    for (const row of rows) {
+        if (row.role !== 'owner' && row.role !== 'admin') continue;
+        const current = rolesByUser.get(row.user_id) ?? [];
+        if (!current.includes(row.role)) {
+            current.push(row.role as ChatParticipantRole);
+            rolesByUser.set(row.user_id, current);
+        }
+    }
+
+    return rolesByUser;
 }
 
 function mapLibraryItemRow(row: LibraryItemRow): LibraryItem {
@@ -387,37 +455,56 @@ export async function selectChats(userId: string): Promise<{ chatId: string }[]>
 }
 
 export async function selectChatSummaries(userId: string): Promise<ChatSummary[]> {
-    const chats = (await sql`
-        SELECT
-            ct.id,
-            ct.is_group,
-            ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
-            jsonb_agg(
-                jsonb_build_object(
-                    'userId', cp.user_id::text,
-                    'displayName', NULLIF(users.display_name, '')
-                )
-                ORDER BY cp.joined_at
-            ) AS participants
-        FROM app.chat_threads AS ct
-        JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
-        LEFT JOIN app.users AS users ON users.id = cp.user_id
-        WHERE ct.id IN (
-            SELECT thread_id
-            FROM app.chat_participants
-            WHERE user_id = ${userId}
-        )
-        GROUP BY ct.id, ct.is_group, ct.created_at
-        ORDER BY "timestamp" DESC, ct.id DESC
-    `) as ChatSummaryRow[];
+    const chats = (await sql.begin(async (tx) => {
+        await ensureChatParticipantRoleTable(tx);
+
+        return (await tx`
+            SELECT
+                ct.id,
+                ct.is_group,
+                ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
+                COALESCE(ct.owner_id::text, NULL) AS owner_id,
+                ARRAY_AGG(
+                    jsonb_build_object(
+                        'userId', cp.user_id::text,
+                        'displayName', NULLIF(users.display_name, ''),
+                        'roles', COALESCE(roles.roles, '[]'::jsonb)
+                    )
+                    ORDER BY cp.joined_at
+                ) AS participants
+            FROM app.chat_threads AS ct
+            JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
+            LEFT JOIN app.users AS users ON users.id = cp.user_id
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(role ORDER BY role) AS roles
+                FROM app.chat_participant_roles AS cpr
+                WHERE cpr.thread_id = ct.id AND cpr.user_id = cp.user_id
+            ) AS roles ON true
+            WHERE ct.id IN (
+                SELECT thread_id
+                FROM app.chat_participants
+                WHERE user_id = ${userId}
+            )
+            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            ORDER BY "timestamp" DESC, ct.id DESC
+        `) as ChatSummaryRow[];
+    })) as ChatSummaryRow[];
 
     return chats.map((chat) => ({
         id: chat.id,
         isGroup: chat.is_group,
         timestamp: Number(chat.timestamp),
-        participants: chat.participants.map((participant) => ({
+        ownerId: chat.owner_id,
+        participants: (
+            chat.participants as Array<{
+                userId: string;
+                displayName: string | null;
+                roles: string[];
+            }>
+        ).map((participant) => ({
             userId: participant.userId,
             displayName: participant.displayName,
+            roles: normalizeChatRoles(participant.roles),
         })),
     }));
 }
@@ -467,13 +554,15 @@ export async function selectMessage(
 
 export async function selectChat(chatId: string, currentUser: string): Promise<Chat | null> {
     const chatRows = (await sql.begin(async (tx) => {
+        await ensureChatParticipantRoleTable(tx);
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
 
         return (await tx`
             SELECT cp.thread_id, cp.user_id, ct.is_group,
-            ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp"
+            ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
+            ct.owner_id
             FROM app.chat_threads AS ct
             JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
             WHERE ct.id = ${chatId};
@@ -488,10 +577,27 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
         userId: String(row.user_id),
     }));
 
+    const roleRows = (await sql`
+        SELECT user_id::text AS user_id, role
+        FROM app.chat_participant_roles
+        WHERE thread_id = ${chatId}::uuid
+    `) as ChatRoleRow[];
+
+    const participantRoles: Record<string, ChatParticipantRole[]> = {};
+    for (const roleRow of roleRows) {
+        const next = participantRoles[roleRow.user_id] ?? [];
+        if (roleRow.role === 'owner' || roleRow.role === 'admin') {
+            if (!next.includes(roleRow.role)) next.push(roleRow.role);
+        }
+        participantRoles[roleRow.user_id] = next;
+    }
+
     return {
         id: chatId,
         participants,
         isGroup: chatRows[0]!.is_group,
+        ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
+        participantRoles,
         timestamp: Number(chatRows[0]!.timestamp),
     };
 }
@@ -543,13 +649,14 @@ export async function insertChat(
     const csvParticipantIds = participantIds.join(',');
 
     await sql.begin(async (tx) => {
+        await ensureChatParticipantRoleTable(tx);
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
 
         await tx`
-            INSERT INTO app.chat_threads (id, is_group)
-            VALUES (${threadId}::uuid, ${isGroup});
+            INSERT INTO app.chat_threads (id, is_group, owner_id)
+            VALUES (${threadId}::uuid, ${isGroup}, ${currentUser}::uuid);
         `;
 
         await tx`
@@ -557,9 +664,109 @@ export async function insertChat(
             SELECT ${threadId}::uuid, users.user_id::uuid
             FROM unnest(string_to_array(${csvParticipantIds}, ',')::uuid[]) AS users(user_id);
         `;
+
+        if (isGroup) {
+            await tx`
+                INSERT INTO app.chat_participant_roles (thread_id, user_id, role, assigned_by)
+                VALUES (${threadId}::uuid, ${currentUser}::uuid, 'owner', ${currentUser}::uuid)
+                ON CONFLICT DO NOTHING;
+            `;
+            await tx`
+                INSERT INTO app.chat_participant_roles (thread_id, user_id, role, assigned_by)
+                VALUES (${threadId}::uuid, ${currentUser}::uuid, 'admin', ${currentUser}::uuid)
+                ON CONFLICT DO NOTHING;
+            `;
+        }
     });
 
     return (await selectChat(threadId, currentUser))!;
+}
+
+export async function addChatParticipants(
+    threadId: string,
+    participantIds: string[],
+    actorId: string
+): Promise<boolean> {
+    if (participantIds.length === 0) {
+        return true;
+    }
+
+    await sql.begin(async (tx) => {
+        await ensureChatParticipantRoleTable(tx);
+        await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
+        await tx`
+            INSERT INTO app.chat_participants (thread_id, user_id)
+            SELECT ${threadId}::uuid, users.user_id::uuid
+            FROM unnest(string_to_array(${participantIds.join(',')}, ',')::uuid[]) AS users(user_id)
+            ON CONFLICT DO NOTHING;
+        `;
+    });
+
+    return true;
+}
+
+export async function removeChatParticipant(
+    threadId: string,
+    participantId: string,
+    actorId: string
+): Promise<boolean> {
+    const [removed] = await sql.begin(async (tx) => {
+        await ensureChatParticipantRoleTable(tx);
+        await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
+
+        await tx`
+            DELETE FROM app.chat_participant_roles
+            WHERE thread_id = ${threadId}::uuid AND user_id = ${participantId}::uuid;
+        `;
+
+        return await tx`
+            DELETE FROM app.chat_participants
+            WHERE thread_id = ${threadId}::uuid AND user_id = ${participantId}::uuid
+            RETURNING user_id;
+        `;
+    });
+
+    return Boolean(removed);
+}
+
+export async function promoteChatParticipantToAdmin(
+    threadId: string,
+    participantId: string,
+    actorId: string
+): Promise<boolean> {
+    await sql.begin(async (tx) => {
+        await ensureChatParticipantRoleTable(tx);
+        await tx`SELECT set_config('app.current_user_id', ${actorId}, true);`;
+        await tx`
+            INSERT INTO app.chat_participant_roles (thread_id, user_id, role, assigned_by)
+            VALUES (${threadId}::uuid, ${participantId}::uuid, 'admin', ${actorId}::uuid)
+            ON CONFLICT DO NOTHING;
+        `;
+    });
+
+    return true;
+}
+
+export async function selectChatParticipantRoles(
+    threadId: string
+): Promise<Record<string, ChatParticipantRole[]>> {
+    const rows = (await sql`
+        SELECT user_id::text AS user_id, role
+        FROM app.chat_participant_roles
+        WHERE thread_id = ${threadId}::uuid
+    `) as ChatRoleRow[];
+
+    const roles: Record<string, ChatParticipantRole[]> = {};
+    for (const row of rows) {
+        if (row.role !== 'owner' && row.role !== 'admin') continue;
+        const next = roles[row.user_id] ?? [];
+        if (!next.includes(row.role as ChatParticipantRole)) {
+            next.push(row.role as ChatParticipantRole);
+        }
+        roles[row.user_id] = next;
+    }
+
+    return roles;
 }
 
 export async function deleteMessage(messageId: string, currentUser: string): Promise<boolean> {

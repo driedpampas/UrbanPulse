@@ -18,10 +18,15 @@ import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import { readStoredAuthSession } from '../lib/auth';
 import {
+    addGroupChatParticipants,
     connectChatWebSocket,
+    createGroupChat,
     deleteChatMessage,
     disconnectChatWebSocket,
+    fetchBlockedUserIds,
     fetchChats,
+    promoteGroupChatParticipant,
+    removeGroupChatParticipant,
     sendMessage,
     startDirectConversation,
     subscribeChatThread,
@@ -115,6 +120,9 @@ export function Messages() {
     const [searching, setSearching] = useState(false);
     const [composeError, setComposeError] = useState<string | null>(null);
     const [startingUserId, setStartingUserId] = useState<string | null>(null);
+    const [composeMode, setComposeMode] = useState<'direct' | 'group'>('direct');
+    const [selectedComposeIds, setSelectedComposeIds] = useState<string[]>([]);
+    const [creatingGroup, setCreatingGroup] = useState(false);
     const unreadThreadIds = useUnreadChatThreads();
     const currentUser = readStoredAuthSession()?.user;
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
@@ -230,6 +238,34 @@ export function Messages() {
         }
     };
 
+    const resetCompose = () => {
+        setShowCompose(false);
+        setComposeError(null);
+        setQuery('');
+        setComposeMode('direct');
+        setSelectedComposeIds([]);
+    };
+
+    const handleCreateGroupChat = async () => {
+        if (creatingGroup || selectedComposeIds.length < 1) {
+            setComposeError('Select at least one neighbor to create a group chat.');
+            return;
+        }
+
+        setCreatingGroup(true);
+        setComposeError(null);
+        try {
+            const thread = await createGroupChat({ participantIds: selectedComposeIds });
+            setThreads((current) => [thread, ...current.filter((item) => item.id !== thread.id)]);
+            setActiveThread(thread);
+            resetCompose();
+        } catch (error) {
+            setComposeError(error instanceof Error ? error.message : 'Could not create group chat');
+        } finally {
+            setCreatingGroup(false);
+        }
+    };
+
     if (activeThread) {
         return (
             <ChatView
@@ -244,18 +280,34 @@ export function Messages() {
         <AppLayout
             title="Messages"
             headerRight={
-                <button
-                    type="button"
-                    class="btn-primary"
-                    onClick={() => {
-                        setComposeError(null);
-                        setShowCompose(true);
-                    }}
-                    style="height:30px;padding:0 10px;font-size:12px;gap:4px;"
-                >
-                    <Plus size={13} />
-                    New Chat
-                </button>
+                <div style="display:flex;gap:8px;">
+                    <button
+                        type="button"
+                        class="btn-primary"
+                        onClick={() => {
+                            setComposeError(null);
+                            setShowCompose(true);
+                            setComposeMode('direct');
+                        }}
+                        style="height:30px;padding:0 10px;font-size:12px;gap:4px;"
+                    >
+                        <Plus size={13} />
+                        New Chat
+                    </button>
+                    <button
+                        type="button"
+                        class="btn-ghost"
+                        onClick={() => {
+                            setComposeError(null);
+                            setShowCompose(true);
+                            setComposeMode('group');
+                        }}
+                        style="height:30px;padding:0 10px;font-size:12px;gap:4px;"
+                    >
+                        <Users size={13} />
+                        Create Group Chat
+                    </button>
+                </div>
             }
         >
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
@@ -344,11 +396,7 @@ export function Messages() {
                 >
                     <div
                         style="position:absolute;inset:0;"
-                        onClick={() => {
-                            setShowCompose(false);
-                            setComposeError(null);
-                            setQuery('');
-                        }}
+                        onClick={resetCompose}
                         aria-hidden="true"
                     />
                     <div
@@ -359,20 +407,20 @@ export function Messages() {
                         <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0;">
                             <div>
                                 <p style="margin:0;font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.01em;">
-                                    New conversation
+                                    {composeMode === 'group'
+                                        ? 'Create Group Chat'
+                                        : 'New conversation'}
                                 </p>
                                 <p style="margin:3px 0 0;font-size:12px;color:var(--text-secondary);">
-                                    Search a neighbor to start chatting.
+                                    {composeMode === 'group'
+                                        ? 'Select neighbors to add to the group.'
+                                        : 'Search a neighbor to start chatting.'}
                                 </p>
                             </div>
                             <button
                                 type="button"
                                 class="btn-icon"
-                                onClick={() => {
-                                    setShowCompose(false);
-                                    setComposeError(null);
-                                    setQuery('');
-                                }}
+                                onClick={resetCompose}
                                 aria-label="Close"
                                 style="color:var(--text-secondary);"
                             >
@@ -381,6 +429,24 @@ export function Messages() {
                         </div>
 
                         <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                            <div style="display:flex;gap:8px;margin-bottom:10px;">
+                                <button
+                                    type="button"
+                                    class="btn-ghost"
+                                    onClick={() => setComposeMode('direct')}
+                                    style={`height:30px;padding:0 10px;font-size:12px;${composeMode === 'direct' ? 'background:var(--accent-subtle);color:var(--accent);' : ''}`}
+                                >
+                                    Direct
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-ghost"
+                                    onClick={() => setComposeMode('group')}
+                                    style={`height:30px;padding:0 10px;font-size:12px;${composeMode === 'group' ? 'background:var(--accent-subtle);color:var(--accent);' : ''}`}
+                                >
+                                    Group
+                                </button>
+                            </div>
                             <div style="display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);">
                                 <Search
                                     size={13}
@@ -418,8 +484,19 @@ export function Messages() {
                                     <button
                                         type="button"
                                         key={user.id}
-                                        onClick={() => handleStartConversation(user)}
-                                        disabled={startingUserId !== null}
+                                        onClick={() => {
+                                            if (composeMode === 'group') {
+                                                setSelectedComposeIds((current) =>
+                                                    current.includes(user.id)
+                                                        ? current.filter((id) => id !== user.id)
+                                                        : [...current, user.id]
+                                                );
+                                                return;
+                                            }
+
+                                            void handleStartConversation(user);
+                                        }}
+                                        disabled={startingUserId !== null || creatingGroup}
                                         class="card"
                                         style="padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;width:100%;transition:background 0.15s;"
                                     >
@@ -453,14 +530,37 @@ export function Messages() {
                                                 )}
                                             </div>
                                         </div>
-                                        <span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;">
-                                            {startingUserId === user.id ? 'Opening…' : 'Chat'}
-                                            <ChevronRight size={12} />
-                                        </span>
+                                        {composeMode === 'group' ? (
+                                            <span
+                                                style={`display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;border:1px solid ${selectedComposeIds.includes(user.id) ? 'var(--accent)' : 'var(--border)'};background:${selectedComposeIds.includes(user.id) ? 'var(--accent)' : 'transparent'};color:${selectedComposeIds.includes(user.id) ? '#fff' : 'var(--text-tertiary)'};font-size:11px;`}
+                                            >
+                                                {selectedComposeIds.includes(user.id) ? '✓' : '+'}
+                                            </span>
+                                        ) : (
+                                            <span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;">
+                                                {startingUserId === user.id ? 'Opening…' : 'Chat'}
+                                                <ChevronRight size={12} />
+                                            </span>
+                                        )}
                                     </button>
                                 ))
                             )}
                         </div>
+                        {composeMode === 'group' && (
+                            <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+                                <button type="button" class="btn-ghost" onClick={resetCompose}>
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-primary"
+                                    onClick={handleCreateGroupChat}
+                                    disabled={creatingGroup || selectedComposeIds.length < 1}
+                                >
+                                    {creatingGroup ? 'Creating…' : 'Create Group Chat'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -486,12 +586,27 @@ function ChatView({
     const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(
         null
     );
+    const [showParticipants, setShowParticipants] = useState(false);
+    const [participantActionBusy, setParticipantActionBusy] = useState<string | null>(null);
+    const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+    const [showAddMembers, setShowAddMembers] = useState(false);
+    const [addMemberQuery, setAddMemberQuery] = useState('');
+    const [addMemberResults, setAddMemberResults] = useState<AppUser[]>([]);
+    const [searchingAddMembers, setSearchingAddMembers] = useState(false);
+    const [addingMembers, setAddingMembers] = useState(false);
     const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const threadRef = useRef(thread);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
+    const otherParticipantIds = thread.participants.filter(
+        (participantId) => participantId !== currentUserId
+    );
+    const directCounterpartId = !thread.isGroup ? (otherParticipantIds[0] ?? null) : null;
+    const isBlockedConversation = Boolean(
+        directCounterpartId && blockedUserIds.includes(directCounterpartId)
+    );
 
     const participantNameById = useMemo(() => {
         const nameMap = new Map<string, string>();
@@ -508,6 +623,53 @@ function ChatView({
     useEffect(() => {
         threadRef.current = thread;
     }, [thread]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetchBlockedUserIds()
+            .then((ids) => {
+                if (!cancelled) {
+                    setBlockedUserIds(ids);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setBlockedUserIds([]);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!showAddMembers) {
+            return;
+        }
+
+        let cancelled = false;
+        setSearchingAddMembers(true);
+
+        fetchUsers({ displayName: addMemberQuery.trim() || undefined, limit: 30 })
+            .then((users) => {
+                if (cancelled) return;
+                setAddMemberResults(
+                    users.filter(
+                        (user) =>
+                            user.id !== currentUserId && !thread.participants.includes(user.id)
+                    )
+                );
+            })
+            .finally(() => {
+                if (!cancelled) setSearchingAddMembers(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [showAddMembers, addMemberQuery, currentUserId, thread.participants]);
 
     useEffect(() => {
         const normalized = sortMessagesByTimestamp(
@@ -732,7 +894,188 @@ function ChatView({
                         {thread.participants.length} members
                     </p>
                 </div>
+                {isGroup && (
+                    <button
+                        type="button"
+                        class="btn-icon"
+                        onClick={() => setShowParticipants((current) => !current)}
+                        aria-label="Toggle participants"
+                        style="color:var(--text-secondary);"
+                    >
+                        <Users size={16} />
+                    </button>
+                )}
             </header>
+
+            {isGroup && showParticipants && (
+                <aside style="position:fixed;top:var(--header-h);right:0;bottom:0;width:min(320px,86vw);z-index:45;background:var(--surface);border-left:1px solid var(--border);box-shadow:-12px 0 32px rgba(0,0,0,0.12);overflow:auto;">
+                    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                        <div>
+                            <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
+                                Participants
+                            </p>
+                            <p style="margin:3px 0 0;font-size:11px;color:var(--text-tertiary);">
+                                {thread.participants.length} members
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn-icon"
+                            onClick={() => setShowParticipants(false)}
+                            aria-label="Close participants"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+                        <button
+                            type="button"
+                            class="btn-ghost"
+                            onClick={() => setShowAddMembers((current) => !current)}
+                            style="height:30px;padding:0 10px;font-size:11px;align-self:flex-start;"
+                        >
+                            Add members
+                        </button>
+                        {showAddMembers && (
+                            <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
+                                <input
+                                    value={addMemberQuery}
+                                    onInput={(e) =>
+                                        setAddMemberQuery((e.target as HTMLInputElement).value)
+                                    }
+                                    placeholder="Search neighbors"
+                                    style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
+                                />
+                                {searchingAddMembers ? (
+                                    <div style="font-size:12px;color:var(--text-tertiary);">
+                                        Searching…
+                                    </div>
+                                ) : (
+                                    addMemberResults.slice(0, 5).map((user) => (
+                                        <button
+                                            key={user.id}
+                                            type="button"
+                                            class="btn-ghost"
+                                            disabled={addingMembers}
+                                            onClick={async () => {
+                                                setAddingMembers(true);
+                                                try {
+                                                    await addGroupChatParticipants(thread.id, [
+                                                        user.id,
+                                                    ]);
+                                                    setShowAddMembers(false);
+                                                } finally {
+                                                    setAddingMembers(false);
+                                                }
+                                            }}
+                                            style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
+                                        >
+                                            <span>{user.name}</span>
+                                            <span>+</span>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                        {thread.participants.map((participantId, index) => {
+                            const name =
+                                thread.participantNames[index] ||
+                                participantNameById.get(participantId) ||
+                                `Neighbor ${participantId.slice(0, 6)}`;
+                            const roles = thread.participantRoles?.[participantId] ?? [];
+                            const isOwner =
+                                thread.ownerId === participantId || roles.includes('owner');
+                            const isAdmin = roles.includes('admin');
+                            return (
+                                <div
+                                    key={participantId}
+                                    style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);display:flex;align-items:center;justify-content:space-between;gap:10px;"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setLocation(
+                                                `/profile?userId=${encodeURIComponent(participantId)}`
+                                            )
+                                        }
+                                        style="background:none;border:none;padding:0;text-align:left;cursor:pointer;min-width:0;flex:1;"
+                                    >
+                                        <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            {name}
+                                        </div>
+                                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+                                            {isOwner && (
+                                                <span
+                                                    class="type-badge"
+                                                    style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
+                                                >
+                                                    Owner
+                                                </span>
+                                            )}
+                                            {isAdmin && (
+                                                <span
+                                                    class="type-badge"
+                                                    style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
+                                                >
+                                                    Admin
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                    {thread.ownerId === currentUserId && !isOwner && (
+                                        <button
+                                            type="button"
+                                            class="btn-ghost"
+                                            disabled={participantActionBusy === participantId}
+                                            onClick={async () => {
+                                                setParticipantActionBusy(participantId);
+                                                try {
+                                                    await promoteGroupChatParticipant(
+                                                        thread.id,
+                                                        participantId
+                                                    );
+                                                } finally {
+                                                    setParticipantActionBusy(null);
+                                                }
+                                            }}
+                                            style="height:28px;padding:0 10px;font-size:11px;"
+                                        >
+                                            Promote
+                                        </button>
+                                    )}
+                                    {(thread.ownerId === currentUserId ||
+                                        (thread.participantRoles?.[currentUserId]?.includes(
+                                            'admin'
+                                        ) ??
+                                            false)) &&
+                                        !isOwner && (
+                                            <button
+                                                type="button"
+                                                class="btn-ghost"
+                                                disabled={participantActionBusy === participantId}
+                                                onClick={async () => {
+                                                    setParticipantActionBusy(participantId);
+                                                    try {
+                                                        await removeGroupChatParticipant(
+                                                            thread.id,
+                                                            participantId
+                                                        );
+                                                        setShowParticipants(false);
+                                                    } finally {
+                                                        setParticipantActionBusy(null);
+                                                    }
+                                                }}
+                                                style="height:28px;padding:0 10px;font-size:11px;"
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </aside>
+            )}
 
             {/* Messages */}
             <div style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px;padding-bottom:80px;">
@@ -832,6 +1175,7 @@ function ChatView({
                                         onClick={() => handleDeleteMessage(msg, 'me')}
                                         disabled={deletingMessageId !== null}
                                         role="menuitem"
+                                        key="delete-me"
                                         style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
                                         onMouseEnter={(e) => {
                                             (e.currentTarget as HTMLElement).style.background =
@@ -851,6 +1195,7 @@ function ChatView({
                                         onClick={() => handleDeleteMessage(msg, 'everyone')}
                                         disabled={deletingMessageId !== null}
                                         role="menuitem"
+                                        key="delete-everyone"
                                         style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
                                         onMouseEnter={(e) => {
                                             (e.currentTarget as HTMLElement).style.background =
@@ -879,16 +1224,22 @@ function ChatView({
                         value={input}
                         onInput={(e) => setInput((e.target as HTMLInputElement).value)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.repeat) handleSend();
+                            if (e.key === 'Enter' && !e.repeat && !isBlockedConversation)
+                                handleSend();
                         }}
-                        placeholder="Message…"
+                        disabled={isBlockedConversation}
+                        placeholder={
+                            isBlockedConversation ? 'You have blocked this user' : 'Message…'
+                        }
                         style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                         onFocus={(e) => {
+                            if (isBlockedConversation) return;
                             (e.target as HTMLElement).style.borderColor = 'var(--border-focus)';
                             (e.target as HTMLElement).style.boxShadow =
                                 '0 0 0 3px var(--accent-muted)';
                         }}
                         onBlur={(e) => {
+                            if (isBlockedConversation) return;
                             (e.target as HTMLElement).style.borderColor = 'var(--border)';
                             (e.target as HTMLElement).style.boxShadow = 'none';
                         }}
@@ -897,7 +1248,7 @@ function ChatView({
                         type="button"
                         id="send-message-btn"
                         onClick={handleSend}
-                        disabled={!input.trim() || sending}
+                        disabled={!input.trim() || sending || isBlockedConversation}
                         class="btn-primary"
                         style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
                         aria-label="Send"

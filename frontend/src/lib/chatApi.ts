@@ -32,14 +32,28 @@ export interface StartDirectConversationResult {
 
 export type DeleteMessageScope = 'me' | 'everyone';
 
+export type ChatParticipantRole = 'owner' | 'admin';
+
+export type GroupChatMember = {
+    userId: string;
+    roles?: ChatParticipantRole[];
+};
+
+export interface CreateGroupChatInput {
+    participantIds: string[];
+    name?: string;
+}
+
 type BackendChatSummary = {
     id: string;
     participants: Array<{
         userId: string;
         displayName: string | null;
+        roles?: Array<'owner' | 'admin'>;
     }>;
     isGroup: boolean;
     timestamp: number | string;
+    ownerId?: string | null;
 };
 
 type BackendChatMessage = {
@@ -83,12 +97,23 @@ function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): Ch
             ? participant.displayName
             : `Neighbor ${participant.userId.slice(0, 6)}`
     );
+    const participantRoles = summary.participants.reduce<Record<string, Array<'owner' | 'admin'>>>(
+        (acc, participant) => {
+            if (participant.roles?.length) {
+                acc[participant.userId] = Array.from(new Set(participant.roles));
+            }
+            return acc;
+        },
+        {}
+    );
     const lastMessage = messages[messages.length - 1];
 
     return {
         id: summary.id,
         participants: participantIds,
         participantNames,
+        participantRoles,
+        ownerId: summary.ownerId ?? null,
         isGroup: summary.isGroup,
         name: summary.isGroup ? participantNames.join(', ') : undefined,
         lastMessage,
@@ -383,6 +408,50 @@ export async function startDirectConversation(
     }
 
     return { threadId: payload.id, existed: false };
+}
+
+export async function createGroupChat(input: CreateGroupChatInput): Promise<ChatThread> {
+    const payload = await request<{ id: string }>(`/chats`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            isGroup: true,
+            participantIds: input.participantIds,
+            name: input.name,
+        }),
+    });
+
+    const chats = await fetchChats();
+    const thread = chats.find((chat) => chat.id === payload.id);
+    if (!thread) {
+        throw new ChatApiError('Created group chat could not be loaded', 500);
+    }
+
+    return thread;
+}
+
+export async function addGroupChatParticipants(threadId: string, participantIds: string[]) {
+    await request<void>(`/chats/${threadId}/participants`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ participantIds }),
+    });
+}
+
+export async function removeGroupChatParticipant(threadId: string, participantId: string) {
+    await request<void>(`/chats/${threadId}/participants/${participantId}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function promoteGroupChatParticipant(threadId: string, participantId: string) {
+    await request<void>(`/chats/${threadId}/participants/${participantId}/admin`, {
+        method: 'POST',
+    });
 }
 
 export async function deleteChatMessage(
