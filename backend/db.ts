@@ -843,8 +843,8 @@ export async function searchUsers(
     WHERE
         (
         (${userSearch.id}::text IS NULL)
-        AND (${userSearch.email}::text IS NULL OR email ILIKE ${`%${userSearch.email}%`})
-        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${`%${userSearch.displayName}%`})
+        AND (${userSearch.email}::text IS NULL OR email ILIKE ${userSearch.email ? `%${userSearch.email}%` : null})
+        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${userSearch.displayName ? `%${userSearch.displayName}%` : null})
         AND (${userSearch.min_trust}::text IS NULL OR trust_score >= ${userSearch.min_trust}::numeric)
         AND (${userSearch.max_trust}::text IS NULL OR trust_score <= ${userSearch.max_trust}::numeric)
         AND (${userSearch.role}::text IS NULL OR role = ${userSearch.role})
@@ -868,14 +868,14 @@ export async function searchUsers(
         AND (
             ${userSearch.availableDays}::jsonb IS NULL
             OR (quiet_days != '{}'::integer[] AND NOT (
-                quiet_days && app.jsonb_to_integer_array(${availableDaysQuery as number[]}::jsonb)
+                quiet_days && app.jsonb_to_integer_array(${JSON.stringify(availableDaysQuery)}::jsonb)
             ))
         )
         AND (
             ${userSearch.availableHours}::jsonb IS NULL
-            OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours}::jsonb)))
+            OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours ? JSON.stringify(userSearch.availableHours) : null}::jsonb)))
         )
-        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${`%${userSearch.bio}%`})
+        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${userSearch.bio ? `%${userSearch.bio}%` : null})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
         AND (
@@ -883,9 +883,9 @@ export async function searchUsers(
             OR ${userSearch.skillsAndResources}::jsonb IS NULL OR
             (skills_and_resources != '[]'::jsonb AND (
                 (${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
                 ) OR (NOT ${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
                 )
             ))
         )
@@ -958,19 +958,19 @@ export async function updateUserProfile(user: User) {
 
       quiet_hours = CASE 
                 WHEN ${shouldClearQuietHours} THEN '{}'::app.timemultirange 
-                WHEN ${quietHours}::jsonb IS NOT NULL THEN app.jsonb_to_timemultirange(${quietHours}::jsonb)
+                WHEN ${quietHours}::jsonb IS NOT NULL THEN app.jsonb_to_timemultirange(${quietHours ? JSON.stringify(quietHours) : null}::jsonb)
         ELSE quiet_hours 
       END,
 
       quiet_days = CASE 
         WHEN ${shouldClearQuietDays} THEN '{}'::integer[]
-        WHEN ${quietDays}::jsonb IS NOT NULL THEN app.jsonb_to_integer_array(${quietDays}::jsonb)
+        WHEN ${quietDays}::jsonb IS NOT NULL THEN app.jsonb_to_integer_array(${quietDays ? JSON.stringify(quietDays) : null}::jsonb)
         ELSE quiet_days 
       END,
 
       skills_and_resources = CASE
         WHEN ${shouldClearSkillRes} THEN '[]'::jsonb
-        WHEN ${skillres}::jsonb IS NOT NULL THEN ${skillres}::jsonb
+        WHEN ${skillres}::jsonb IS NOT NULL THEN ${skillres ? JSON.stringify(skillres) : null}::jsonb
         ELSE skills_and_resources
       END
 
@@ -993,8 +993,8 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
     WHERE id != ${deleterID} AND (
         (
         (${userSearch.id}::text IS NULL)
-        AND (${userSearch.email}::text IS NULL OR email ILIKE ${`%${userSearch.email}%`})
-        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${`%${userSearch.displayName}%`})
+        AND (${userSearch.email}::text IS NULL OR email ILIKE ${userSearch.email ? `%${userSearch.email}%` : null})
+        AND ((${userSearch.displayName}::text IS NULL OR display_name ILIKE ${userSearch.displayName ? `%${userSearch.displayName}%` : null})
         AND (${userSearch.min_trust}::text IS NULL OR trust_score >= ${userSearch.min_trust}::numeric)
         AND (${userSearch.max_trust}::text IS NULL OR trust_score <= ${userSearch.max_trust}::numeric)
         AND (${userSearch.role}::text IS NULL OR role = ${userSearch.role})
@@ -1018,14 +1018,14 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
         AND (
             ${userSearch.availableDays}::jsonb IS NULL
             OR (quiet_days != '{}'::integer[] AND NOT (
-                quiet_days && app.jsonb_to_integer_array(${availableDaysQuery as number[]}::jsonb)
+                quiet_days && app.jsonb_to_integer_array(${JSON.stringify(availableDaysQuery)}::jsonb)
             ))
         )
         AND (
             ${userSearch.availableHours}::jsonb IS NULL
-            OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours}::jsonb)))
+            OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours ? JSON.stringify(userSearch.availableHours) : null}::jsonb)))
         )
-        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${`%${userSearch.bio}%`})
+        AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${userSearch.bio ? `%${userSearch.bio}%` : null})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
         AND (
@@ -1033,9 +1033,9 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
             OR ${userSearch.skillsAndResources}::jsonb IS NULL OR
             (skills_and_resources != '[]'::jsonb AND (
                 (${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                    (skills_and_resources::text ILIKE ANY (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
                 ) OR (NOT ${userSearch.anySkillRes}::boolean AND 
-                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources}::jsonb)))
+                    (skills_and_resources::text ILIKE ALL (app.jsonb_to_wildcard_text_array(${userSearch.skillsAndResources ? JSON.stringify(userSearch.skillsAndResources) : null}::jsonb)))
                 )
             ))
         )
