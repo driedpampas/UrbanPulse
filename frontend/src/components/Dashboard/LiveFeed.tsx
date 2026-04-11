@@ -381,6 +381,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                 }
                                 style="padding:0;border:none;background:transparent;cursor:pointer;display:flex;"
                                 aria-label={`Open ${pulse.userName} profile`}
+                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                             >
                                 <img
                                     src={pulse.userAvatar}
@@ -401,6 +403,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                 )
                                             }
                                             style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;padding:0;cursor:pointer;text-align:left;"
+                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                         >
                                             {pulse.userName}
                                         </button>
@@ -426,6 +430,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
                                             title="Delete"
                                             aria-label="Delete pulse"
+                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                         >
                                             <Trash2 size={11} />
                                         </button>
@@ -454,6 +460,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             type="button"
                                             onClick={() => handleConfirm(pulse.id)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
+                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                         >
                                             <CheckCircle size={10} />
                                             Confirm
@@ -465,6 +473,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             onClick={() => setReportingPulse(pulse)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
                                             title="Report content"
+                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                         >
                                             <Flag size={10} />
                                             Report

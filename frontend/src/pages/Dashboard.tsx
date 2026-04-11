@@ -48,6 +48,8 @@ export function Dashboard() {
                                 id="view-feed-btn"
                                 style={tabStyle(view === 'feed')}
                                 onClick={() => setView('feed')}
+                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                             >
                                 <List size={13} />
                                 Feed
@@ -57,6 +59,8 @@ export function Dashboard() {
                                 id="view-map-btn"
                                 style={tabStyle(view === 'map')}
                                 onClick={() => setView('map')}
+                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                             >
                                 <MapIcon size={13} />
                                 Map
@@ -72,6 +76,8 @@ export function Dashboard() {
                                 onClick={() => setShowFilters((v) => !v)}
                                 aria-label="Filters"
                                 style={`color:${showFilters ? 'var(--accent)' : 'var(--text-secondary)'};background:${showFilters ? 'var(--accent-subtle)' : 'transparent'};width:34px;height:34px;`}
+                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                             >
                                 <SlidersHorizontal size={15} />
                             </button>
@@ -82,6 +88,8 @@ export function Dashboard() {
                                 onClick={() => setShowPostForm(true)}
                                 aria-label="Post pulse"
                                 style="padding:0 12px;height:34px;font-size:12px;gap:6px;"
+                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                             >
                                 <Plus size={14} strokeWidth={2.4} />
                                 New Pulse

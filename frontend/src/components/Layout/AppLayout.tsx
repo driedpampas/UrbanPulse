@@ -36,6 +36,8 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                             }
                             style="color:var(--text-secondary);"
                             title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                         </button>

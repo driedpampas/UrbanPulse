@@ -37,6 +37,8 @@ function SectionButton({
             type="button"
             onClick={onClick}
             style={`display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid ${active ? 'var(--border-strong)' : 'var(--border)'};background:${active ? 'var(--surface-raised)' : 'var(--bg-subtle)'};color:${active ? 'var(--text)' : 'var(--text-tertiary)'};font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s ease;`}
+            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
         >
             <Icon size={13} />
             {label}
@@ -179,6 +181,8 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                         disabled={updating}
                         onClick={() => handleAction('resolved')}
                         style="padding:6px 10px;border-radius:8px;border:none;background:var(--success-subtle);color:var(--success);font-size:11px;font-weight:700;cursor:pointer;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Resolve
                     </button>
@@ -187,6 +191,8 @@ function ReportRow({ report, onUpdate }: { report: AdminFlag; onUpdate: () => vo
                         disabled={updating}
                         onClick={() => handleAction('dismissed')}
                         style="padding:6px 10px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:11px;font-weight:700;cursor:pointer;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Dismiss
                     </button>

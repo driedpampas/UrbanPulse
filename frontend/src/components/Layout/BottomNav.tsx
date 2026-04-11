@@ -51,6 +51,8 @@ export function BottomNav() {
                                 min-width:52px;
                             `}
                             aria-current={active ? 'page' : undefined}
+                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
                                 <Icon size={18} strokeWidth={active ? 2.2 : 1.7} />

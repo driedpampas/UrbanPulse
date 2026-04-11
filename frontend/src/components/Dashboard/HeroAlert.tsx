@@ -56,6 +56,8 @@ export function HeroAlert() {
                         onClick={requestNotificationPermission}
                         class="btn-primary"
                         style="height:32px;padding:0 12px;font-size:11px;background:var(--accent);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Enable
                     </button>
@@ -90,6 +92,8 @@ export function HeroAlert() {
                         type="button"
                         onClick={() => setActiveAlert(null)}
                         style="background:rgba(0,0,0,0.1);border:none;color:var(--text);padding:4px;border-radius:50%;cursor:pointer;display:flex;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
                     </button>
@@ -131,6 +135,8 @@ export function HeroAlert() {
                         onClick={() => setActiveAlert(null)}
                         class="btn-primary"
                         style="flex:1;height:42px;background:var(--accent);border-radius:10px;font-weight:700;box-shadow:0 4px 15px var(--accent-muted);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         I can help!
                     </button>

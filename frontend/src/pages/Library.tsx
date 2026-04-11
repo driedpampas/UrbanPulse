@@ -60,13 +60,10 @@ export function Library() {
 
     const filtered = items.filter((i) => {
         if (filter !== 'all' && i.type !== filter) return false;
-        if (
-            search &&
+        return !(search &&
             !i.title.toLowerCase().includes(search.toLowerCase()) &&
-            !i.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
-        )
-            return false;
-        return true;
+            !i.tags.some((t) => t.toLowerCase().includes(search.toLowerCase())));
+
     });
 
     return (
@@ -79,6 +76,8 @@ export function Library() {
                     class="btn-primary"
                     onClick={() => setShowAdd(true)}
                     style="height:30px;font-size:12px;"
+                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     <Plus size={13} />
                     Add
@@ -97,6 +96,8 @@ export function Library() {
                             onClick={() => setActionError(null)}
                             aria-label="Dismiss error"
                             style="width:20px;height:20px;color:var(--danger);"
+                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             <X size={12} />
                         </button>
@@ -118,6 +119,8 @@ export function Library() {
                             onClick={() => setSearch('')}
                             class="btn-icon"
                             style="width:20px;height:20px;color:var(--text-tertiary);"
+                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             <X size={12} />
                         </button>
@@ -132,6 +135,8 @@ export function Library() {
                             type="button"
                             onClick={() => setFilter(f)}
                             style={TAB_BTN(filter === f)}
+                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             {f === 'all' ? 'All' : f === 'item' ? '📦 Items' : '🛠️ Skills'}
                         </button>
@@ -200,6 +205,8 @@ export function Library() {
                                                                 setEditingItem(item);
                                                             }}
                                                             style="height:26px;padding:0 9px;font-size:11px;gap:4px;"
+                                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                                         >
                                                             <Pencil size={11} />
                                                             Edit
@@ -212,6 +219,8 @@ export function Library() {
                                                                 setDeletingItem(item);
                                                             }}
                                                             style="height:26px;padding:0 9px;font-size:11px;gap:4px;color:var(--danger);border-color:var(--danger-muted);"
+                                                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                                         >
                                                             <Trash2 size={11} />
                                                             Delete
@@ -375,6 +384,8 @@ function AddItemModal({
                         onClick={onClose}
                         aria-label="Close"
                         style="color:var(--text-secondary);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
                     </button>
@@ -388,6 +399,8 @@ function AddItemModal({
                                 type="button"
                                 onClick={() => setType(t)}
                                 style={`flex:1;padding:7px;border-radius:8px;border:1px solid;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;${type === t ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);' : 'background:transparent;color:var(--text-secondary);border-color:var(--border);'}`}
+                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                             >
                                 {t === 'item' ? '📦 Item' : '🛠️ Skill'}
                             </button>
@@ -422,6 +435,8 @@ function AddItemModal({
                         disabled={!title.trim() || submitting}
                         class="btn-primary"
                         style="height:40px;background:var(--accent);border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {submitting ? 'Adding…' : 'Add to Library'}
                     </button>
@@ -512,6 +527,8 @@ function EditItemModal({
                         onClick={onClose}
                         aria-label="Close"
                         style="color:var(--text-secondary);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
                     </button>
@@ -559,6 +576,8 @@ function EditItemModal({
                         disabled={!title.trim() || busy}
                         class="btn-primary"
                         style="height:40px;background:var(--accent);border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {busy ? 'Saving…' : 'Save changes'}
                     </button>
@@ -605,6 +624,8 @@ function DeleteItemModal({
                         onClick={onClose}
                         aria-label="Close"
                         style="color:var(--text-secondary);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
                     </button>
@@ -615,6 +636,8 @@ function DeleteItemModal({
                         class="btn-ghost"
                         onClick={onClose}
                         style="height:36px;padding:0 12px;font-size:12px;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         Cancel
                     </button>
@@ -624,6 +647,8 @@ function DeleteItemModal({
                         onClick={onDelete}
                         disabled={busy}
                         style="height:36px;padding:0 12px;font-size:12px;background:var(--danger);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {busy ? 'Deleting…' : 'Delete'}
                     </button>

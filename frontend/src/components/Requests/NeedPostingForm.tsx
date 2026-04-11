@@ -101,6 +101,8 @@ export function NeedPostingForm({ onClose }: Props) {
                         onClick={onClose}
                         aria-label="Close"
                         style="color:var(--text-secondary);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={16} />
                     </button>
@@ -127,6 +129,8 @@ export function NeedPostingForm({ onClose }: Props) {
                                                 : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                         }
 									`}
+                                                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                 >
                                     <Icon size={11} />
                                     {t.label}
@@ -192,6 +196,8 @@ export function NeedPostingForm({ onClose }: Props) {
                         disabled={!content.trim() || sending || left < 0}
                         class="btn-primary"
                         style="margin-top:14px;width:100%;height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <Send size={13} />
                         {sending ? 'Posting…' : 'Post Pulse'}

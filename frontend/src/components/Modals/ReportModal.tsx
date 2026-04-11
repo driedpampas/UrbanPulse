@@ -61,6 +61,8 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         onClick={onClose}
                         aria-label="Close"
                         style="color:var(--text-secondary);"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <X size={18} />
                     </button>
@@ -94,6 +96,8 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                                         font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;
                                         text-align:left;
                                     `}
+                                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                                 >
                                     <div
                                         style={`width:12px;height:12px;border-radius:50%;border:2px solid ${reason === r ? 'var(--accent)' : 'var(--border-strong)'};background:${reason === r ? 'var(--accent)' : 'transparent'};box-shadow:${reason === r ? '0 0 0 2px var(--accent-subtle)' : 'none'};`}
@@ -115,6 +119,8 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                         disabled={sending}
                         class="btn-primary"
                         style="width:100%;height:42px;font-size:14px;background:var(--accent);color:white;border-radius:10px;margin-top:4px;"
+                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         {sending ? (
                             'Submitting…'
