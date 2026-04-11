@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6e29f95a-d53e-4598-8296-9e672be87774" name="Changes" comment="some refactoring" />
+    <list default="true" id="6e29f95a-d53e-4598-8296-9e672be87774" name="Changes" comment="some refactoring">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,8 +22,8 @@
   </component>
   <component name="CopilotUserSelectedModel">
     <selectedModels>
-      <entry key="chat-panel" value="GPT-5.4 mini" />
-      <entry key="agent-panel" value="GPT-5.4 mini" />
+      <entry key="chat-panel" value="GPT-5 mini" />
+      <entry key="agent-panel" value="GPT-5 mini" />
     </selectedModels>
   </component>
   <component name="Git.Settings">
@@ -117,6 +119,8 @@
       <workItem from="1774726139636" duration="162000" />
       <workItem from="1775919837942" duration="8687000" />
       <workItem from="1775938505300" duration="128000" />
+      <workItem from="1775945153619" duration="51000" />
+      <workItem from="1775946316886" duration="994000" />
     </task>
     <task id="LOCAL-00001" summary="Hovering over buttons now highlights them">
       <option name="closed" value="true" />

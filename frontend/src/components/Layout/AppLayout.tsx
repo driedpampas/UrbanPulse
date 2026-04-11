@@ -1,8 +1,8 @@
 import { Moon, Sun } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { useTheme } from '../../lib/theme';
-import { BottomNav } from './BottomNav';
 import { HoverButton } from '../ui/HoverButton';
+import { BottomNav } from './BottomNav';
 
 interface Props {
     children: ComponentChildren;
@@ -16,7 +16,6 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
 
     return (
         <div style="min-height:100dvh;display:flex;flex-direction:column;">
-            {/* Header */}
             {title && (
                 <header
                     class="header-bar"
@@ -37,10 +36,12 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                             }
                             style="color:var(--text-secondary);"
                             title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                            onMouseEnter={(e) => {(e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
+                            onMouseEnter={(e) => {
+                                (e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
                                 (e.target as HTMLElement).style.background = 'var(--bg-muted)';
-                                }}
-                            onMouseLeave={(e) => {(e.target as HTMLElement).style.filter = 'none';
+                            }}
+                            onMouseLeave={(e) => {
+                                (e.target as HTMLElement).style.filter = 'none';
                                 (e.target as HTMLElement).style.background = 'transparent';
                             }}
                         >
@@ -50,14 +51,12 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                 </header>
             )}
 
-            {/* Content with max-width */}
             <main style="flex:1;overflow-y:auto;padding-bottom:var(--nav-h);">
                 <div class="app-container">{children}</div>
             </main>
 
             {showNav && <BottomNav />}
 
-            {/* Version indicator */}
             <div
                 style={`position:fixed;bottom:${showNav ? 'calc(var(--nav-h) + 4px)' : '8px'};right:8px;z-index:60;pointer-events:none;`}
             >

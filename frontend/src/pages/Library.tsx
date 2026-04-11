@@ -1,71 +1,35 @@
-import { Package, Pencil, Plus, Search, Tag, Trash2, Wrench, X } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import { Package, Plus, X } from 'lucide-preact';
+import { useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { useAuth } from '../lib/auth';
-import {
-    deleteLibraryItem,
-    fetchLibrary,
-    postLibraryItem,
-    updateLibraryItem,
-} from '../lib/libraryApi';
-import type { LibraryItem } from '../lib/types';
+import { LibraryFilterTabs } from '../components/Library/LibraryFilterTabs';
+import { LibraryItemsList } from '../components/Library/LibraryItemsList';
+import { LibrarySearchBar } from '../components/Library/LibrarySearchBar';
 import { HoverButton } from '../components/ui/HoverButton';
-
-const TAB_BTN = (active: boolean) => `
-    font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px;border:none;
-    cursor:pointer;font-family:inherit;transition:all 0.15s;
-    ${
-        active
-            ? 'background:var(--accent-subtle);color:var(--accent);'
-            : 'background:transparent;color:var(--text-tertiary);'
-    }
-`;
+import { useLibraryData } from '../hooks/useLibraryData';
+import type { LibraryItem } from '../types';
 
 export function Library() {
-    const { session } = useAuth();
-    const [items, setItems] = useState<LibraryItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<'all' | 'item' | 'skill'>('all');
-    const [search, setSearch] = useState('');
-    const [showAdd, setShowAdd] = useState(false);
-    const [editingItem, setEditingItem] = useState<LibraryItem | null>(null);
-    const [deletingItem, setDeletingItem] = useState<LibraryItem | null>(null);
-    const [actionError, setActionError] = useState<string | null>(null);
-    const [busyItemId, setBusyItemId] = useState<string | null>(null);
-
-    const currentUser = session?.user;
-    const canManageItem = (item: LibraryItem) => {
-        const role = currentUser?.role;
-        return Boolean(
-            currentUser && (currentUser.id === item.userId || role === 'admin' || role === 'mod')
-        );
-    };
-
-    const loadLibrary = async () => {
-        setLoading(true);
-        try {
-            const data = await fetchLibrary();
-            setItems(data);
-        } catch (error) {
-            console.error(error);
-            setActionError('Could not load library items.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        void loadLibrary();
-    }, []);
-
-    const filtered = items.filter((i) => {
-        if (filter !== 'all' && i.type !== filter) return false;
-        return !(
-            search &&
-            !i.title.toLowerCase().includes(search.toLowerCase()) &&
-            !i.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
-        );
-    });
+    const {
+        loading,
+        filter,
+        setFilter,
+        search,
+        setSearch,
+        showAdd,
+        setShowAdd,
+        editingItem,
+        setEditingItem,
+        deletingItem,
+        setDeletingItem,
+        actionError,
+        setActionError,
+        busyItemId,
+        filteredItems,
+        canManageItem,
+        createItem,
+        saveItemUpdates,
+        removeItem,
+    } = useLibraryData();
 
     return (
         <AppLayout
@@ -107,50 +71,12 @@ export function Library() {
                     </div>
                 )}
 
-                {/* Search */}
-                <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
-                    <Search size={14} style="color:var(--text-tertiary);flex-shrink:0;" />
-                    <input
-                        value={search}
-                        onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
-                        placeholder="Search items or skills…"
-                        style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:var(--text);font-family:inherit;"
-                    />
-                    {search && (
-                        <HoverButton
-                            type="button"
-                            onClick={() => setSearch('')}
-                            class="btn-icon"
-                            style="width:20px;height:20px;color:var(--text-tertiary);"
-                            onMouseEnter={(e) =>
-                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                            }
-                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
-                        >
-                            <X size={12} />
-                        </HoverButton>
-                    )}
-                </div>
-
-                {/* Filter tabs */}
-                <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);align-self:flex-start;">
-                    {(['all', 'item', 'skill'] as const).map((f) => (
-                        <HoverButton
-                            key={f}
-                            type="button"
-                            onClick={() => setFilter(f)}
-                            style={TAB_BTN(filter === f)}
-                            onMouseEnter={(e) =>
-                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                            }
-                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
-                        >
-                            {f === 'all' ? 'All' : f === 'item' ? '📦 Items' : '🛠️ Skills'}
-                        </HoverButton>
-                    ))}
-                </div>
-
-                {/* Content */}
+                <LibrarySearchBar
+                    search={search}
+                    onSearchChange={setSearch}
+                    onClear={() => setSearch('')}
+                />
+                <LibraryFilterTabs filter={filter} onFilterChange={setFilter} />
                 {loading ? (
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         {[1, 2, 3].map((i) => (
@@ -160,7 +86,7 @@ export function Library() {
                             />
                         ))}
                     </div>
-                ) : filtered.length === 0 ? (
+                ) : filteredItems.length === 0 ? (
                     <div style="padding:48px 24px;text-align:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);">
                         <Package size={28} style="color:var(--text-tertiary);margin:0 auto 8px;" />
                         <p style="font-size:13px;color:var(--text-secondary);margin:0;">
@@ -168,151 +94,28 @@ export function Library() {
                         </p>
                     </div>
                 ) : (
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        {filtered.map((item, i) => {
-                            const isItem = item.type === 'item';
-                            const canManage = canManageItem(item);
-                            return (
-                                <div
-                                    key={item.id}
-                                    class="card animate-slide-up"
-                                    style={`padding:14px 16px;animation-delay:${i * 40}ms;`}
-                                >
-                                    <div style="display:flex;align-items:flex-start;gap:12px;">
-                                        {/* Icon */}
-                                        <div
-                                            style={`width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${isItem ? 'var(--type-item-bg)' : 'var(--type-skill-bg)'};color:${isItem ? 'var(--type-item-text)' : 'var(--type-skill-text)'};`}
-                                        >
-                                            {isItem ? <Package size={16} /> : <Wrench size={16} />}
-                                        </div>
-
-                                        <div style="flex:1;min-width:0;">
-                                            {/* Title row */}
-                                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
-                                                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-                                                    <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                                                        {item.title}
-                                                    </span>
-                                                    <span
-                                                        title={
-                                                            item.available
-                                                                ? 'Available'
-                                                                : 'Unavailable'
-                                                        }
-                                                        style={`width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${item.available ? 'var(--success)' : 'var(--text-tertiary)'};`}
-                                                    />
-                                                </div>
-                                                {canManage && (
-                                                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                                                        <HoverButton
-                                                            type="button"
-                                                            class="btn-ghost"
-                                                            onClick={() => {
-                                                                setActionError(null);
-                                                                setEditingItem(item);
-                                                            }}
-                                                            style="height:26px;padding:0 9px;font-size:11px;gap:4px;"
-                                                            onMouseEnter={(e) =>
-                                                                ((
-                                                                    e.target as HTMLElement
-                                                                ).style.filter =
-                                                                    'var(--hover-brightness)')
-                                                            }
-                                                            onMouseLeave={(e) =>
-                                                                ((
-                                                                    e.target as HTMLElement
-                                                                ).style.filter = 'none')
-                                                            }
-                                                        >
-                                                            <Pencil size={11} />
-                                                            Edit
-                                                        </HoverButton>
-                                                        <HoverButton
-                                                            type="button"
-                                                            class="btn-ghost"
-                                                            onClick={() => {
-                                                                setActionError(null);
-                                                                setDeletingItem(item);
-                                                            }}
-                                                            style="height:26px;padding:0 9px;font-size:11px;gap:4px;color:var(--danger);border-color:var(--danger-muted);"
-                                                            onMouseEnter={(e) =>
-                                                                ((
-                                                                    e.target as HTMLElement
-                                                                ).style.filter =
-                                                                    'var(--hover-brightness)')
-                                                            }
-                                                            onMouseLeave={(e) =>
-                                                                ((
-                                                                    e.target as HTMLElement
-                                                                ).style.filter = 'none')
-                                                            }
-                                                        >
-                                                            <Trash2 size={11} />
-                                                            Delete
-                                                        </HoverButton>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {/* Owner */}
-                                            <p style="font-size:11px;color:var(--text-tertiary);margin:2px 0 6px;">
-                                                {item.userName}
-                                            </p>
-                                            {/* Description */}
-                                            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 8px;line-height:1.5;">
-                                                {item.description}
-                                            </p>
-                                            {/* Tags */}
-                                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                                                {item.tags.map((tag) => (
-                                                    <span
-                                                        key={tag}
-                                                        style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:var(--bg-muted);color:var(--text-tertiary);"
-                                                    >
-                                                        <Tag size={8} />
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <LibraryItemsList
+                        items={filteredItems}
+                        canManageItem={canManageItem}
+                        onEdit={(item) => {
+                            setActionError(null);
+                            setEditingItem(item);
+                        }}
+                        onDelete={(item) => {
+                            setActionError(null);
+                            setDeletingItem(item);
+                        }}
+                    />
                 )}
             </div>
 
-            {showAdd && (
-                <AddItemModal
-                    onClose={() => setShowAdd(false)}
-                    onAdd={async (item) => {
-                        setItems((p) => [...p, item]);
-                        setShowAdd(false);
-                    }}
-                />
-            )}
+            {showAdd && <AddItemModal onClose={() => setShowAdd(false)} onAdd={createItem} />}
 
             {editingItem && (
                 <EditItemModal
                     item={editingItem}
                     onClose={() => setEditingItem(null)}
-                    onSave={async (updates) => {
-                        setBusyItemId(editingItem.id);
-                        try {
-                            await updateLibraryItem(editingItem.id, updates);
-                            await loadLibrary();
-                            setEditingItem(null);
-                        } catch (error) {
-                            console.error(error);
-                            setActionError(
-                                error instanceof Error
-                                    ? error.message
-                                    : 'Could not update library item.'
-                            );
-                        } finally {
-                            setBusyItemId(null);
-                        }
-                    }}
+                    onSave={(updates) => saveItemUpdates(editingItem.id, updates)}
                     busy={busyItemId === editingItem.id}
                 />
             )}
@@ -321,23 +124,7 @@ export function Library() {
                 <DeleteItemModal
                     item={deletingItem}
                     onClose={() => setDeletingItem(null)}
-                    onDelete={async () => {
-                        setBusyItemId(deletingItem.id);
-                        try {
-                            await deleteLibraryItem(deletingItem.id);
-                            await loadLibrary();
-                            setDeletingItem(null);
-                        } catch (error) {
-                            console.error(error);
-                            setActionError(
-                                error instanceof Error
-                                    ? error.message
-                                    : 'Could not delete library item.'
-                            );
-                        } finally {
-                            setBusyItemId(null);
-                        }
-                    }}
+                    onDelete={() => removeItem(deletingItem.id)}
                     busy={busyItemId === deletingItem.id}
                 />
             )}
@@ -350,7 +137,12 @@ function AddItemModal({
     onAdd,
 }: {
     onClose: () => void;
-    onAdd: (item: LibraryItem) => void | Promise<void>;
+    onAdd: (input: {
+        type: 'item' | 'skill';
+        title: string;
+        description: string;
+        tags: string[];
+    }) => void | Promise<void>;
 }) {
     const [type, setType] = useState<'item' | 'skill'>('item');
     const [title, setTitle] = useState('');
@@ -362,7 +154,7 @@ function AddItemModal({
         e.preventDefault();
         if (!title.trim()) return;
         setSubmitting(true);
-        const item = await postLibraryItem({
+        await onAdd({
             type,
             title: title.trim(),
             description: description.trim(),
@@ -371,7 +163,6 @@ function AddItemModal({
                 .map((t) => t.trim())
                 .filter(Boolean),
         });
-        await onAdd(item);
         setSubmitting(false);
     };
 
@@ -418,7 +209,6 @@ function AddItemModal({
                     </HoverButton>
                 </div>
                 <form onSubmit={handleSubmit} style="display:flex;flex-direction:column;gap:10px;">
-                    {/* Type */}
                     <div style="display:flex;gap:6px;">
                         {(['item', 'skill'] as const).map((t) => (
                             <HoverButton
