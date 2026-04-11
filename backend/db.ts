@@ -990,9 +990,13 @@ export async function updateUserProfile(user: User) {
     const radius = user.radius ?? null;
     const lat = user.location?.lat ?? null;
     const lng = user.location?.lng ?? null;
-    const quietHours = user.quietHours ? user.quietHours : null;
-    const quietDays = user.quietDays ? user.quietDays : null;
-    const skillres = user.skillsAndResources ? user.skillsAndResources : null;
+    const quietHoursProvided = user.quietHours !== undefined;
+    const quietDaysProvided = user.quietDays !== undefined;
+    const skillResProvided = user.skillsAndResources !== undefined;
+
+    const quietHoursJson = JSON.stringify(user.quietHours ?? null);
+    const quietDaysJson = JSON.stringify(user.quietDays ?? null);
+    const skillResJson = JSON.stringify(user.skillsAndResources ?? null);
 
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
@@ -1012,19 +1016,19 @@ export async function updateUserProfile(user: User) {
 
       quiet_hours = CASE 
                 WHEN ${shouldClearQuietHours} THEN '{}'::app.timemultirange 
-                WHEN ${quietHours}::jsonb IS NOT NULL THEN app.jsonb_to_timemultirange(${quietHours ? JSON.stringify(quietHours) : null}::jsonb)
+                WHEN ${quietHoursProvided} THEN app.jsonb_to_timemultirange(${quietHoursJson}::jsonb)
         ELSE quiet_hours 
       END,
 
       quiet_days = CASE 
         WHEN ${shouldClearQuietDays} THEN '{}'::integer[]
-        WHEN ${quietDays}::jsonb IS NOT NULL THEN app.jsonb_to_integer_array(${quietDays ? JSON.stringify(quietDays) : null}::jsonb)
+        WHEN ${quietDaysProvided} THEN app.jsonb_to_integer_array(${quietDaysJson}::jsonb)
         ELSE quiet_days 
       END,
 
       skills_and_resources = CASE
         WHEN ${shouldClearSkillRes} THEN '[]'::jsonb
-        WHEN ${skillres}::jsonb IS NOT NULL THEN ${skillres ? JSON.stringify(skillres) : null}::jsonb
+        WHEN ${skillResProvided} THEN ${skillResJson}::jsonb
         ELSE skills_and_resources
       END
 

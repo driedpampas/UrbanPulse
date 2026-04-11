@@ -67,6 +67,9 @@ const S = {
 const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const PROFILE_MAPBOX_STYLE = 'mapbox/light-v11';
 
+const MAP_FRAME_STYLE =
+    'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.03));box-shadow:var(--shadow-sm);';
+
 function resolveLocationValue(
     value:
         | {
@@ -130,6 +133,8 @@ export function Profile() {
         typeof window !== 'undefined' &&
         new URLSearchParams(window.location.search).get('setup') === '1';
     const selectedLocation = resolveLocationValue(editing ? draft : user);
+    const editableLocationMap = isOwnProfile && editing;
+    const displayLocationMap = Boolean(selectedLocation || editableLocationMap);
 
     const applyLocation = (nextLocation: { lat: number; lng: number }) => {
         setDraft((current) => ({
@@ -171,7 +176,7 @@ export function Profile() {
     }, [location, isOwnProfile, selectedUserId]);
 
     useEffect(() => {
-        if (!editing || !isOwnProfile) {
+        if (!displayLocationMap) {
             return;
         }
 
@@ -204,6 +209,8 @@ export function Profile() {
                     style: `mapbox://styles/${PROFILE_MAPBOX_STYLE}`,
                     center: [initialLocation.lng, initialLocation.lat],
                     zoom: 13,
+                    interactive: editableLocationMap,
+                    attributionControl: false,
                 });
 
                 mapRef.current = map;
@@ -212,23 +219,28 @@ export function Profile() {
                         return;
                     }
 
-                    const marker = new mapboxgl.Marker({ draggable: true, color: '#0ea5e9' })
+                    const marker = new mapboxgl.Marker({
+                        draggable: editableLocationMap,
+                        color: '#0ea5e9',
+                    })
                         .setLngLat([initialLocation.lng, initialLocation.lat])
                         .addTo(map);
 
                     locationMarkerRef.current = marker;
                     setMapLoaded(true);
 
-                    marker.on('dragend', () => {
-                        const next = marker.getLngLat();
-                        applyLocation({ lat: next.lat, lng: next.lng });
-                    });
+                    if (editableLocationMap) {
+                        marker.on('dragend', () => {
+                            const next = marker.getLngLat();
+                            applyLocation({ lat: next.lat, lng: next.lng });
+                        });
 
-                    map.on('click', (event) => {
-                        const next = { lat: event.lngLat.lat, lng: event.lngLat.lng };
-                        marker.setLngLat([next.lng, next.lat]);
-                        applyLocation(next);
-                    });
+                        map.on('click', (event) => {
+                            const next = { lat: event.lngLat.lat, lng: event.lngLat.lng };
+                            marker.setLngLat([next.lng, next.lat]);
+                            applyLocation(next);
+                        });
+                    }
                 });
 
                 map.on('error', (event: MapboxErrorEvent) => {
@@ -255,32 +267,45 @@ export function Profile() {
             setMapLoaded(false);
             setMapError(null);
         };
-    }, [editing, isOwnProfile, selectedLocation?.lat, selectedLocation?.lng]);
+    }, [displayLocationMap, editableLocationMap, selectedLocation?.lat, selectedLocation?.lng]);
 
     useEffect(() => {
         const map = mapRef.current;
         const marker = locationMarkerRef.current;
 
-        if (!editing || !mapLoaded || !map || !marker || !selectedLocation) {
+        if (!mapLoaded || !map || !marker || !selectedLocation) {
             return;
         }
 
         marker.setLngLat([selectedLocation.lng, selectedLocation.lat]);
         map.setCenter([selectedLocation.lng, selectedLocation.lat]);
-    }, [editing, mapLoaded, selectedLocation]);
+    }, [mapLoaded, selectedLocation]);
+
+    const mapTitle = editableLocationMap ? 'Adjust your location' : 'Home location';
+    const mapSubtitle = editableLocationMap
+        ? 'Click the map or drag the pin to update your profile.'
+        : selectedLocation
+          ? 'Profile location preview'
+          : 'No location shared yet';
 
     const handleSave = async () => {
         if (!draft) return;
         setSaving(true);
-        const updated = await updateProfile(draft);
-        updateLocalUser({ displayName: updated.name });
-        setUser(updated);
-        setDraft(updated);
-        setEditing(false);
-        if (isSetupMode) {
-            setLocation('/profile');
+        try {
+            const updated = await updateProfile(draft);
+            updateLocalUser({ displayName: updated.name });
+            setUser(updated);
+            setDraft(updated);
+            setEditing(false);
+            if (isSetupMode) {
+                setLocation('/profile');
+            }
+        } catch (error) {
+            console.error(error);
+            window.alert('Could not save profile changes.');
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
     const handleMessageUser = async () => {
@@ -597,41 +622,51 @@ export function Profile() {
                             </div>
 
                             <div style="display:flex;flex-direction:column;gap:8px;">
-                                <div
-                                    style={`border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--bg-subtle);${
-                                        editing ? '' : 'opacity:0.95;'
-                                    }`}
-                                >
+                                <div style={MAP_FRAME_STYLE}>
+                                    <div style="position:absolute;inset:0;background:radial-gradient(circle at top left, rgba(14,165,233,0.10), transparent 28%), radial-gradient(circle at bottom right, rgba(16,185,129,0.10), transparent 26%), linear-gradient(180deg, rgba(255,255,255,0.06), transparent 36%);pointer-events:none;" />
+                                    <div style="position:absolute;top:12px;left:12px;z-index:2;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:rgba(15,23,42,0.72);backdrop-filter:blur(14px);color:#fff;max-width:calc(100% - 24px);">
+                                        <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.72);">
+                                            {mapTitle}
+                                        </span>
+                                        <span style="font-size:13px;font-weight:600;line-height:1.2;">
+                                            {mapSubtitle}
+                                        </span>
+                                    </div>
+                                    <div style="position:absolute;top:12px;right:12px;z-index:2;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.86);border:1px solid var(--border);box-shadow:var(--shadow-sm);font-size:11px;font-weight:600;color:var(--text);backdrop-filter:blur(10px);">
+                                        {locationText(selectedLocation)}
+                                    </div>
                                     <div
                                         ref={mapContainerRef}
-                                        style={`width:100%;height:220px;display:${
-                                            editing && mapLoaded ? 'block' : 'none'
+                                        style={`width:100%;height:260px;display:${
+                                            displayLocationMap && mapLoaded ? 'block' : 'none'
                                         };`}
                                     />
-                                    {editing && !mapLoaded && !mapError && (
-                                        <div style="height:220px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:12px;">
-                                            Loading location map…
+                                    {displayLocationMap && !mapLoaded && !mapError && (
+                                        <div style="height:260px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:linear-gradient(180deg,rgba(255,255,255,0.5),rgba(255,255,255,0.1));">
+                                            <div style="width:36px;height:36px;border-radius:999px;border:2px solid var(--accent-muted);border-top-color:var(--accent);animation:spin 1s linear infinite;" />
+                                            Loading map preview…
                                         </div>
                                     )}
-                                    {editing && mapError && (
-                                        <div style="height:220px;padding:14px;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:flex-start;">
-                                            <p style="margin:0;font-size:12px;color:var(--danger);">
+                                    {displayLocationMap && mapError && (
+                                        <div style="height:260px;padding:18px;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:flex-start;background:linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0.18));">
+                                            <p style="margin:0;font-size:12px;font-weight:600;color:var(--danger);">
                                                 {mapError}
                                             </p>
-                                            <p style="margin:0;font-size:11px;color:var(--text-tertiary);">
-                                                Set `VITE_MAPBOX_TOKEN` to enable map picking.
+                                            <p style="margin:0;font-size:11px;color:var(--text-secondary);line-height:1.45;">
+                                                Set `VITE_MAPBOX_TOKEN` to enable the map preview
+                                                and pin editing.
                                             </p>
                                         </div>
                                     )}
-                                    {!editing && (
-                                        <div style="height:220px;padding:14px;display:flex;align-items:flex-end;background:linear-gradient(180deg,rgba(0,0,0,0.02),rgba(0,0,0,0.08));">
-                                            <div style="padding:8px 10px;border-radius:8px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
-                                                <p style="margin:0;font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.04em;">
-                                                    Current pin
-                                                </p>
-                                                <p style="margin:3px 0 0;font-size:13px;color:var(--text);font-weight:600;">
-                                                    {locationText(selectedLocation)}
-                                                </p>
+                                    {!displayLocationMap && (
+                                        <div style="height:260px;padding:18px;display:flex;align-items:flex-end;background:linear-gradient(135deg,rgba(14,165,233,0.10),rgba(16,185,129,0.08)),linear-gradient(180deg,rgba(255,255,255,0.45),rgba(255,255,255,0.12));">
+                                            <div style="display:flex;flex-direction:column;gap:5px;max-width:220px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,0.86);border:1px solid var(--border);box-shadow:var(--shadow-sm);">
+                                                <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-tertiary);">
+                                                    Location
+                                                </span>
+                                                <span style="font-size:13px;color:var(--text);font-weight:600;line-height:1.4;">
+                                                    Not set yet
+                                                </span>
                                             </div>
                                         </div>
                                     )}
