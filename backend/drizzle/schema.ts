@@ -36,10 +36,6 @@ export const users = app.table(
         role: text('role').notNull().default('user'),
         passwordHash: text('password_hash').notNull(),
         displayName: text('display_name'),
-        skillsAndResources: jsonb('skills_and_resources')
-            .$type<string[]>()
-            .notNull()
-            .default(sql`'[]'::jsonb`),
         distanceLimitMeters: integer('distance_limit_meters'),
         location: geography('location'),
         quietHours: timeMultirange('quiet_hours'),

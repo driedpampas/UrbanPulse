@@ -208,7 +208,6 @@ const updateUserSchema = z.strictObject({
     displayName: z.string().nonempty().optional(),
     bio: z.string().optional(),
     radius: z.number().min(0).optional(),
-    skills_and_resources: z.array(z.string()).optional(),
     location: z
         .object({
             lat: z.number().optional(),
@@ -274,9 +273,23 @@ const createLibraryItemSchema = z.strictObject({
     tags: z.array(z.string()).max(10),
 });
 
-const updateLibraryItemSchema = z.strictObject({
-    isAvailable: z.boolean(),
-});
+const updateLibraryItemSchema = z
+    .strictObject({
+        title: z.string().nonempty().max(255).optional(),
+        description: z.string().max(2000).optional(),
+        tags: z.array(z.string()).max(10).optional(),
+        isAvailable: z.boolean().optional(),
+    })
+    .refine(
+        (body) =>
+            body.title !== undefined ||
+            body.description !== undefined ||
+            body.tags !== undefined ||
+            body.isAvailable !== undefined,
+        {
+            message: 'At least one field must be provided for update.',
+        }
+    );
 
 const createReportSchema = z.strictObject({
     targetId: z.uuid(),
@@ -584,7 +597,6 @@ bun.serve({
                                 location: body.location,
                                 quietHours: body.quietHours as Timerange[] | null,
                                 quietDays: body.quietDays as number[] | null,
-                                skillsAndResources: body.skills_and_resources as string[] | null,
                             });
 
                             return SUCCESS;
@@ -1553,10 +1565,15 @@ bun.serve({
                                 .json()
                                 .then((raw) => updateLibraryItemSchema.parse(raw));
 
-                            const success = await db.updateLibraryItemAvailability(
+                            const success = await db.updateLibraryItem(
                                 req.params.id,
                                 payload.id,
-                                body.isAvailable
+                                {
+                                    title: body.title,
+                                    description: body.description,
+                                    tags: body.tags,
+                                    isAvailable: body.isAvailable,
+                                }
                             );
 
                             return withCors(

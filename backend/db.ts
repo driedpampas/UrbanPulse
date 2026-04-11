@@ -110,6 +110,13 @@ export interface LibraryItem {
     createdAt: number;
 }
 
+interface UpdateLibraryItemParams {
+    title?: string;
+    description?: string;
+    tags?: string[];
+    isAvailable?: boolean;
+}
+
 interface User {
     id: string;
     email?: string | null;
@@ -1199,15 +1206,12 @@ export async function updateUserProfile(user: User) {
     const lng = user.location?.lng ?? null;
     const quietHoursProvided = user.quietHours !== undefined;
     const quietDaysProvided = user.quietDays !== undefined;
-    const skillResProvided = user.skillsAndResources !== undefined;
 
     const quietHoursJson = JSON.stringify(user.quietHours ?? null);
     const quietDaysJson = JSON.stringify(user.quietDays ?? null);
-    const skillResJson = JSON.stringify(user.skillsAndResources ?? null);
 
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
-    const shouldClearSkillRes = user.skillsAndResources === null;
     await sql`
       UPDATE app.users 
       SET 
@@ -1231,13 +1235,7 @@ export async function updateUserProfile(user: User) {
         WHEN ${shouldClearQuietDays} THEN '{}'::integer[]
         WHEN ${quietDaysProvided} THEN app.jsonb_to_integer_array(${quietDaysJson}::jsonb)
         ELSE quiet_days 
-      END,
-
-      skills_and_resources = CASE
-        WHEN ${shouldClearSkillRes} THEN '[]'::jsonb
-        WHEN ${skillResProvided} THEN ${skillResJson}::jsonb
-        ELSE skills_and_resources
-      END
+            END
 
       WHERE id = ${user.id}
     `;
@@ -1418,6 +1416,43 @@ export async function updateLibraryItemAvailability(
         )
         RETURNING id
     `;
+    return Boolean(updated);
+}
+
+export async function updateLibraryItem(
+    itemId: string,
+    requesterId: string,
+    params: UpdateLibraryItemParams
+): Promise<boolean> {
+    const title = params.title ?? null;
+    const description = params.description ?? null;
+    const tagsJson = params.tags !== undefined ? JSON.stringify(params.tags) : null;
+    const isAvailable = params.isAvailable ?? null;
+
+    const titleProvided = params.title !== undefined;
+    const descriptionProvided = params.description !== undefined;
+    const tagsProvided = params.tags !== undefined;
+    const availableProvided = params.isAvailable !== undefined;
+
+    const [updated] = await sql`
+        UPDATE app.library_items
+        SET
+            title = CASE WHEN ${titleProvided} THEN ${title} ELSE title END,
+            description = CASE WHEN ${descriptionProvided} THEN ${description} ELSE description END,
+            tags = CASE WHEN ${tagsProvided} THEN ${tagsJson}::jsonb ELSE tags END,
+            is_available = CASE WHEN ${availableProvided} THEN ${isAvailable} ELSE is_available END
+        WHERE id = ${itemId} AND (
+            author_id = ${requesterId}
+            OR EXISTS (
+                SELECT 1
+                FROM app.users
+                WHERE id = ${requesterId}
+                  AND role IN ('admin', 'mod')
+            )
+        )
+        RETURNING id
+    `;
+
     return Boolean(updated);
 }
 
