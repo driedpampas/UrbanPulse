@@ -606,44 +606,86 @@ bun.serve({
         '/api/users': {
             GET: async (req) => {
                 return validate(req, async () =>
-                    caught(async () => {
-                        const url = new URL(req.url);
+                    authorize(
+                        req,
+                        async (session) =>
+                            caught(async () => {
+                                const url = new URL(req.url);
+                                const payload = session as JwtPayload;
 
-                        const query: SearchUsersQuery = searchUsersSchema.parse({
-                            id: url.searchParams.get('id'),
-                            email: url.searchParams.get('email'),
-                            anyskillres: url.searchParams.get('anyskillres'),
-                            skillres: url.searchParams.getAll('skillres'),
-                            min_trust: url.searchParams.get('min_trust'),
-                            max_trust: url.searchParams.get('max_trust'),
-                            created_before: url.searchParams.get('created_before'),
-                            created_after: url.searchParams.get('created_after'),
-                            displayName: url.searchParams.get('displayName'),
-                            role: url.searchParams.get('role'),
-                            verified: url.searchParams.get('verified'),
-                            radius: url.searchParams.get('radius'),
-                            location:
-                                url.searchParams.get('lat') || url.searchParams.get('lng')
-                                    ? {
-                                          lat: url.searchParams.get('lat'),
-                                          lng: url.searchParams.get('lng'),
-                                      }
-                                    : null,
-                            availableDays: url.searchParams.getAll('available_days'),
-                            availableHours: url.searchParams.getAll('available_hours'),
-                            bio: url.searchParams.get('bio'),
-                            limit: url.searchParams.get('limit'),
-                            offset: url.searchParams.get('offset'),
-                        });
+                                const query: SearchUsersQuery = searchUsersSchema.parse({
+                                    id: url.searchParams.get('id'),
+                                    email: url.searchParams.get('email'),
+                                    anyskillres: url.searchParams.get('anyskillres'),
+                                    skillres: url.searchParams.getAll('skillres'),
+                                    min_trust: url.searchParams.get('min_trust'),
+                                    max_trust: url.searchParams.get('max_trust'),
+                                    created_before: url.searchParams.get('created_before'),
+                                    created_after: url.searchParams.get('created_after'),
+                                    displayName: url.searchParams.get('displayName'),
+                                    role: url.searchParams.get('role'),
+                                    verified: url.searchParams.get('verified'),
+                                    radius: url.searchParams.get('radius'),
+                                    location:
+                                        url.searchParams.get('lat') || url.searchParams.get('lng')
+                                            ? {
+                                                  lat: url.searchParams.get('lat'),
+                                                  lng: url.searchParams.get('lng'),
+                                              }
+                                            : null,
+                                    availableDays: url.searchParams.getAll('available_days'),
+                                    availableHours: url.searchParams.getAll('available_hours'),
+                                    bio: url.searchParams.get('bio'),
+                                    limit: url.searchParams.get('limit'),
+                                    offset: url.searchParams.get('offset'),
+                                });
 
-                        const users = await db.searchUsers(
-                            buildSearchParams(query),
-                            query.limit,
-                            query.offset
-                        );
+                                let users = await db.searchUsers(
+                                    buildSearchParams(query),
+                                    query.limit,
+                                    query.offset
+                                );
 
-                        return withCors(Response.json(users, { status: 200 }));
-                    })
+                                const requesterRole = (
+                                    await db.selectUserRole(payload.id as string)
+                                )?.toLowerCase();
+                                const isAdmin = requesterRole === 'admin' || requesterRole === 'mod';
+
+                                users = users.map((u) => {
+                                    if (!isAdmin && u.id !== payload.id) {
+                                        const { email: _email, ...rest } = u;
+                                        return rest as any;
+                                    }
+                                    return u;
+                                });
+
+                                return withCors(Response.json(users, { status: 200 }));
+                            }),
+                        () =>
+                            caught(async () => {
+                                // For public access, return users without emails
+                                const url = new URL(req.url);
+                                const query: SearchUsersQuery = searchUsersSchema.parse({
+                                    id: url.searchParams.get('id'),
+                                    displayName: url.searchParams.get('displayName'),
+                                    limit: url.searchParams.get('limit'),
+                                    offset: url.searchParams.get('offset'),
+                                });
+
+                                let users = await db.searchUsers(
+                                    buildSearchParams(query),
+                                    query.limit,
+                                    query.offset
+                                );
+
+                                users = users.map((u) => {
+                                    const { email: _email, ...rest } = u;
+                                    return rest as any;
+                                });
+
+                                return withCors(Response.json(users, { status: 200 }));
+                            })
+                    )
                 );
             },
             DELETE: async (req) => {

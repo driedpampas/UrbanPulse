@@ -229,9 +229,16 @@ export function Profile() {
                                     onBlur={focusOff}
                                 />
                             ) : (
-                                <p style="font-size:15px;font-weight:700;color:var(--text);margin:0 0 6px;letter-spacing:-0.01em;">
-                                    {user.name}
-                                </p>
+                                <>
+                                    <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
+                                        {user.name}
+                                    </p>
+                                    {isOwnProfile && (
+                                        <p style="font-size:12px;color:var(--text-tertiary);margin:2px 0 6px;">
+                                            {user.email}
+                                        </p>
+                                    )}
+                                </>
                             )}
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
                                 <TrustBadge score={user.trustScore} verified={user.verified} />
