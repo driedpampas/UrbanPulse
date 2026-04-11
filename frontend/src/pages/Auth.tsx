@@ -111,7 +111,9 @@ export function Auth() {
                     onClick={toggle}
                     aria-label="Toggle theme"
                     style="color:var(--text-secondary);"
-                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                    onMouseEnter={(e) =>
+                        ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                    }
                     onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
@@ -152,12 +154,15 @@ export function Auth() {
                                             : 'background:transparent;color:var(--text-tertiary);'
                                     }
 								`}
-                                    onMouseEnter={(e) => {(e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
+                                onMouseEnter={(e) => {
+                                    (e.target as HTMLElement).style.filter =
+                                        'var(--hover-brightness)';
                                     (e.target as HTMLElement).style.background = 'var(--bg-muted)';
-                                    }}
-                                    onMouseLeave={(e) => {(e.target as HTMLElement).style.filter = 'none';
+                                }}
+                                onMouseLeave={(e) => {
+                                    (e.target as HTMLElement).style.filter = 'none';
                                     (e.target as HTMLElement).style.background = 'transparent';
-                                    }}
+                                }}
                             >
                                 {m === 'login' ? <LogIn size={13} /> : <UserPlus size={13} />}
                                 {m === 'login' ? 'Sign In' : 'Register'}
@@ -270,8 +275,13 @@ export function Auth() {
                                     onClick={() => setShowPw((v) => !v)}
                                     style={eyeBtn}
                                     aria-label={showPw ? 'Hide' : 'Show'}
-                                    onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                    onMouseEnter={(e) =>
+                                        ((e.target as HTMLElement).style.filter =
+                                            'var(--hover-brightness)')
+                                    }
+                                    onMouseLeave={(e) =>
+                                        ((e.target as HTMLElement).style.filter = 'none')
+                                    }
                                 >
                                     {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
                                 </button>
@@ -321,8 +331,13 @@ export function Auth() {
                                         onClick={() => setShowCPw((v) => !v)}
                                         style={eyeBtn}
                                         aria-label={showCPw ? 'Hide' : 'Show'}
-                                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                        onMouseEnter={(e) =>
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
+                                        }
+                                        onMouseLeave={(e) =>
+                                            ((e.target as HTMLElement).style.filter = 'none')
+                                        }
                                     >
                                         {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
                                     </button>
@@ -353,7 +368,9 @@ export function Auth() {
                             disabled={loading}
                             class="btn-primary"
                             style="height:40px;font-size:13px;width:100%;background:var(--accent);border-radius:8px;opacity:1;margin-top:2px;"
-                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseEnter={(e) =>
+                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                            }
                             onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             {loading ? (
@@ -383,7 +400,9 @@ export function Auth() {
                             type="button"
                             onClick={() => reset(mode === 'login' ? 'register' : 'login')}
                             style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;"
-                            onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                            onMouseEnter={(e) =>
+                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                            }
                             onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             {mode === 'login' ? 'Register' : 'Sign In'}

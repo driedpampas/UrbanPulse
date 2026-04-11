@@ -73,7 +73,9 @@ export function WeatherAlert() {
                         type="button"
                         onClick={load}
                         style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;opacity:0.7;"
-                        onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
                         <RefreshCw size={10} />

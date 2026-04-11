@@ -520,11 +520,14 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                 }
                                 style="padding:0;border:none;background:transparent;cursor:pointer;display:flex;"
                                 aria-label={`Open ${pulse.userName} profile`}
-                                onMouseEnter={(e) => {(e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
-                                (e.target as HTMLElement).style.background = 'var(--bg-muted)';
+                                onMouseEnter={(e) => {
+                                    (e.target as HTMLElement).style.filter =
+                                        'var(--hover-brightness)';
+                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
                                 }}
-                                onMouseLeave={(e) => {(e.target as HTMLElement).style.filter = 'none';
-                                (e.target as HTMLElement).style.background = 'transparent';
+                                onMouseLeave={(e) => {
+                                    (e.target as HTMLElement).style.filter = 'none';
+                                    (e.target as HTMLElement).style.background = 'transparent';
                                 }}
                             >
                                 <img

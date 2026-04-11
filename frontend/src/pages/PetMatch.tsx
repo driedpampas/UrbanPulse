@@ -119,8 +119,14 @@ export function PetMatch() {
                                                 type="button"
                                                 class="btn-primary"
                                                 style="flex:1;height:36px;font-size:12px;background:var(--accent);"
-                                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                                onMouseEnter={(e) =>
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'var(--hover-brightness)')
+                                                }
+                                                onMouseLeave={(e) =>
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'none')
+                                                }
                                             >
                                                 Contact Finder
                                             </button>
@@ -128,8 +134,14 @@ export function PetMatch() {
                                                 type="button"
                                                 class="btn-ghost"
                                                 style="height:36px;padding:0 14px;font-size:12px;"
-                                                onMouseEnter={(e) => ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')}
-                                                onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                                                onMouseEnter={(e) =>
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'var(--hover-brightness)')
+                                                }
+                                                onMouseLeave={(e) =>
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'none')
+                                                }
                                             >
                                                 Not a match
                                             </button>
