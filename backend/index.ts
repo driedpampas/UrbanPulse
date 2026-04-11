@@ -105,10 +105,9 @@ async function adminAuthorize(
     }
 
     const payload = session as JwtPayload;
+    const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
 
-    const currentUser = await db.selectFullUser(payload.id as string);
-
-    if (!currentUser || currentUser.role?.toLowerCase() !== 'admin') {
+    if (role !== 'admin' && role !== 'mod') {
         return withCors(FORBIDDEN);
     }
 
@@ -899,9 +898,10 @@ bun.serve({
                                 return withCors(NOT_FOUND);
                             }
 
+                            const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
                             const canDeletePulse =
-                                payload.role === 'admin' ||
-                                payload.role === 'mod' ||
+                                role === 'admin' ||
+                                role === 'mod' ||
                                 payload.id === pulse.userId;
 
                             if (!canDeletePulse) {
@@ -1110,9 +1110,10 @@ bun.serve({
                                 return withCors(SUCCESS);
                             }
 
+                            const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
                             const canDeleteMessage =
-                                payload.role === 'admin' ||
-                                payload.role === 'mod' ||
+                                role === 'admin' ||
+                                role === 'mod' ||
                                 payload.id === message.senderId;
 
                             if (!canDeleteMessage) {

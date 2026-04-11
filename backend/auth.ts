@@ -43,7 +43,7 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
     const hashedPass = await bun.password.hash(user.password);
     const dbUser = await db.insertUser(user.email, hashedPass, user.displayName);
 
-    const token = jwt.sign({ id: dbUser.id, role: dbUser.role }, JWT_SECRET, {
+    const token = jwt.sign({ id: dbUser.id }, JWT_SECRET, {
         expiresIn: '7d',
     });
 

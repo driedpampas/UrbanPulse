@@ -750,6 +750,13 @@ export async function selectFullUser(id: string): Promise<User | null> {
     } as User;
 }
 
+export async function selectUserRole(id: string): Promise<string | null> {
+    const [row] = (await sql`
+    SELECT role FROM app.users WHERE id = ${id}
+    `) as Array<{ role: string }>;
+    return row?.role ?? null;
+}
+
 export async function selectAdminOverview() {
     const [userRow] = (await sql`
         SELECT
