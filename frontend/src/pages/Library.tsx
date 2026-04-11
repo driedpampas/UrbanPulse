@@ -1,7 +1,7 @@
 import { Package, Plus, Search, Tag, Wrench, X } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { fetchLibrary, postLibraryItem } from '../lib/mockApi';
+import { fetchLibrary, postLibraryItem } from '../lib/libraryApi';
 import type { LibraryItem } from '../lib/types';
 
 const TAB_BTN = (active: boolean) => `
@@ -199,8 +199,6 @@ function AddItemModal({
         if (!title.trim()) return;
         setSubmitting(true);
         const item = await postLibraryItem({
-            userId: 'me',
-            userName: 'Alex Rivera',
             type,
             title: title.trim(),
             description: description.trim(),
@@ -208,7 +206,6 @@ function AddItemModal({
                 .split(',')
                 .map((t) => t.trim())
                 .filter(Boolean),
-            available: true,
         });
         onAdd(item);
         setSubmitting(false);

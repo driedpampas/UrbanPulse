@@ -14,6 +14,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '../../lib/auth';
 import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
+    confirmPulse,
     connectWebSocket,
     deletePulse,
     disconnectWebSocket,
@@ -225,6 +226,26 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         }
     };
 
+    const handleConfirm = async (id: string) => {
+        try {
+            await confirmPulse(id);
+            setPulses((c) =>
+                c.map((p) => {
+                    if (p.id === id) {
+                        return { ...p, confirmations: p.confirmations + 1 };
+                    }
+                    return p;
+                })
+            );
+        } catch (e: unknown) {
+            if (e instanceof Error && e.message === 'Already confirmed') {
+                alert('You have already confirmed this pulse.');
+            } else {
+                console.error(e);
+            }
+        }
+    };
+
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
@@ -390,6 +411,16 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             <CheckCircle size={10} />
                                             {pulse.confirmations} confirmed
                                         </span>
+                                    )}
+                                    {session && session.user.id !== pulse.userId && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleConfirm(pulse.id)}
+                                            style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
+                                        >
+                                            <CheckCircle size={10} />
+                                            Confirm
+                                        </button>
                                     )}
                                 </div>
                             </div>

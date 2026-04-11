@@ -326,6 +326,10 @@ export async function deletePulse(id: string): Promise<void> {
     await request<void>(`/pulse/${id}`, { method: 'DELETE' });
 }
 
+export async function confirmPulse(id: string): Promise<void> {
+    await request<void>(`/pulses/${id}/confirm`, { method: 'POST' });
+}
+
 export function connectWebSocket(handler: PulseSocketHandler) {
     if (typeof WebSocket === 'undefined') {
         return;
