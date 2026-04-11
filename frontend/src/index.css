@@ -425,3 +425,21 @@
 .delete-btn-hover:active {
     transform: scale(0.95);
 }
+
+.participant-card {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-raised);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.participant-card:hover {
+    border-color: var(--border-focus);
+    background: var(--bg-subtle);
+    transform: translateY(-1px);
+}

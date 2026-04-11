@@ -2,11 +2,11 @@ import {
     ArrowLeft,
     ChevronRight,
     Clock,
+    Info,
     Plus,
     Search,
     Send,
     ShieldCheck,
-    Info,
     Trash2,
     Users,
     X,
@@ -363,7 +363,11 @@ export function Messages() {
                                         </div>
                                     ) : (
                                         <img
-                                            src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
+                                            src={avatarUrl(
+                                                thread.participants.find(
+                                                    (p) => p !== currentUserId
+                                                ) || thread.participants[0]
+                                            )}
                                             alt=""
                                             style="width:100%;height:100%;object-fit:cover;"
                                         />
@@ -388,7 +392,9 @@ export function Messages() {
                                     </div>
                                     {thread.lastMessage && (
                                         <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                            {thread.lastMessage.type === 'notice' ? '' : `${thread.lastMessage.senderName}: `}
+                                            {thread.lastMessage.type === 'notice'
+                                                ? ''
+                                                : `${thread.lastMessage.senderName}: `}
                                             {thread.lastMessage.content}
                                         </p>
                                     )}
@@ -609,6 +615,7 @@ function ChatView({
     );
     const [participantActionBusy, setParticipantActionBusy] = useState<string | null>(null);
     const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+    const [participantProfiles, setParticipantProfiles] = useState<Record<string, AppUser>>({});
     const [showAddMembers, setShowAddMembers] = useState(false);
     const [addMemberQuery, setAddMemberQuery] = useState('');
     const [addMemberResults, setAddMemberResults] = useState<AppUser[]>([]);
@@ -621,7 +628,9 @@ function ChatView({
         if (typeof window === 'undefined') return false;
         return localStorage.getItem('wide-chat-view') === 'true';
     });
-    const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>(() => 'connected');
+    const [connectionStatus, setConnectionStatus] = useState<
+        'connected' | 'connecting' | 'disconnected'
+    >(() => 'connected');
 
     useEffect(() => {
         return onChatConnectionStatusChange(setConnectionStatus);
@@ -659,6 +668,35 @@ function ChatView({
     useEffect(() => {
         threadRef.current = thread;
     }, [thread]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadParticipantProfiles = async () => {
+            const entries = await Promise.all(
+                Array.from(new Set(thread.participants)).map(async (participantId) => {
+                    try {
+                        const users = await fetchUsers({ id: participantId, limit: 1 });
+                        return users[0] ? ([participantId, users[0]] as const) : null;
+                    } catch {
+                        return null;
+                    }
+                })
+            );
+
+            if (!cancelled) {
+                setParticipantProfiles(
+                    Object.fromEntries(entries.filter(Boolean) as Array<readonly [string, AppUser]>)
+                );
+            }
+        };
+
+        void loadParticipantProfiles();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [thread.id, thread.participants]);
 
     useEffect(() => {
         let cancelled = false;
@@ -897,7 +935,7 @@ function ChatView({
         const screenWidth = window.innerWidth;
         const menuWidth = 170; // approximate width of the context menu
         let x = e.clientX;
-        let y = e.clientY;
+        const y = e.clientY;
 
         if (x + menuWidth > screenWidth) {
             x = screenWidth - menuWidth - 12;
@@ -911,14 +949,33 @@ function ChatView({
         return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(userId)}&scale=80`;
     };
 
+    const openProfile = (userId: string) => {
+        setLocation(`/profile?userId=${encodeURIComponent(userId)}`);
+    };
+
     const otherNames = thread.participantNames.filter(
         (_name, idx) => thread.participants[idx] !== currentUserId
     );
     const chatTitle = thread.name || otherNames.filter(Boolean).join(', ') || 'Chat';
     const isGroup = thread.isGroup;
+    const directCounterpartProfile = directCounterpartId
+        ? participantProfiles[directCounterpartId]
+        : null;
+    const groupPreviewParticipants = thread.participants.slice(0, 4).map((participantId, index) => {
+        const profile = participantProfiles[participantId];
+        return {
+            id: participantId,
+            name:
+                profile?.name ||
+                thread.participantNames[index] ||
+                participantNameById.get(participantId) ||
+                `Neighbor ${participantId.slice(0, 6)}`,
+            avatar: profile?.avatar || getAvatarUrl(participantId),
+        };
+    });
 
     return (
-        <div 
+        <div
             style={`height:100dvh;display:flex;flex-direction:column;background:var(--bg); --accent: ${selectedColor}; overflow:hidden;`}
         >
             {/* Chat header */}
@@ -945,7 +1002,10 @@ function ChatView({
                         </div>
                     ) : (
                         <img
-                            src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
+                            src={avatarUrl(
+                                thread.participants.find((p) => p !== currentUserId) ||
+                                    thread.participants[0]
+                            )}
                             alt=""
                             style="width:100%;height:100%;object-fit:cover;"
                         />
@@ -990,7 +1050,9 @@ function ChatView({
                 <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;">
                     {/* Messages */}
                     <div style="flex:1;overflow-y:auto;padding:12px 0;display:flex;flex-direction:column;padding-bottom:100px;">
-                        <div style={`width:100%;max-width:${wideChatView ? '100%' : '680px'};margin:0 auto;padding:0 16px;display:flex;flex-direction:column;gap:10px;`}>
+                        <div
+                            style={`width:100%;max-width:${wideChatView ? '100%' : '680px'};margin:0 auto;padding:0 16px;display:flex;flex-direction:column;gap:10px;`}
+                        >
                             <div style="height:4px;" />
                             {messages.map((msg) => {
                                 const isMe = msg.senderId === currentUserId;
@@ -1029,14 +1091,22 @@ function ChatView({
                                         <button
                                             type="button"
                                             onClick={(e) => {
-                                                const roles = thread.participantRoles?.[currentUserId] ?? [];
-                                                const canManage = thread.ownerId === currentUserId || roles.includes('admin');
-                                                if (isMe || canManage) handleContextMenu(e as any, msg.id);
+                                                const roles =
+                                                    thread.participantRoles?.[currentUserId] ?? [];
+                                                const canManage =
+                                                    thread.ownerId === currentUserId ||
+                                                    roles.includes('admin');
+                                                if (isMe || canManage)
+                                                    handleContextMenu(e as any, msg.id);
                                             }}
                                             onContextMenu={(e) => {
-                                                const roles = thread.participantRoles?.[currentUserId] ?? [];
-                                                const canManage = thread.ownerId === currentUserId || roles.includes('admin');
-                                                if (isMe || canManage) handleContextMenu(e as any, msg.id);
+                                                const roles =
+                                                    thread.participantRoles?.[currentUserId] ?? [];
+                                                const canManage =
+                                                    thread.ownerId === currentUserId ||
+                                                    roles.includes('admin');
+                                                if (isMe || canManage)
+                                                    handleContextMenu(e as any, msg.id);
                                             }}
                                             style={`
                                                 max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
@@ -1072,11 +1142,13 @@ function ChatView({
                                                     {timeAgo(msg.timestamp)}
                                                 </span>
                                             </div>
-                                            <p style="margin:0;word-break:break-word;">{msg.content}</p>
+                                            <p style="margin:0;word-break:break-word;">
+                                                {msg.content}
+                                            </p>
                                         </button>
 
-                                        <div 
-                                            className="delete-trigger-container" 
+                                        <div
+                                            className="delete-trigger-container"
                                             style={`display:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'flex' : 'none'};align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
                                         >
                                             <button
@@ -1112,40 +1184,59 @@ function ChatView({
                                                 >
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleDeleteMessage(msg, 'me')}
+                                                        onClick={() =>
+                                                            handleDeleteMessage(msg, 'me')
+                                                        }
                                                         disabled={deletingMessageId !== null}
                                                         role="menuitem"
                                                         key="delete-me"
                                                         style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
                                                         onMouseEnter={(e) => {
-                                                            (e.currentTarget as HTMLElement).style.background =
-                                                                'var(--bg-muted)';
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'var(--bg-muted)';
                                                         }}
                                                         onMouseLeave={(e) => {
-                                                            (e.currentTarget as HTMLElement).style.background =
-                                                                'none';
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'none';
                                                         }}
                                                     >
                                                         <Trash2 size={14} />
                                                         Delete for me
                                                     </button>
-                                                    {(isMe || (thread.isGroup && (thread.ownerId === currentUserId || thread.participantRoles?.[currentUserId]?.includes('admin')))) && (
+                                                    {(isMe ||
+                                                        (thread.isGroup &&
+                                                            (thread.ownerId === currentUserId ||
+                                                                thread.participantRoles?.[
+                                                                    currentUserId
+                                                                ]?.includes('admin')))) && (
                                                         <>
                                                             <div style="height:1px;background:var(--border);" />
                                                             <button
                                                                 type="button"
-                                                                onClick={() => handleDeleteMessage(msg, 'everyone')}
-                                                                disabled={deletingMessageId !== null}
+                                                                onClick={() =>
+                                                                    handleDeleteMessage(
+                                                                        msg,
+                                                                        'everyone'
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    deletingMessageId !== null
+                                                                }
                                                                 role="menuitem"
                                                                 key="delete-everyone"
                                                                 style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
                                                                 onMouseEnter={(e) => {
-                                                                    (e.currentTarget as HTMLElement).style.background =
+                                                                    (
+                                                                        e.currentTarget as HTMLElement
+                                                                    ).style.background =
                                                                         'var(--danger-subtle)';
                                                                 }}
                                                                 onMouseLeave={(e) => {
-                                                                    (e.currentTarget as HTMLElement).style.background =
-                                                                        'none';
+                                                                    (
+                                                                        e.currentTarget as HTMLElement
+                                                                    ).style.background = 'none';
                                                                 }}
                                                             >
                                                                 <Trash2 size={14} />
@@ -1164,27 +1255,38 @@ function ChatView({
                     </div>
 
                     {/* Input bar */}
-                    <div class="nav-bar" style="position:absolute;bottom:0;left:0;right:0;padding:8px 12px;z-index:20;">
-                        <div style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;`}>
+                    <div
+                        class="nav-bar"
+                        style="position:absolute;bottom:0;left:0;right:0;padding:8px 12px;z-index:20;"
+                    >
+                        <div
+                            style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;`}
+                        >
                             <input
                                 value={input}
                                 onInput={(e) => setInput((e.target as HTMLInputElement).value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.repeat && !isBlockedConversation && connectionStatus === 'connected')
+                                    if (
+                                        e.key === 'Enter' &&
+                                        !e.repeat &&
+                                        !isBlockedConversation &&
+                                        connectionStatus === 'connected'
+                                    )
                                         handleSend();
                                 }}
                                 disabled={isBlockedConversation || connectionStatus !== 'connected'}
                                 placeholder={
-                                    isBlockedConversation 
-                                    ? 'You have blocked this user' 
-                                    : connectionStatus !== 'connected'
-                                        ? 'Connecting…'
-                                        : 'Message…'
+                                    isBlockedConversation
+                                        ? 'You have blocked this user'
+                                        : connectionStatus !== 'connected'
+                                          ? 'Connecting…'
+                                          : 'Message…'
                                 }
                                 style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                                 onFocus={(e) => {
                                     if (isBlockedConversation) return;
-                                    (e.target as HTMLElement).style.borderColor = 'var(--border-focus)';
+                                    (e.target as HTMLElement).style.borderColor =
+                                        'var(--border-focus)';
                                     (e.target as HTMLElement).style.boxShadow =
                                         '0 0 0 3px var(--accent-muted)';
                                 }}
@@ -1210,7 +1312,10 @@ function ChatView({
                 </div>
 
                 {showSidebar && (
-                    <aside class="animate-slide-in-right" style="width:min(320px, 86vw);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:30;flex-shrink:0;overflow:hidden;">
+                    <aside
+                        class="animate-slide-in-right"
+                        style="width:min(320px, 86vw);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:30;flex-shrink:0;overflow:hidden;"
+                    >
                         <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;">
                             <div>
                                 <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
@@ -1229,25 +1334,79 @@ function ChatView({
 
                         {sidebarTab === 'info' ? (
                             <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px;">
-                                <div style="text-align:center;">
-                                    <div
-                                        style={`width:64px;height:64px;border-radius:18px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:var(--bg-muted);overflow:hidden;border:2px solid var(--border);`}
-                                    >
+                                <div style="padding:16px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,var(--bg-subtle),var(--surface));box-shadow:var(--shadow-sm);display:flex;flex-direction:column;align-items:center;gap:14px;">
+                                    <div style="display:flex;align-items:center;justify-content:center;">
                                         {isGroup ? (
-                                            <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
-                                                <Users size={32} />
+                                            <div style="display:flex;align-items:center;justify-content:center;">
+                                                {groupPreviewParticipants.map(
+                                                    (participant, index) => (
+                                                        <button
+                                                            key={participant.id}
+                                                            type="button"
+                                                            onClick={() =>
+                                                                openProfile(participant.id)
+                                                            }
+                                                            aria-label={`Open ${participant.name}'s profile`}
+                                                            style={`width:42px;height:42px;border-radius:14px;overflow:hidden;border:2px solid var(--surface);background:var(--bg-muted);margin-left:${index === 0 ? 0 : -10}px;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,0.12);padding:0;`}
+                                                        >
+                                                            <img
+                                                                src={participant.avatar}
+                                                                alt=""
+                                                                style="width:100%;height:100%;object-fit:cover;"
+                                                            />
+                                                        </button>
+                                                    )
+                                                )}
+                                                {thread.participants.length > 4 && (
+                                                    <div style="width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-left:-10px;border:2px solid var(--surface);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:0 6px 18px rgba(15,23,42,0.12);">
+                                                        +{thread.participants.length - 4}
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
-                                            <img
-                                                src={avatarUrl(thread.participants.find(p => p !== currentUserId) || thread.participants[0])}
-                                                alt=""
-                                                style="width:100%;height:100%;object-fit:cover;"
-                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    directCounterpartId &&
+                                                    openProfile(directCounterpartId)
+                                                }
+                                                aria-label="Open profile"
+                                                style="width:72px;height:72px;border-radius:22px;overflow:hidden;border:2px solid var(--border);background:var(--bg-muted);padding:0;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,0.14);"
+                                            >
+                                                <img
+                                                    src={
+                                                        directCounterpartProfile?.avatar ||
+                                                        avatarUrl(
+                                                            directCounterpartId ||
+                                                                thread.participants[0]
+                                                        )
+                                                    }
+                                                    alt=""
+                                                    style="width:100%;height:100%;object-fit:cover;"
+                                                />
+                                            </button>
                                         )}
                                     </div>
-                                    <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">{chatTitle}</h3>
-                                    {!isGroup && (
-                                        <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">Direct Message</p>
+                                    <div style="text-align:center;">
+                                        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">
+                                            {chatTitle}
+                                        </h3>
+                                        <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">
+                                            {isGroup
+                                                ? `${thread.participants.length} members`
+                                                : 'Direct message'}
+                                        </p>
+                                    </div>
+                                    {!isGroup && directCounterpartId && (
+                                        <button
+                                            type="button"
+                                            class="btn-secondary"
+                                            onClick={() => openProfile(directCounterpartId)}
+                                            style="height:34px;padding:0 12px;font-size:12px;gap:6px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:10px;color:var(--text);"
+                                        >
+                                            View profile
+                                            <ChevronRight size={13} />
+                                        </button>
                                     )}
                                 </div>
 
@@ -1264,24 +1423,34 @@ function ChatView({
                                 )}
 
                                 <div style="border-top:1px solid var(--border);padding-top:20px;">
-                                    <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Chat Styles</p>
-                                    
+                                    <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">
+                                        Chat Styles
+                                    </p>
+
                                     <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 12px;background:var(--bg-subtle);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;">
-                                        <span style="font-size:13px;font-weight:600;color:var(--text);">Wide chat view</span>
+                                        <span style="font-size:13px;font-weight:600;color:var(--text);">
+                                            Wide chat view
+                                        </span>
                                         <div style="position:relative;display:flex;align-items:center;">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={wideChatView} 
+                                            <input
+                                                type="checkbox"
+                                                checked={wideChatView}
                                                 onChange={() => setWideChatView(!wideChatView)}
                                                 style="opacity:0;position:absolute;width:0;height:0;"
                                             />
-                                            <div style={`width:36px;height:20px;background:${wideChatView ? 'var(--accent)' : 'var(--border-strong)'};border-radius:20px;position:relative;transition:all 0.2s;`}>
-                                                <div style={`width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:3px;left:${wideChatView ? '19px' : '3px'};transition:all 0.2s;box-shadow:var(--shadow-sm);`} />
+                                            <div
+                                                style={`width:36px;height:20px;background:${wideChatView ? 'var(--accent)' : 'var(--border-strong)'};border-radius:20px;position:relative;transition:all 0.2s;`}
+                                            >
+                                                <div
+                                                    style={`width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:3px;left:${wideChatView ? '19px' : '3px'};transition:all 0.2s;box-shadow:var(--shadow-sm);`}
+                                                />
                                             </div>
                                         </div>
                                     </label>
 
-                                    <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Chat Color</p>
+                                    <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">
+                                        Chat Color
+                                    </p>
                                     <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;">
                                         {[
                                             '#3b82f6', // blue
@@ -1293,8 +1462,8 @@ function ChatView({
                                             '#f43f5e', // rose
                                             '#6366f1', // indigo
                                             '#14b8a6', // teal
-                                            '#22c55e'  // green
-                                        ].map(color => (
+                                            '#22c55e', // green
+                                        ].map((color) => (
                                             <button
                                                 key={color}
                                                 type="button"
@@ -1303,8 +1472,12 @@ function ChatView({
                                                     aspect-ratio:1;border-radius:8px;border:2px solid ${selectedColor === color ? 'var(--text)' : 'transparent'};
                                                     background:${color};cursor:pointer;transition:transform 0.1s;
                                                 `}
-                                                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
-                                                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                                                onMouseEnter={(e) =>
+                                                    (e.currentTarget.style.transform = 'scale(1.1)')
+                                                }
+                                                onMouseLeave={(e) =>
+                                                    (e.currentTarget.style.transform = 'scale(1)')
+                                                }
                                                 aria-label={`Select color ${color}`}
                                             />
                                         ))}
@@ -1313,18 +1486,25 @@ function ChatView({
 
                                 <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
                                     {isGroup && (
-                                        <>
-                                            {thread.ownerId === currentUserId ? (
+                                        thread.ownerId === currentUserId ? (
                                                 <button
                                                     type="button"
                                                     class="btn-ghost"
                                                     onClick={async () => {
-                                                        if (confirm('Are you sure you want to delete this group? This cannot be undone.')) {
+                                                        if (
+                                                            confirm(
+                                                                'Are you sure you want to delete this group? This cannot be undone.'
+                                                            )
+                                                        ) {
                                                             try {
                                                                 await deleteGroupChat(thread.id);
                                                                 onThreadDeleted(thread.id);
                                                             } catch (err) {
-                                                                alert(err instanceof Error ? err.message : 'Failed to delete group');
+                                                                alert(
+                                                                    err instanceof Error
+                                                                        ? err.message
+                                                                        : 'Failed to delete group'
+                                                                );
                                                             }
                                                         }
                                                     }}
@@ -1338,12 +1518,23 @@ function ChatView({
                                                     type="button"
                                                     class="btn-ghost"
                                                     onClick={async () => {
-                                                        if (confirm('Are you sure you want to leave this group?')) {
+                                                        if (
+                                                            confirm(
+                                                                'Are you sure you want to leave this group?'
+                                                            )
+                                                        ) {
                                                             try {
-                                                                await removeGroupChatParticipant(thread.id, currentUserId);
+                                                                await removeGroupChatParticipant(
+                                                                    thread.id,
+                                                                    currentUserId
+                                                                );
                                                                 onThreadDeleted(thread.id);
                                                             } catch (err) {
-                                                                alert(err instanceof Error ? err.message : 'Failed to leave group');
+                                                                alert(
+                                                                    err instanceof Error
+                                                                        ? err.message
+                                                                        : 'Failed to leave group'
+                                                                );
                                                             }
                                                         }
                                                     }}
@@ -1352,8 +1543,7 @@ function ChatView({
                                                     <ArrowLeft size={14} />
                                                     Leave Group
                                                 </button>
-                                            )}
-                                        </>
+                                            )
                                     )}
                                 </div>
                             </div>
@@ -1377,13 +1567,15 @@ function ChatView({
                                         Add members
                                     </button>
                                 </div>
-                                
+
                                 {showAddMembers && (
                                     <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
                                         <input
                                             value={addMemberQuery}
                                             onInput={(e) =>
-                                                setAddMemberQuery((e.target as HTMLInputElement).value)
+                                                setAddMemberQuery(
+                                                    (e.target as HTMLInputElement).value
+                                                )
                                             }
                                             placeholder="Search neighbors"
                                             style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
@@ -1402,10 +1594,13 @@ function ChatView({
                                                     onClick={async () => {
                                                         setAddingMembers(true);
                                                         try {
-                                                            await addGroupChatParticipants(thread.id, [
-                                                                user.id,
-                                                            ]);
-                                                            const updated = await fetchChatThread(thread.id);
+                                                            await addGroupChatParticipants(
+                                                                thread.id,
+                                                                [user.id]
+                                                            );
+                                                            const updated = await fetchChatThread(
+                                                                thread.id
+                                                            );
                                                             onThreadUpdate(updated);
                                                             setShowAddMembers(false);
                                                         } finally {
@@ -1422,102 +1617,137 @@ function ChatView({
                                     </div>
                                 )}
                                 {thread.participants.map((participantId, index) => {
+                                    const profile = participantProfiles[participantId];
                                     const name =
+                                        profile?.name ||
                                         thread.participantNames[index] ||
                                         participantNameById.get(participantId) ||
                                         `Neighbor ${participantId.slice(0, 6)}`;
-                                    const roles = thread.participantRoles?.[participantId] ?? [];
+                                    const avatar = profile?.avatar || getAvatarUrl(participantId);
+                                            const roles = thread.participantRoles?.[participantId] ?? [];
                                     const isOwner =
                                         thread.ownerId === participantId || roles.includes('owner');
                                     const isAdmin = roles.includes('admin');
+                                    const isSelf = participantId === currentUserId;
                                     return (
                                         <div
                                             key={participantId}
-                                            style="padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);display:flex;align-items:center;justify-content:space-between;gap:10px;"
+                                            class="participant-card"
                                         >
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    setLocation(
-                                                        `/profile?userId=${encodeURIComponent(participantId)}`
-                                                    )
-                                                }
-                                                style="background:none;border:none;padding:0;text-align:left;cursor:pointer;min-width:0;flex:1;"
+                                                onClick={() => openProfile(participantId)}
+                                                style="background:none;border:none;padding:0;display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;text-align:left;"
                                             >
-                                                <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                    {name}
+                                                <div style="width:40px;height:40px;border-radius:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:var(--bg-muted);box-shadow:inset 0 1px 0 rgba(255,255,255,0.3);">
+                                                    <img
+                                                        src={avatar}
+                                                        alt=""
+                                                        style="width:100%;height:100%;object-fit:cover;"
+                                                    />
                                                 </div>
-                                                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-                                                    {isOwner && (
-                                                        <span
-                                                            class="type-badge"
-                                                            style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
-                                                        >
-                                                            Owner
-                                                        </span>
-                                                    )}
-                                                    {isAdmin && (
-                                                        <span
-                                                            class="type-badge"
-                                                            style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
-                                                        >
-                                                            Admin
-                                                        </span>
-                                                    )}
+                                                <div style="min-width:0;flex:1;">
+                                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                        <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                            {isSelf ? `${name} (You)` : name}
+                                                        </div>
+                                                        {isOwner && (
+                                                            <span
+                                                                class="type-badge"
+                                                                style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
+                                                            >
+                                                                Owner
+                                                            </span>
+                                                        )}
+                                                        {isAdmin && (
+                                                            <span
+                                                                class="type-badge"
+                                                                style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
+                                                            >
+                                                                Admin
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style="margin-top:4px;font-size:11px;color:var(--text-tertiary);">
+                                                        {isSelf
+                                                            ? 'Open your profile'
+                                                            : 'Open profile'}
+                                                    </div>
                                                 </div>
                                             </button>
-                                            {thread.ownerId === currentUserId && !isOwner && (
-                                                <button
-                                                    type="button"
-                                                    class="btn-ghost"
-                                                    disabled={participantActionBusy === participantId}
-                                                    onClick={async () => {
-                                                        setParticipantActionBusy(participantId);
-                                                        try {
-                                                            await promoteGroupChatParticipant(
-                                                                thread.id,
-                                                                participantId
-                                                            );
-                                                            const updated = await fetchChatThread(thread.id);
-                                                            onThreadUpdate(updated);
-                                                        } finally {
-                                                            setParticipantActionBusy(null);
-                                                        }
-                                                    }}
-                                                    style="height:28px;padding:0 10px;font-size:11px;"
-                                                >
-                                                    Promote
-                                                </button>
-                                            )}
-                                            {(thread.ownerId === currentUserId ||
-                                                (thread.participantRoles?.[currentUserId]?.includes(
-                                                    'admin'
-                                                ) ??
-                                                    false)) &&
-                                                !isOwner && (
+                                            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                                                {thread.ownerId === currentUserId && !isOwner && (
                                                     <button
                                                         type="button"
                                                         class="btn-ghost"
-                                                        disabled={participantActionBusy === participantId}
-                                                        onClick={async () => {
+                                                        disabled={
+                                                            participantActionBusy === participantId
+                                                        }
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
                                                             setParticipantActionBusy(participantId);
                                                             try {
-                                                                await removeGroupChatParticipant(
+                                                                await promoteGroupChatParticipant(
                                                                     thread.id,
                                                                     participantId
                                                                 );
-                                                                const updated = await fetchChatThread(thread.id);
+                                                                const updated =
+                                                                    await fetchChatThread(
+                                                                        thread.id
+                                                                    );
                                                                 onThreadUpdate(updated);
-                                                                // We don't close sidebar here because someone else might still be there
                                                             } finally {
                                                                 setParticipantActionBusy(null);
                                                             }
                                                         }}
                                                         style="height:28px;padding:0 10px;font-size:11px;"
                                                     >
-                                                        Remove
+                                                        Promote
                                                     </button>
                                                 )}
+                                                {(thread.ownerId === currentUserId ||
+                                                    (thread.participantRoles?.[
+                                                        currentUserId
+                                                    ]?.includes('admin') ??
+                                                        false)) &&
+                                                    !isOwner && (
+                                                        <button
+                                                            type="button"
+                                                            class="btn-ghost"
+                                                            disabled={
+                                                                participantActionBusy ===
+                                                                participantId
+                                                            }
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                setParticipantActionBusy(
+                                                                    participantId
+                                                                );
+                                                                try {
+                                                                    await removeGroupChatParticipant(
+                                                                        thread.id,
+                                                                        participantId
+                                                                    );
+                                                                    const updated =
+                                                                        await fetchChatThread(
+                                                                            thread.id
+                                                                        );
+                                                                    onThreadUpdate(updated);
+                                                                    // We don't close sidebar here because someone else might still be there
+                                                                } finally {
+                                                                    setParticipantActionBusy(null);
+                                                                }
+                                                            }}
+                                                            style="height:28px;padding:0 10px;font-size:11px;"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    )}
+                                                <ChevronRight
+                                                    size={13}
+                                                    style="color:var(--text-tertiary);"
+                                                />
+                                            </div>
                                         </div>
                                     );
                                 })}
