@@ -773,8 +773,15 @@ function ChatView({
 
     useEffect(() => {
         let cancelled = false;
-        setThreadSubscribed(false);
 
+        if (connectionStatus !== 'connected') {
+            setThreadSubscribed(false);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setThreadSubscribed(false);
         void waitForChatThreadSubscription(thread.id)
             .then(() => {
                 if (!cancelled) {
@@ -790,13 +797,7 @@ function ChatView({
         return () => {
             cancelled = true;
         };
-    }, [thread.id]);
-
-    useEffect(() => {
-        if (connectionStatus !== 'connected') {
-            setThreadSubscribed(false);
-        }
-    }, [connectionStatus]);
+    }, [thread.id, connectionStatus]);
 
     useEffect(() => {
         let cancelled = false;

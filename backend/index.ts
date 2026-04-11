@@ -208,6 +208,7 @@ const messageNotificationPayloadSchema = z.strictObject({
         threadId: z.uuid(),
         senderId: z.uuid(),
         content: z.string(),
+        messageType: z.enum(['text', 'notice']).optional(),
         timestamp: z.union([z.number(), z.string()]),
     }),
     senderName: z.string(),
