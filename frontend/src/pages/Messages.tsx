@@ -1593,13 +1593,11 @@ function ChatView({
                                                     onClick={async () => {
                                                         setAddingMembers(true);
                                                         try {
-                                                            await addGroupChatParticipants(
-                                                                thread.id,
-                                                                [user.id]
-                                                            );
-                                                            const updated = await fetchChatThread(
-                                                                thread.id
-                                                            );
+                                                            const updated =
+                                                                await addGroupChatParticipants(
+                                                                    thread.id,
+                                                                    [user.id]
+                                                                );
                                                             onThreadUpdate(updated);
                                                             setShowAddMembers(false);
                                                         } finally {
