@@ -605,7 +605,7 @@ function ChatView({
     const [addingMembers, setAddingMembers] = useState(false);
     const [showSidebar, setShowSidebar] = useState(false);
     const [sidebarTab, setSidebarTab] = useState<'info' | 'participants'>('info');
-    const [selectedColor, setSelectedColor] = useState<string>('var(--accent)');
+    const [selectedColor, setSelectedColor] = useState<string>('#6366f1');
     const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const threadRef = useRef(thread);
