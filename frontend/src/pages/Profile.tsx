@@ -623,7 +623,6 @@ export function Profile() {
 
                             <div style="display:flex;flex-direction:column;gap:8px;">
                                 <div style={MAP_FRAME_STYLE}>
-                                    <div style="position:absolute;inset:0;background:radial-gradient(circle at top left, rgba(14,165,233,0.10), transparent 28%), radial-gradient(circle at bottom right, rgba(16,185,129,0.10), transparent 26%), linear-gradient(180deg, rgba(255,255,255,0.06), transparent 36%);pointer-events:none;" />
                                     <div style="position:absolute;top:12px;left:12px;z-index:2;display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;background:rgba(15,23,42,0.72);backdrop-filter:blur(14px);color:#fff;max-width:calc(100% - 24px);">
                                         <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.72);">
                                             {mapTitle}

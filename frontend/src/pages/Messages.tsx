@@ -1,5 +1,4 @@
 import {
-    ArrowLeft,
     ChevronRight,
     Clock,
     MessageCircle,
@@ -227,13 +226,7 @@ export function Messages() {
     };
 
     if (activeThread) {
-        return (
-            <ChatView
-                thread={activeThread}
-                onBack={() => setActiveThread(null)}
-                onThreadUpdate={handleThreadUpdate}
-            />
-        );
+        return <ChatView thread={activeThread} onThreadUpdate={handleThreadUpdate} />;
     }
 
     return (
@@ -480,11 +473,9 @@ export function Messages() {
 
 function ChatView({
     thread,
-    onBack,
     onThreadUpdate,
 }: {
     thread: ChatThread;
-    onBack: () => void;
     onThreadUpdate: (t: ChatThread) => void;
 }) {
     const [, setLocation] = useLocation();
@@ -492,15 +483,17 @@ function ChatView({
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+    const [contextMenuMessageId, setContextMenuMessageId] = useState<string | null>(null);
+    const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(
+        null
+    );
+    const [chatColor, setChatColor] = useState<string>('default');
     const sendingRef = useRef(false);
     const bottomRef = useRef<HTMLDivElement>(null);
     const threadRef = useRef(thread);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
-    const directOtherUserId = !thread.isGroup
-        ? thread.participants.find((participantId) => participantId !== currentUserId)
-        : null;
 
     const participantNameById = useMemo(() => {
         const nameMap = new Map<string, string>();
@@ -666,15 +659,8 @@ function ChatView({
             return;
         }
 
-        const confirmationText =
-            scope === 'everyone'
-                ? 'Delete this message for everyone? This cannot be undone.'
-                : 'Delete this message for you?';
-
-        if (!window.confirm(confirmationText)) {
-            return;
-        }
-
+        setContextMenuMessageId(null);
+        setContextMenuPosition(null);
         setDeletingMessageId(message.id);
         try {
             await deleteChatMessage(thread.id, message.id, scope);
@@ -700,90 +686,64 @@ function ChatView({
         }
     };
 
-    const title = getThreadDisplayName(thread, currentUserId, currentUserName);
+    const handleContextMenu = (e: MouseEvent, messageId: string) => {
+        e.preventDefault();
+        setContextMenuMessageId(messageId);
+        setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    };
+
+    const chatColorMap: { [key: string]: string } = {
+        default: 'linear-gradient(135deg,var(--accent),#0ea5e9)',
+        violet: 'linear-gradient(135deg,#a78bfa,#ec4899)',
+        emerald: 'linear-gradient(135deg,#10b981,#14b8a6)',
+        orange: 'linear-gradient(135deg,#f97316,#f59e0b)',
+        rose: 'linear-gradient(135deg,#f43f5e,#ec4899)',
+    };
+
+    const getAvatarUrl = (userId: string) => {
+        return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(userId)}&scale=80`;
+    };
 
     return (
-        <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);">
-            {/* Header */}
-            <header
-                class="header-bar"
-                style="position:sticky;top:0;z-index:40;height:var(--header-h);display:flex;align-items:center;gap:10px;padding:0 12px;"
-            >
-                <button
-                    type="button"
-                    class="btn-icon"
-                    onClick={onBack}
-                    aria-label="Back"
-                    style="color:var(--text-secondary);"
-                >
-                    <ArrowLeft size={18} />
-                </button>
-                <div style="flex:1;min-width:0;">
-                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                        <div
-                            style={`width:38px;height:38px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${thread.isGroup ? 'linear-gradient(135deg,rgba(99,102,241,0.16),rgba(59,130,246,0.10))' : 'linear-gradient(135deg,rgba(16,185,129,0.16),rgba(14,165,233,0.10))'};color:${thread.isGroup ? 'var(--accent)' : 'var(--success)'};`}
-                        >
-                            {thread.isGroup ? <Users size={17} /> : <User size={17} />}
-                        </div>
-                        <div style="min-width:0;">
-                            {directOtherUserId ? (
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setLocation(
-                                            `/profile?userId=${encodeURIComponent(directOtherUserId)}`
-                                        )
-                                    }
-                                    style="display:block;font-size:14px;font-weight:800;color:var(--text);margin:0;padding:0;background:none;border:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;"
-                                >
-                                    {title}
-                                </button>
-                            ) : (
-                                <p style="font-size:14px;font-weight:800;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                    {title}
-                                </p>
-                            )}
-                            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px;">
-                                <span
-                                    style={`display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;background:${thread.isGroup ? 'var(--accent-subtle)' : 'var(--success-subtle)'};color:${thread.isGroup ? 'var(--accent)' : 'var(--success)'};`}
-                                >
-                                    {thread.isGroup ? 'Group' : 'Direct'}
-                                </span>
-                                <span style="font-size:11px;color:var(--text-tertiary);margin:0;display:inline-flex;align-items:center;gap:4px;">
-                                    <Clock size={10} />
-                                    {thread.participantNames.length} members
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
+        <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);position:relative;">
             {/* Messages */}
-            <div style="flex:1;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:10px;padding-bottom:88px;">
+            <div style="flex:1;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:12px;padding-bottom:88px;">
+                <div style="height:8px;" />
                 {messages.map((msg) => {
                     const isMe = msg.senderId === currentUserId;
+                    const isContextMenuOpen = contextMenuMessageId === msg.id;
                     return (
                         <div
                             key={msg.id}
-                            style={`display:flex;gap:8px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};`}
+                            style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;`}
                         >
                             {!isMe && (
-                                <div style="width:30px;height:30px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg-subtle);border:1px solid var(--border);color:var(--text-tertiary);">
-                                    <User size={14} />
+                                <div style="width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid var(--border);background:var(--bg-subtle);">
+                                    <img
+                                        src={getAvatarUrl(msg.senderId)}
+                                        alt={msg.senderName}
+                                        style="width:100%;height:100%;object-fit:cover;"
+                                    />
                                 </div>
                             )}
-                            <div
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    if (isMe) {
+                                        handleContextMenu(e as any, msg.id);
+                                    }
+                                }}
+                                onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
                                 style={`
-                                    max-width:78%;padding:10px 13px;border-radius:16px;font-size:13px;line-height:1.5;box-shadow:0 8px 24px rgba(15,23,42,0.05);
+                                    max-width:75%;padding:11px 14px;border-radius:18px;font-size:13px;line-height:1.5;transition:all 0.2s;position:relative;border:none;cursor:${isMe ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                     ${
                                         isMe
-                                            ? 'background:linear-gradient(135deg,var(--accent),#0ea5e9);color:#fff;border-bottom-right-radius:6px;'
-                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:6px;'
+                                            ? `background:${chatColorMap[chatColor]};color:#fff;border-bottom-right-radius:8px;box-shadow:0 4px 16px rgba(99,102,241,0.25);`
+                                            : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:8px;box-shadow:0 2px 8px rgba(15,23,42,0.08);'
                                     }
                                 `}
                             >
-                                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;">
                                     {!isMe ? (
                                         <button
                                             type="button"
@@ -792,46 +752,94 @@ function ChatView({
                                                     `/profile?userId=${encodeURIComponent(msg.senderId)}`
                                                 )
                                             }
-                                            style="font-size:10px;font-weight:800;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;letter-spacing:0.02em;"
+                                            style="font-size:11px;font-weight:800;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;letter-spacing:0.02em;"
                                         >
                                             {msg.senderName}
                                         </button>
                                     ) : (
-                                        <span style="font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;opacity:0.78;">
+                                        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;opacity:0.75;flex-shrink:0;">
                                             You
                                         </span>
                                     )}
                                     <span
-                                        style={`font-size:10px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:4px;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
+                                        style={`font-size:11px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.75);' : 'color:var(--text-tertiary);'}`}
                                     >
                                         <Clock size={9} />
                                         {timeAgo(msg.timestamp)}
                                     </span>
                                 </div>
-                                <p style="margin:0;">{msg.content}</p>
-                                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                                <p style="margin:0;word-break:break-word;">{msg.content}</p>
+                            </button>
+
+                            {isMe && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleContextMenu(e as any, msg.id)}
+                                    style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;opacity:${contextMenuMessageId === msg.id ? '1' : '0'};pointer-events:${contextMenuMessageId === msg.id ? 'auto' : 'none'};flex-shrink:0;`}
+                                    aria-label="Delete message"
+                                    onMouseEnter={(e) => {
+                                        const btn = e.currentTarget as HTMLElement;
+                                        btn.style.background = 'var(--danger-subtle)';
+                                        btn.style.color = 'var(--danger)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        const btn = e.currentTarget as HTMLElement;
+                                        btn.style.background = 'var(--surface-raised)';
+                                        btn.style.color = 'var(--text-tertiary)';
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
+
+                            {isContextMenuOpen && contextMenuPosition && (
+                                <div
+                                    style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
+                                    role="menu"
+                                    onMouseLeave={() => {
+                                        setContextMenuMessageId(null);
+                                        setContextMenuPosition(null);
+                                    }}
+                                >
                                     <button
                                         type="button"
                                         onClick={() => handleDeleteMessage(msg, 'me')}
                                         disabled={deletingMessageId !== null}
-                                        style="display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.8;"
+                                        role="menuitem"
+                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                        onMouseEnter={(e) => {
+                                            (e.currentTarget as HTMLElement).style.background =
+                                                'var(--bg-muted)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            (e.currentTarget as HTMLElement).style.background =
+                                                'none';
+                                        }}
                                     >
-                                        <Trash2 size={10} />
+                                        <Trash2 size={14} />
                                         Delete for me
                                     </button>
-                                    {isMe && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteMessage(msg, 'everyone')}
-                                            disabled={deletingMessageId !== null}
-                                            style="display:inline-flex;align-items:center;gap:4px;padding:0;border:none;background:none;cursor:pointer;font-size:10px;color:inherit;opacity:0.8;"
-                                        >
-                                            <Trash2 size={10} />
-                                            Delete for everyone
-                                        </button>
-                                    )}
+                                    <div style="height:1px;background:var(--border);" />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteMessage(msg, 'everyone')}
+                                        disabled={deletingMessageId !== null}
+                                        role="menuitem"
+                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                        onMouseEnter={(e) => {
+                                            (e.currentTarget as HTMLElement).style.background =
+                                                'var(--danger-subtle)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            (e.currentTarget as HTMLElement).style.background =
+                                                'none';
+                                        }}
+                                    >
+                                        <Trash2 size={14} />
+                                        Delete for everyone
+                                    </button>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     );
                 })}
@@ -844,7 +852,10 @@ function ChatView({
                 style="position:fixed;bottom:0;left:0;right:0;padding:10px 12px;display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,rgba(255,255,255,0),var(--bg) 25%);"
             >
                 <div style="max-width:720px;width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:18px;background:var(--surface);padding:8px 10px;box-shadow:0 14px 36px rgba(15,23,42,0.08);">
-                    <MessageCircle size={16} style="color:var(--text-tertiary);flex-shrink:0;" />
+                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                        <MessageCircle size={16} style="color:var(--text-tertiary);" />
+                        <div style="width:1px;height:18px;background:var(--border);" />
+                    </div>
                     <input
                         value={input}
                         onInput={(e) => setInput((e.target as HTMLInputElement).value)}
@@ -856,17 +867,49 @@ function ChatView({
                         placeholder="Message…"
                         style="flex:1;padding:8px 0;border:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;outline:none;"
                     />
-                    <button
-                        type="button"
-                        id="send-message-btn"
-                        onClick={handleSend}
-                        disabled={!input.trim() || sending}
-                        class="btn-primary"
-                        style="height:40px;width:40px;padding:0;background:linear-gradient(135deg,var(--accent),#0ea5e9);border-radius:14px;flex-shrink:0;"
-                        aria-label="Send"
-                    >
-                        <Send size={15} />
-                    </button>
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const colors = Object.keys(chatColorMap).filter(
+                                    (c) => c !== chatColor
+                                );
+                                const nextColor =
+                                    colors[
+                                        (Object.keys(chatColorMap).indexOf(chatColor) + 1) %
+                                            Object.keys(chatColorMap).length
+                                    ];
+                                setChatColor(nextColor);
+                            }}
+                            style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:transparent;border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;"
+                            title="Change chat color"
+                            onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.background =
+                                    'var(--accent-subtle)';
+                                (e.currentTarget as HTMLElement).style.color = 'var(--accent)';
+                            }}
+                            onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                (e.currentTarget as HTMLElement).style.color =
+                                    'var(--text-tertiary)';
+                            }}
+                        >
+                            <div
+                                style={`width:12px;height:12px;border-radius:50%;background:${chatColorMap[chatColor]};`}
+                            />
+                        </button>
+                        <button
+                            type="button"
+                            id="send-message-btn"
+                            onClick={handleSend}
+                            disabled={!input.trim() || sending}
+                            class="btn-primary"
+                            style="height:36px;width:36px;padding:0;background:linear-gradient(135deg,var(--accent),#0ea5e9);border-radius:10px;flex-shrink:0;"
+                            aria-label="Send"
+                        >
+                            <Send size={15} />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
