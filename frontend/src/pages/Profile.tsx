@@ -634,7 +634,6 @@ export function Profile() {
                                                     message = error.message;
                                                 }
                                                 setMapError(message);
-                                                window.alert(message);
                                             }
                                         }}
                                         style="height:28px;padding:0 10px;font-size:11px;gap:5px;"
@@ -671,14 +670,52 @@ export function Profile() {
                                         </div>
                                     )}
                                     {displayLocationMap && mapError && (
-                                        <div style="height:100%;padding:18px;display:flex;flex-direction:column;gap:8px;justify-content:center;align-items:flex-start;background:var(--bg-subtle);">
-                                            <p style="margin:0;font-size:12px;font-weight:600;color:var(--danger);">
-                                                {mapError}
-                                            </p>
-                                            <p style="margin:0;font-size:11px;color:var(--text-secondary);line-height:1.45;">
-                                                Set VITE_MAPBOX_TOKEN to enable the map preview and
-                                                pin editing.
-                                            </p>
+                                        <div
+                                            style={`position:absolute;${
+                                                mapLoaded
+                                                    ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
+                                                    : 'inset:0;justify-content:center;'
+                                            } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
+                                            class="animate-slide-up"
+                                        >
+                                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                                                <div style="display:flex;gap:8px;align-items:flex-start;">
+                                                    <Ban
+                                                        size={14}
+                                                        style="color:var(--danger);flex-shrink:0;margin-top:2px;"
+                                                    />
+                                                    <div style="display:flex;flex-direction:column;gap:2px;">
+                                                        <p style="margin:0;font-size:12px;font-weight:700;color:var(--danger);line-height:1.4;">
+                                                            Action Failed
+                                                        </p>
+                                                        <p style="margin:0;font-size:12px;color:var(--danger);line-height:1.4;opacity:0.9;">
+                                                            {mapError}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMapError(null)}
+                                                    style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
+                                                    onMouseEnter={(e) =>
+                                                        ((e.target as HTMLElement).style.background =
+                                                            'var(--danger-muted)')
+                                                    }
+                                                    onMouseLeave={(e) =>
+                                                        ((e.target as HTMLElement).style.background =
+                                                            'transparent')
+                                                    }
+                                                    aria-label="Clear error"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                            {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
+                                                <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
+                                                    Tip: Set VITE_MAPBOX_TOKEN in your environment to
+                                                    enable the interactive map preview.
+                                                </p>
+                                            )}
                                         </div>
                                     )}
                                     {!displayLocationMap && (
