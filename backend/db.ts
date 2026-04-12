@@ -2041,20 +2041,71 @@ export async function selectAdminUsers(
 }
 
 export async function updateUserRole(id: string, role: string): Promise<boolean> {
-    const normalizedRole = role.toLowerCase() === 'resident' ? 'user' : role.toLowerCase();
+    const normalizedRole = role.toLowerCase();
 
-    if (!['admin', 'mod', 'user', 'banned'].includes(normalizedRole)) {
+    if (!['admin', 'mod', 'user', 'resident', 'banned'].includes(normalizedRole)) {
         return false;
     }
 
-    const [updated] = await sql`
-        UPDATE app.users
-        SET role = ${normalizedRole}
-        WHERE id = ${id}
-        RETURNING id
-    `;
+    const candidateRoles =
+        normalizedRole === 'user'
+            ? ['user', 'resident']
+            : normalizedRole === 'resident'
+                ? ['resident', 'user']
+                : [normalizedRole];
 
-    return Boolean(updated);
+    const isRoleConstraintViolation = (error: unknown): boolean => {
+        const value = error as
+            | {
+                code?: unknown;
+                message?: unknown;
+                constraint?: unknown;
+                cause?: {
+                    code?: unknown;
+                    message?: unknown;
+                    constraint?: unknown;
+                };
+            }
+            | null;
+
+        const code = String(value?.code ?? value?.cause?.code ?? '');
+        const constraint = String(value?.constraint ?? value?.cause?.constraint ?? '').toLowerCase();
+        const message = String(value?.message ?? value?.cause?.message ?? '').toLowerCase();
+
+        if (code === '23514') {
+            return true;
+        }
+
+        if (constraint.includes('user_role') || constraint.includes('users_role')) {
+            return true;
+        }
+
+        return message.includes('check constraint') && message.includes('role');
+    };
+
+    for (const candidateRole of candidateRoles) {
+        try {
+            const [updated] = await sql`
+                UPDATE app.users
+                SET role = ${candidateRole}
+                WHERE id = ${id}
+                RETURNING id
+            `;
+
+            if (updated) {
+                return true;
+            }
+        } catch (error) {
+            if (
+                !isRoleConstraintViolation(error) ||
+                candidateRole === candidateRoles[candidateRoles.length - 1]
+            ) {
+                throw error;
+            }
+        }
+    }
+
+    return false;
 }
 
 export async function searchUsers(

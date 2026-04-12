@@ -147,7 +147,8 @@ export function Profile() {
     const [showRoleOptions, setShowRoleOptions] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
-    const targetRole = user?.role?.toLowerCase() ?? 'user';
+    const targetRole =
+        user?.role?.toLowerCase() === 'resident' ? 'user' : (user?.role?.toLowerCase() ?? 'user');
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -661,8 +662,8 @@ export function Profile() {
                                 onClick={() => setShowRoleOptions(!showRoleOptions)}
                                 disabled={actionBusy}
                                 style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${showRoleOptions
-                                        ? 'background:var(--accent);color:#fff;'
-                                        : 'color:var(--accent);'
+                                    ? 'background:var(--accent);color:#fff;'
+                                    : 'color:var(--accent);'
                                     }`}
                             >
                                 <ShieldCheck size={14} />

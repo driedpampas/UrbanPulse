@@ -14,7 +14,10 @@ type Props = {
 };
 
 function UserRowComponent({ user, onSetRole, onDelete }: Props) {
-    const role = user.role?.toLowerCase() ?? 'user';
+    const role =
+        user.role?.toLowerCase() === 'resident'
+            ? 'user'
+            : (user.role?.toLowerCase() ?? 'user');
     const displayRole = role === 'user' ? 'resident' : role;
     const [busy, setBusy] = useState(false);
     const [showActions, setShowActions] = useState(false);
