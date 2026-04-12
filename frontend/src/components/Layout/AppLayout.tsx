@@ -13,6 +13,7 @@ interface Props {
 
 export function AppLayout({ children, title, headerRight, showNav = true }: Props) {
     const { theme, toggle } = useTheme();
+    const commitHash = typeof __COMMIT_HASH__ === 'string' ? __COMMIT_HASH__ : 'dev';
 
     return (
         <div style="min-height:100dvh;display:flex;flex-direction:column;">
@@ -61,7 +62,7 @@ export function AppLayout({ children, title, headerRight, showNav = true }: Prop
                 style={`position:fixed;bottom:${showNav ? 'calc(var(--nav-h) + 4px)' : '8px'};right:8px;z-index:60;pointer-events:none;`}
             >
                 <span style="font-size:9px;color:var(--text-tertiary);letter-spacing:0.02em;opacity:0.8;">
-                    {__COMMIT_HASH__}
+                    {commitHash}
                 </span>
             </div>
         </div>

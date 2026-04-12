@@ -1182,14 +1182,14 @@ export const httpRoutes: HttpRoutes = {
                         const threadId = req.params.id as string;
 
                         const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
-                        if (role !== 'admin') {
-                            const chats = await db.selectChats(payload.id);
-                            const isParticipant = chats.some((chat) => chat.chatId === threadId);
+                        const chats = await db.selectChats(payload.id);
+                        const isParticipant = chats.some((chat) => chat.chatId === threadId);
 
-                            if (!isParticipant) {
+                        if (!isParticipant) {
+                            if (role !== 'admin') {
                                 return withCors(FORBIDDEN);
                             }
-                        } else {
+
                             const chat = await db.selectChatById(threadId);
                             if (!chat || !chat.isGroup) {
                                 return withCors(FORBIDDEN);
