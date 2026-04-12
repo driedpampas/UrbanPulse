@@ -891,8 +891,8 @@ export function Profile() {
 
                         {/* Distance limit */}
                         {isOwnProfile && (
-                            <div style={S.row}>
-                                <div style="display:flex;align-items:center;gap:7px;">
+                            <div class="flex-between">
+                                <div class="stack-h gap-sm">
                                     <MapPin
                                         size={13}
                                         style="color:var(--text-tertiary);flex-shrink:0;"
@@ -913,9 +913,8 @@ export function Profile() {
                                                 ),
                                             }))
                                         }
-                                        style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;text-align:right;"
-                                        onFocus={focusOn}
-                                        onBlur={focusOff}
+                                        class="input-field"
+                                        style="width:80px;height:32px;padding:4px 8px;font-size:12px;text-align:right;"
                                     />
                                 ) : (
                                     <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
@@ -926,15 +925,15 @@ export function Profile() {
                         )}
 
                         {/* Quiet hours */}
-                        <div style={S.row}>
-                            <div style="display:flex;align-items:center;gap:7px;">
+                        <div class="flex-between">
+                            <div class="stack-h gap-sm">
                                 <Moon size={13} style="color:var(--text-tertiary);flex-shrink:0;" />
                                 <span style="font-size:13px;color:var(--text-secondary);">
                                     Quiet hours
                                 </span>
                             </div>
                             {editing ? (
-                                <div style="display:flex;align-items:center;gap:6px;">
+                                <div class="stack-h gap-sm">
                                     <input
                                         type="time"
                                         value={draft.quietHoursStart}
@@ -945,9 +944,8 @@ export function Profile() {
                                                     .value,
                                             }))
                                         }
-                                        style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;"
-                                        onFocus={focusOn}
-                                        onBlur={focusOff}
+                                        class="input-field"
+                                        style="padding:4px 8px;height:32px;width:auto;font-size:12px;"
                                     />
                                     <span style="color:var(--text-tertiary);font-size:12px;">
                                         –
@@ -961,9 +959,8 @@ export function Profile() {
                                                 quietHoursEnd: (e.target as HTMLInputElement).value,
                                             }))
                                         }
-                                        style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;"
-                                        onFocus={focusOn}
-                                        onBlur={focusOff}
+                                        class="input-field"
+                                        style="padding:4px 8px;height:32px;width:auto;font-size:12px;"
                                     />
                                 </div>
                             ) : (
@@ -1091,11 +1088,11 @@ export function Profile() {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);"
+                    class="modal-overlay"
                 >
                     <div
-                        class="animate-slide-up"
-                        style="width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow-xl);"
+                        class="modal-content animate-slide-up"
+                        style="max-width:340px;padding:20px;"
                     >
                         <h3 style="font-size:15px;font-weight:700;color:var(--danger);margin:0 0 6px;">
                             Delete Account?
@@ -1103,7 +1100,7 @@ export function Profile() {
                         <p style="font-size:13px;color:var(--text-secondary);margin:0 0 18px;line-height:1.5;">
                             Your account will be queued for deletion and removed after 7 days.
                         </p>
-                        <div style="display:flex;gap:8px;">
+                        <div class="stack-h gap-sm">
                             <HoverButton
                                 type="button"
                                 onClick={() => {

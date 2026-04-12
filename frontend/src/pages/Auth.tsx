@@ -84,13 +84,6 @@ export function Auth() {
         }
     };
 
-    const fieldStyle = (hasErr: boolean) => `
-		width:100%;padding:9px 12px;border-radius:8px;border:1px solid;
-		font-size:13px;font-family:inherit;outline:none;
-		background:var(--bg-subtle);color:var(--text);
-		border-color:${hasErr ? 'var(--danger)' : 'var(--border)'};
-		transition:border-color 0.15s,box-shadow 0.15s;
-	`;
 
     const pwWrap = { position: 'relative' as const };
     const eyeBtn = `
