@@ -364,7 +364,8 @@ export function Auth() {
                                     {mode === 'login' ? 'No account?' : 'Already have an account?'}
                                 </span>
                                 <span class="text-sm font-bold text-[var(--accent)] group-hover:translate-x-1 transition-transform">
-                                    {mode === 'login' ? 'Register' : 'Sign In'} <span class="ml-1">→</span>
+                                    {mode === 'login' ? 'Register' : 'Sign In'}{' '}
+                                    <span class="ml-1">→</span>
                                 </span>
                             </div>
                         </HoverButton>

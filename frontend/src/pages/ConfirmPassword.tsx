@@ -70,8 +70,8 @@ export function ConfirmPassword() {
     const nextPath = isAuthenticated ? '/settings' : '/auth';
 
     return (
-        <div class="page-shell bg-[var(--bg)] px-4 py-12">
-            <div class="app-container max-w-[440px]">
+        <div class="page-shell bg-[var(--bg)] px-4" style="justify-content: center;">
+            <div class="app-container max-w-[440px] animate-slide-up">
                 <div class="mb-8 text-center animate-slide-up">
                     <p class="label-caps !mb-1">UrbanPulse Security</p>
                     <h1 class="text-2xl font-bold tracking-tight text-[var(--text)]">
@@ -90,21 +90,19 @@ export function ConfirmPassword() {
                     </div>
 
                     <div class="section-body p-6">
-                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-5 mb-2">
-                            <p class="text-sm leading-relaxed text-[var(--text-secondary)]">
-                                {message}
-                            </p>
-                        </div>
+                        <p class="text-sm leading-relaxed text-[var(--text-secondary)] mb-6">
+                            {message}
+                        </p>
 
                         {state === 'success' && (
-                            <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-4 py-3 text-sm font-semibold text-[var(--success)] animate-fade-in">
+                            <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-4 py-3 text-sm font-semibold text-[var(--success)] animate-fade-in mb-6">
                                 <CheckCircle2 class="h-4 w-4" />
                                 Password changed successfully.
                             </div>
                         )}
 
                         {state === 'error' && (
-                            <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-4 py-3 text-sm font-semibold text-[var(--danger)] animate-fade-in">
+                            <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-4 py-3 text-sm font-semibold text-[var(--danger)] animate-fade-in mb-6">
                                 <AlertTriangle class="h-4 w-4" />
                                 Unable to complete password update.
                             </div>
