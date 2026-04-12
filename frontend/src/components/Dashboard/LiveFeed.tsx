@@ -7,8 +7,10 @@ import {
     MapPin,
     MessageSquare,
     Package,
+    Send,
     Trash2,
     Wrench,
+    X,
 } from 'lucide-preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
@@ -60,6 +62,7 @@ interface Props {
 }
 
 const MIN_RESOURCE_TOKEN_LENGTH = 3;
+const PULSE_CONTENT_MAX = 280;
 
 function normalizeResourceText(value: string): string {
     return value
@@ -485,6 +488,11 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             return;
         }
 
+        if (nextContent.length > PULSE_CONTENT_MAX) {
+            setEditError(`Pulse content must be ${PULSE_CONTENT_MAX} characters or fewer.`);
+            return;
+        }
+
         const parsedUrgency = Number(editUrgencyLevel);
         if (!Number.isInteger(parsedUrgency) || parsedUrgency < 1 || parsedUrgency > 5) {
             setEditError('Urgency level must be a number between 1 and 5.');
@@ -614,6 +622,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                         pulseCanBeAcceptedByUser(pulse, myResourceTokens)
                 );
                 const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
+                const editCharactersLeft = PULSE_CONTENT_MAX - editContent.length;
+                const parsedEditSkills = parseRequiredSkillsInput(editRequiredSkills);
 
                 return (
                     <article
@@ -724,87 +734,143 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
                                 {/* Content */}
                                 {isEditing ? (
-                                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px;">
-                                        <textarea
-                                            class="input-field"
-                                            value={editContent}
-                                            onInput={(event) =>
-                                                setEditContent(
-                                                    (event.target as HTMLTextAreaElement).value
-                                                )
-                                            }
-                                            rows={3}
-                                            style="resize:vertical;min-height:84px;"
-                                        />
-                                        <div style="display:flex;flex-direction:column;gap:6px;">
-                                            <label
-                                                htmlFor={`pulse-edit-urgency-${pulse.id}`}
-                                                style="font-size:11px;color:var(--text-tertiary);font-weight:600;"
-                                            >
-                                                Urgency level (1-5)
-                                            </label>
-                                            <input
-                                                id={`pulse-edit-urgency-${pulse.id}`}
+                                    <div
+                                        style="display:flex;flex-direction:column;gap:10px;margin-top:9px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);"
+                                    >
+                                        <div style="position:relative;">
+                                            <textarea
                                                 class="input-field"
-                                                type="number"
-                                                min={1}
-                                                max={5}
-                                                value={editUrgencyLevel}
+                                                value={editContent}
                                                 onInput={(event) =>
-                                                    setEditUrgencyLevel(
-                                                        (event.target as HTMLInputElement).value
+                                                    setEditContent(
+                                                        (event.target as HTMLTextAreaElement).value
                                                     )
                                                 }
-                                                style="max-width:120px;"
+                                                rows={3}
+                                                maxLength={PULSE_CONTENT_MAX + 20}
+                                                style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
                                             />
+                                            <span
+                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${
+                                                    editCharactersLeft < 0
+                                                        ? 'var(--danger)'
+                                                        : editCharactersLeft < 40
+                                                          ? 'var(--warning)'
+                                                          : 'var(--text-tertiary)'
+                                                };`}
+                                            >
+                                                {editCharactersLeft}
+                                            </span>
                                         </div>
-                                        {pulse.type === 'need' && (
-                                            <div style="display:flex;flex-direction:column;gap:6px;">
+
+                                        <div style="display:flex;align-items:end;gap:10px;flex-wrap:wrap;">
+                                            <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;">
                                                 <label
-                                                    htmlFor={`pulse-edit-skills-${pulse.id}`}
-                                                    style="font-size:11px;color:var(--text-tertiary);font-weight:600;"
+                                                    htmlFor={`pulse-edit-urgency-${pulse.id}`}
+                                                    style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
                                                 >
-                                                    Required skills (comma-separated)
+                                                    Urgency
                                                 </label>
                                                 <input
-                                                    id={`pulse-edit-skills-${pulse.id}`}
+                                                    id={`pulse-edit-urgency-${pulse.id}`}
                                                     class="input-field"
-                                                    value={editRequiredSkills}
+                                                    type="number"
+                                                    min={1}
+                                                    max={5}
+                                                    value={editUrgencyLevel}
                                                     onInput={(event) =>
-                                                        setEditRequiredSkills(
-                                                            (event.target as HTMLInputElement)
-                                                                .value
+                                                        setEditUrgencyLevel(
+                                                            (event.target as HTMLInputElement).value
                                                         )
                                                     }
-                                                    placeholder="first aid, transport, translation"
+                                                    style="height:36px;padding:0 12px;max-width:120px;"
                                                 />
                                             </div>
+
+                                            {pulse.type === 'need' && (
+                                                <div style="display:flex;flex:1;min-width:220px;flex-direction:column;gap:6px;">
+                                                    <label
+                                                        htmlFor={`pulse-edit-skills-${pulse.id}`}
+                                                        style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
+                                                    >
+                                                        Skills / Items Needed
+                                                    </label>
+                                                    <input
+                                                        id={`pulse-edit-skills-${pulse.id}`}
+                                                        class="input-field"
+                                                        value={editRequiredSkills}
+                                                        onInput={(event) =>
+                                                            setEditRequiredSkills(
+                                                                (event.target as HTMLInputElement)
+                                                                    .value
+                                                            )
+                                                        }
+                                                        placeholder="first aid, transport, translation"
+                                                        style="height:36px;padding:0 12px;"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {pulse.type === 'need' && parsedEditSkills.length > 0 && (
+                                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                                {parsedEditSkills.map((skill) => (
+                                                    <HoverButton
+                                                        key={skill}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditRequiredSkills((current) =>
+                                                                parseRequiredSkillsInput(current)
+                                                                    .filter(
+                                                                        (entry) =>
+                                                                            entry
+                                                                                .toLowerCase()
+                                                                                .trim() !==
+                                                                            skill
+                                                                                .toLowerCase()
+                                                                                .trim()
+                                                                    )
+                                                                    .join(', ')
+                                                            );
+                                                        }}
+                                                        style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;"
+                                                    >
+                                                        {skill}
+                                                        <X size={10} />
+                                                    </HoverButton>
+                                                ))}
+                                            </div>
                                         )}
+
                                         {editError && (
                                             <p
-                                                style="margin:0;color:var(--danger);font-size:12px;font-weight:600;"
+                                                style="margin:0;padding:8px 12px;border-radius:6px;background:var(--danger-subtle);color:var(--danger);font-size:12px;border:1px solid var(--type-emergency-border);"
                                                 role="alert"
                                             >
                                                 {editError}
                                             </p>
                                         )}
+
                                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                            <button
+                                            <HoverButton
                                                 type="button"
                                                 class="btn-primary"
                                                 onClick={() => handleSavePulseEdit(pulse)}
-                                                disabled={savingEdit}
+                                                disabled={savingEdit || editCharactersLeft < 0}
+                                                style="height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;padding:0 14px;"
                                             >
-                                                {savingEdit ? 'Saving...' : 'Save'}
-                                            </button>
-                                            <button
+                                                <Send size={13} />
+                                                {savingEdit ? 'Saving...' : 'Save Changes'}
+                                            </HoverButton>
+                                            <HoverButton
                                                 type="button"
                                                 class="btn-ghost"
                                                 onClick={cancelPulseEdit}
                                                 disabled={savingEdit}
+                                                style="height:38px;padding:0 14px;"
                                             >
                                                 Cancel
-                                            </button>
+                                            </HoverButton>
                                         </div>
                                     </div>
                                 ) : (

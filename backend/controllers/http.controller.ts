@@ -18,6 +18,8 @@ import {
 import swaggerDoc from '../swagger.json';
 import type {
     AddChatParticipantsBody,
+    PasswordConfirmBody,
+    PasswordRequestBody,
     CreateChatBody,
     CreateLibraryItemBody,
     CreateMessageBody,
@@ -25,13 +27,10 @@ import type {
     DeleteMessageBody,
     InteractionFeedbackBody,
     LoginUserBody,
-    PasswordConfirmBody,
-    PasswordRequestBody,
     PulseListQuery,
     PulseMatchBody,
     RegisterUserBody,
     SearchUsersQuery,
-    UpdateChatNameBody,
     UpdateEmailBody,
     UpdateLibraryItemBody,
     UpdateMessageBody,
@@ -42,17 +41,17 @@ import type {
 } from '../validators/http.validators';
 import {
     addChatParticipantsSchema,
-    adminMessageReportActionSchema,
-    adminMessageReportsQuerySchema,
     adminUsersQuerySchema,
     buildSearchParams,
     chatSocketMessageSchema,
     createChatSchema,
-    createLibraryItemSchema,
     createMessageReportSchema,
+    createLibraryItemSchema,
     createMessageSchema,
     createPulseSchema,
     createReportSchema,
+    adminMessageReportActionSchema,
+    adminMessageReportsQuerySchema,
     deleteMessageSchema,
     interactionFeedbackSchema,
     loginUserSchema,
@@ -65,7 +64,6 @@ import {
     resourceCatalogQuerySchema,
     searchUsersSchema,
     sendMessageResponseSchema,
-    updateChatNameSchema,
     updateAdminUserRoleBodySchema,
     updateEmailSchema,
     updateLibraryItemSchema,
@@ -1786,8 +1784,7 @@ export const httpRoutes: HttpRoutes = {
                         const createdChat = await db.insertChat(
                             participantIds,
                             body.isGroup,
-                            payload.id,
-                            body.name
+                            payload.id
                         );
 
                         return withCors(Response.json(createdChat, { status: 201 }));
@@ -1902,19 +1899,6 @@ export const httpRoutes: HttpRoutes = {
                             await db.selectChatSummaries(payload.id as string)
                         ).find((chat) => chat.id === threadId);
                         const sender = await db.selectUserSummary(payload.id as string);
-                        const fallbackThreadName =
-                            threadSummary?.participants
-                                .filter((participant) => participant.userId !== payload.id)
-                                .map(
-                                    (participant) =>
-                                        participant.displayName?.trim() ||
-                                        `Neighbor ${participant.userId.slice(0, 6)}`
-                                )
-                                .join(', ') || undefined;
-                        const resolvedThreadName = threadSummary?.isGroup
-                            ? threadSummary.name || fallbackThreadName
-                            : fallbackThreadName;
-
                         const notificationPayload = messageNotificationPayloadSchema.parse({
                             event: 'notification.message',
                             message: {
@@ -1923,7 +1907,15 @@ export const httpRoutes: HttpRoutes = {
                             },
                             senderName:
                                 sender?.displayName?.trim() || `Neighbor ${payload.id.slice(0, 6)}`,
-                            threadName: resolvedThreadName,
+                            threadName:
+                                threadSummary?.participants
+                                    .filter((participant) => participant.userId !== payload.id)
+                                    .map(
+                                        (participant) =>
+                                            participant.displayName?.trim() ||
+                                            `Neighbor ${participant.userId.slice(0, 6)}`
+                                    )
+                                    .join(', ') || undefined,
                         });
 
                         server.publish(
@@ -1955,7 +1947,17 @@ export const httpRoutes: HttpRoutes = {
                                     senderName:
                                         sender?.displayName?.trim() ||
                                         `Neighbor ${payload.id.slice(0, 6)}`,
-                                    threadName: resolvedThreadName,
+                                    threadName:
+                                        threadSummary?.participants
+                                            .filter(
+                                                (participant) => participant.userId !== payload.id
+                                            )
+                                            .map(
+                                                (participant) =>
+                                                    participant.displayName?.trim() ||
+                                                    `Neighbor ${participant.userId.slice(0, 6)}`
+                                            )
+                                            .join(', ') || undefined,
                                 }),
                                 { status: 201 }
                             )
@@ -2162,75 +2164,6 @@ export const httpRoutes: HttpRoutes = {
                         );
 
                         return withCors(SUCCESS);
-                    })
-                )
-            ),
-    },
-    '/api/chats/:id/name': {
-        PATCH: async (req, server) =>
-            validate(req, async () =>
-                authorize(req, async (session) =>
-                    caught(async () => {
-                        const payload = session as JwtPayload;
-                        const parsedThreadId = z.uuid().safeParse(req.params.id as string);
-
-                        if (!parsedThreadId.success) {
-                            return withCors(BAD_REQUEST);
-                        }
-
-                        const body: UpdateChatNameBody = await req
-                            .json()
-                            .then((raw) => updateChatNameSchema.parse(raw));
-
-                        const threadId = parsedThreadId.data;
-                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
-                        const isAdminOrMod = role === 'admin' || role === 'mod';
-
-                        const chat = isAdminOrMod
-                            ? await db.selectChatById(threadId)
-                            : await db.selectChat(threadId, payload.id);
-
-                        if (!chat) {
-                            return withCors(NOT_FOUND);
-                        }
-
-                        if (!chat.isGroup) {
-                            return withCors(FORBIDDEN);
-                        }
-
-                        const isOwner = chat.ownerId === payload.id;
-                        if (!isOwner && !isAdminOrMod) {
-                            return withCors(FORBIDDEN);
-                        }
-
-                        const updated = await db.updateChatName(
-                            threadId,
-                            chat.ownerId ?? payload.id,
-                            body.name
-                        );
-
-                        if (!updated) {
-                            return withCors(FORBIDDEN);
-                        }
-
-                        server.publish(
-                            `chat-${threadId}`,
-                            JSON.stringify({
-                                event: 'chat.updated',
-                                threadId,
-                                name: updated.name,
-                            })
-                        );
-
-                        return withCors(
-                            Response.json(
-                                {
-                                    threadId,
-                                    name: updated.name,
-                                },
-                                { status: 200 }
-                            )
-                        );
                     })
                 )
             ),
