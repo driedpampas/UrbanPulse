@@ -2007,7 +2007,7 @@ export const httpRoutes: HttpRoutes = {
             ),
     },
     '/*': {
-        OPTIONS: withCors(OPTIONS_RESPONSE),
+        OPTIONS: (req) => validate(req, () => withCors(OPTIONS_RESPONSE)),
     },
 };
 
