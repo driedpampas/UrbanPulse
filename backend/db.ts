@@ -2705,15 +2705,6 @@ export async function confirmPulse(
             WHERE id = ${pulseId}
         `;
 
-        // 4. Award trust score to author
-        // High urgency (>= 4) gets +3, others +1
-        const trustAward = (pulse.urgency_level ?? 1) >= 4 ? 3 : 1;
-        await tx`
-            UPDATE app.users
-            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
-            WHERE id = ${pulse.author_id}
-        `;
-
         return { success: true, alreadyConfirmed: false };
     });
 }
