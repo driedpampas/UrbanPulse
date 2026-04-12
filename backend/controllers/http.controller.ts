@@ -884,8 +884,8 @@ export const httpRoutes: HttpRoutes = {
                             const requestedType = body.type.toLowerCase() as PulseType;
                             const isEmergency = Boolean(body.isEmergency) || requestedType === 'emergency';
                             const pulseType =
-                                requestedType === 'emergency'
-                                    ? ('need' as PulseType)
+                                requestedType === 'need'
+                                    ? ('update' as PulseType)
                                     : requestedType;
                             const urgencyLevel =
                                 body.urgencyLevel ??

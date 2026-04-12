@@ -19,13 +19,13 @@ import { HoverButton } from '../ui/HoverButton';
 
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
-    { val: 'need', label: 'Need', icon: AlertTriangle, css: 'emergency' },
+    { val: 'emergency', label: 'Emergency', icon: AlertTriangle, css: 'emergency' },
     { val: 'skill', label: 'Skill', icon: Wrench, css: 'skill' },
     { val: 'item', label: 'Item', icon: Package, css: 'item' },
     { val: 'pet', label: 'Pet alert', icon: PawPrint, css: 'pet' },
 ];
 
-const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['update', 'need', 'skill', 'item'];
+const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['update', 'emergency', 'skill', 'item'];
 
 const MAX = 280;
 
@@ -53,11 +53,14 @@ export function NeedPostingForm({ onClose }: Props) {
 
     const canMarkEmergency = EMERGENCY_ELIGIBLE_TYPES.includes(type);
     const showResourceSelector =
-        type === 'need' || type === 'skill' || type === 'item' || (type === 'update' && isEmergency);
+        type === 'emergency' ||
+        type === 'skill' ||
+        type === 'item' ||
+        (type === 'update' && isEmergency);
 
     const catalogHint = useMemo(() => {
         if (!showResourceSelector) {
-            return 'Skill/item targeting is available for Need, Skill, Item, and emergency-marked updates.';
+            return 'Skill/item targeting is available for Emergency, Skill, Item, and emergency-marked updates.';
         }
         if (selectedResources.length === 0) {
             return 'Select at least one skill or item to target matching heroes.';
