@@ -136,10 +136,10 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                     <HoverButton
                         type="button"
                         onClick={() => setShowActions(true)}
-                        style="height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;"
+                        style="height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;"
                     >
                         <ShieldCheck size={14} />
-                        Manage Role
+                        Manage
                     </HoverButton>
                 )}
 

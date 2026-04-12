@@ -137,7 +137,7 @@ export function AdminDashboard() {
                             Internal management and network oversight.
                         </p>
                     </div>
-                    <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;font-weight:600;">
+                    <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;background:var(--accent-subtle);border:1px solid var(--accent-muted);color:var(--accent);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;">
                         Role: {session?.user.role ?? 'Unknown'}
                     </span>
                 </div>
@@ -713,14 +713,13 @@ export function AdminDashboard() {
                     />
                 )}
                 {toastMessage && (
-                    <div
-                        role="status"
+                    <output
                         aria-live="polite"
                         class="animate-fade-in"
                         style="position:fixed;right:16px;bottom:88px;z-index:140;max-width:min(92vw,320px);padding:10px 12px;border-radius:10px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:var(--shadow-lg);"
                     >
                         {toastMessage}
-                    </div>
+                    </output>
                 )}
             </div>
         </AppLayout>

@@ -24,13 +24,16 @@ function DashboardToolbarComponent({
     onOpenPostForm,
 }: Props) {
     return (
-        <div class="flex-between gap-md flex-wrap pt-3">
-            <div class="stack-h gap-md flex-wrap">
-                <div class="tab-switcher">
+        <div class="stack-v gap-md pt-3 sm:flex-row sm:items-end sm:justify-between">
+            <div class="stack-v gap-md sm:flex-row sm:items-center sm:flex-wrap">
+                <div class="tab-switcher w-full sm:w-auto">
                     <HoverButton
                         type="button"
                         id="view-feed-btn"
-                        class={cn('tab-btn', view === 'feed' && 'active')}
+                        class={cn(
+                            'tab-btn flex-1 justify-center sm:flex-none',
+                            view === 'feed' && 'active'
+                        )}
                         onClick={() => onViewChange('feed')}
                     >
                         <List size={14} strokeWidth={2.5} />
@@ -39,7 +42,10 @@ function DashboardToolbarComponent({
                     <HoverButton
                         type="button"
                         id="view-map-btn"
-                        class={cn('tab-btn', view === 'map' && 'active')}
+                        class={cn(
+                            'tab-btn flex-1 justify-center sm:flex-none',
+                            view === 'map' && 'active'
+                        )}
                         onClick={() => onViewChange('map')}
                     >
                         <MapIcon size={14} strokeWidth={2.5} />
@@ -47,12 +53,12 @@ function DashboardToolbarComponent({
                     </HoverButton>
                 </div>
 
-                <div class="stack-h gap-md">
+                <div class="stack-h gap-md flex-wrap">
                     <HoverButton
                         type="button"
                         id="toggle-filters-btn"
                         class={cn(
-                            'btn-icon w-[34px] h-[34px]',
+                            'btn-icon w-[34px] h-[34px] shrink-0',
                             showFilters
                                 ? 'text-[var(--accent)] bg-[var(--accent-subtle)]'
                                 : 'text-[var(--text-secondary)]'
@@ -65,7 +71,7 @@ function DashboardToolbarComponent({
                     <HoverButton
                         type="button"
                         id="post-pulse-btn"
-                        class="btn-primary h-[34px] px-3 gap-xs text-[12px]"
+                        class="btn-primary h-[34px] px-3 gap-xs text-[12px] w-full sm:w-auto"
                         onClick={onOpenPostForm}
                         aria-label="Post pulse"
                     >
@@ -76,11 +82,11 @@ function DashboardToolbarComponent({
             </div>
 
             {!showFilters && (
-                <div class="stack-v items-end gap-[1px]">
-                    <span class="text-[11px] text-[var(--text-tertiary)] leading-none">
+                <div class="stack-v items-start sm:items-end gap-[1px]">
+                    <span class="text-[11px] text-[var(--text-tertiary)] leading-none whitespace-nowrap">
                         {radius}m radius
                     </span>
-                    <span class="text-[9px] text-[var(--text-tertiary)] opacity-70 font-semibold tracking-wide uppercase">
+                    <span class="text-[9px] text-[var(--text-tertiary)] opacity-70 font-semibold tracking-wide uppercase whitespace-nowrap">
                         {limit} PER BATCH
                     </span>
                 </div>

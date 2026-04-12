@@ -14,7 +14,7 @@ function SectionButtonComponent({ active, label, icon: Icon, onClick }: Props) {
         <HoverButton
             type="button"
             onClick={onClick}
-            style={`display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid ${active ? 'var(--border-strong)' : 'var(--border)'};background:${active ? 'var(--surface-raised)' : 'var(--bg-subtle)'};color:${active ? 'var(--text)' : 'var(--text-tertiary)'};font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s ease;flex-shrink:0;white-space:nowrap;`}
+            style={`display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid ${active ? 'var(--accent-muted)' : 'var(--border)'};background:${active ? 'var(--accent-subtle)' : 'var(--bg-subtle)'};color:${active ? 'var(--accent)' : 'var(--text-tertiary)'};font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s ease;flex-shrink:0;white-space:nowrap;`}
         >
             <Icon size={13} />
             {label}

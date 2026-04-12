@@ -1,8 +1,8 @@
-import type * as bun from 'bun';
-import type { JwtPayload } from 'jsonwebtoken';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type * as bun from 'bun';
+import type { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
 import * as auth from '../auth';
 import type { PulseType, Timerange } from '../db';
@@ -60,12 +60,12 @@ import {
     interactionFeedbackSchema,
     loginUserSchema,
     messageNotificationPayloadSchema,
-    passwordConfirmSchema,
-    passwordRequestSchema,
-    pulseListQuerySchema,
     PROFILE_PICTURE_ALLOWED_MIME_TYPES,
     PROFILE_PICTURE_MAX_BYTES,
+    passwordConfirmSchema,
+    passwordRequestSchema,
     profilePictureRouteParamsSchema,
+    pulseListQuerySchema,
     pulseMatchSchema,
     registerUserSchema,
     resourceCatalogQuerySchema,
@@ -852,7 +852,11 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(NOT_FOUND);
                         }
 
-                        if (!PROFILE_PICTURE_ALLOWED_MIME_TYPES.includes(picture.mimeType as DetectedImageMime)) {
+                        if (
+                            !PROFILE_PICTURE_ALLOWED_MIME_TYPES.includes(
+                                picture.mimeType as DetectedImageMime
+                            )
+                        ) {
                             return withCors(BAD_REQUEST);
                         }
 
@@ -906,9 +910,9 @@ export const httpRoutes: HttpRoutes = {
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                            lat: url.searchParams.get('lat'),
-                                            lng: url.searchParams.get('lng'),
-                                        }
+                                              lat: url.searchParams.get('lat'),
+                                              lng: url.searchParams.get('lng'),
+                                          }
                                         : null,
                                 availableDays: url.searchParams.getAll('available_days'),
                                 availableHours: url.searchParams.getAll('available_hours'),
@@ -949,6 +953,14 @@ export const httpRoutes: HttpRoutes = {
                             const query: SearchUsersQuery = searchUsersSchema.parse({
                                 id: url.searchParams.get('id'),
                                 displayName: url.searchParams.get('displayName'),
+                                radius: url.searchParams.get('radius'),
+                                location:
+                                    url.searchParams.get('lat') || url.searchParams.get('lng')
+                                        ? {
+                                              lat: url.searchParams.get('lat'),
+                                              lng: url.searchParams.get('lng'),
+                                          }
+                                        : null,
                                 limit: url.searchParams.get('limit'),
                                 offset: url.searchParams.get('offset'),
                             });
@@ -993,9 +1005,9 @@ export const httpRoutes: HttpRoutes = {
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                        lat: url.searchParams.get('lat'),
-                                        lng: url.searchParams.get('lng'),
-                                    }
+                                          lat: url.searchParams.get('lat'),
+                                          lng: url.searchParams.get('lng'),
+                                      }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -1647,8 +1659,8 @@ export const httpRoutes: HttpRoutes = {
                                 Boolean(body.isEmergency) || requestedType === 'emergency';
                             const pulseType: PulseType =
                                 requestedType === 'emergency' ||
-                                    requestedType === 'skill' ||
-                                    requestedType === 'item'
+                                requestedType === 'skill' ||
+                                requestedType === 'item'
                                     ? 'need'
                                     : requestedType;
                             const urgencyLevel =
@@ -1659,8 +1671,8 @@ export const httpRoutes: HttpRoutes = {
                             const selectedResources =
                                 pulseType === 'need'
                                     ? (body.selectedResources ?? body.requiredSkills ?? [])
-                                        .map((value) => value.trim())
-                                        .filter((value) => value.length > 0)
+                                          .map((value) => value.trim())
+                                          .filter((value) => value.length > 0)
                                     : [];
                             const fullUser = await db.selectFullUser(payload.id);
                             const requesterTimezone =
@@ -2068,7 +2080,10 @@ export const httpRoutes: HttpRoutes = {
                 authorize(req, async (session) =>
                     caught(async () => {
                         const payload = session as JwtPayload;
-                        const result = await db.markPulseSolved(req.params.id as string, payload.id);
+                        const result = await db.markPulseSolved(
+                            req.params.id as string,
+                            payload.id
+                        );
 
                         if (!result.pulse && result.noSuccessfulInteractions) {
                             return withCors(
@@ -2085,9 +2100,7 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(NOT_FOUND);
                         }
 
-                        return withCors(
-                            Response.json({ pulse: result.pulse }, { status: 200 })
-                        );
+                        return withCors(Response.json({ pulse: result.pulse }, { status: 200 }));
                     })
                 )
             ),

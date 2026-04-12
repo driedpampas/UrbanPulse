@@ -99,9 +99,9 @@ function mapBackendUser(user: BackendUser): User {
     const location =
         user.location && isUsableCoordinates(user.location.lat ?? 0, user.location.lng ?? 0)
             ? {
-                lat: user.location.lat ?? 0,
-                lng: user.location.lng ?? 0,
-            }
+                  lat: user.location.lat ?? 0,
+                  lng: user.location.lng ?? 0,
+              }
             : null;
 
     return {
@@ -133,7 +133,37 @@ function mapBackendUser(user: BackendUser): User {
     };
 }
 
-function buildUserQuery(params?: { displayName?: string; id?: string; limit?: number }): string {
+export type UserAreaSelection = {
+    lat: number;
+    lng: number;
+    radius: number;
+};
+
+function resolveUserAreaSelection(
+    user: Pick<User, 'lat' | 'lng' | 'location' | 'distanceLimit'> | null | undefined
+): UserAreaSelection | null {
+    const location =
+        user?.location ??
+        (user && isUsableCoordinates(user.lat, user.lng) ? { lat: user.lat, lng: user.lng } : null);
+
+    if (!location) {
+        return null;
+    }
+
+    return {
+        lat: location.lat,
+        lng: location.lng,
+        radius: Math.max(user?.distanceLimit ?? 1, 1),
+    };
+}
+
+function buildUserQuery(params?: {
+    displayName?: string;
+    id?: string;
+    limit?: number;
+    radius?: number;
+    location?: { lat: number; lng: number };
+}): string {
     if (!params) {
         return '';
     }
@@ -148,6 +178,15 @@ function buildUserQuery(params?: { displayName?: string; id?: string; limit?: nu
 
     if (typeof params.limit === 'number') {
         query.set('limit', String(params.limit));
+    }
+
+    if (typeof params.radius === 'number') {
+        query.set('radius', String(params.radius));
+    }
+
+    if (params.location) {
+        query.set('lat', String(params.location.lat));
+        query.set('lng', String(params.location.lng));
     }
 
     const queryString = query.toString();
@@ -200,6 +239,11 @@ export const PROFILE_PICTURE_MAX_BYTES = 350 * 1024;
 export async function fetchCurrentUser(): Promise<User> {
     const user = await request<BackendUser>('/user', { method: 'GET' });
     return mapBackendUser(user);
+}
+
+export async function fetchCurrentUserAreaSelection(): Promise<UserAreaSelection | null> {
+    const user = await fetchCurrentUser();
+    return resolveUserAreaSelection(user);
 }
 
 export async function uploadProfilePicture(file: Blob): Promise<void> {
@@ -269,11 +313,11 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         updates.location && isUsableCoordinates(updates.location.lat, updates.location.lng)
             ? updates.location
             : isUsableCoordinates(updates.lat ?? 0, updates.lng ?? 0)
-                ? {
+              ? {
                     lat: updates.lat ?? 0,
                     lng: updates.lng ?? 0,
                 }
-                : null;
+              : null;
 
     const patchBody: {
         displayName?: string;
@@ -347,6 +391,8 @@ export async function fetchUsers(params?: {
     displayName?: string;
     id?: string;
     limit?: number;
+    radius?: number;
+    location?: { lat: number; lng: number };
 }): Promise<User[]> {
     const users = await request<BackendUser[]>(`/users${buildUserQuery(params)}`, {
         method: 'GET',

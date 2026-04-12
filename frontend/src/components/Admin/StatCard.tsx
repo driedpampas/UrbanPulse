@@ -15,7 +15,7 @@ function StatCardComponent({ label, value, hint }: Props) {
             <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-tertiary);">
                 {label}
             </span>
-            <span style="font-size:24px;font-weight:700;color:var(--text);line-height:1;">
+            <span style="font-size:24px;font-weight:700;color:var(--accent);line-height:1;">
                 {value}
             </span>
             {hint && <span style="font-size:12px;color:var(--text-secondary);">{hint}</span>}

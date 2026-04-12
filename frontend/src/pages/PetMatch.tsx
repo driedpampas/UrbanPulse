@@ -16,7 +16,7 @@ import { AppLayout } from '../components/Layout/AppLayout';
 import { HoverButton } from '../components/ui/HoverButton';
 import { useAuth } from '../lib/auth';
 import { confirmPulse, fetchPulses, postPulse } from '../lib/pulseApi';
-import { fetchCurrentUser } from '../lib/userApi';
+import { fetchCurrentUser, fetchCurrentUserAreaSelection } from '../lib/userApi';
 import type { Pulse } from '../types';
 
 interface PetMatchResult {
@@ -81,6 +81,11 @@ export function PetMatch() {
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [areaSelection, setAreaSelection] = useState<{
+        lat: number;
+        lng: number;
+        radius: number;
+    } | null>(null);
 
     useEffect(() => {
         fetchCurrentUser()
@@ -89,13 +94,31 @@ export function PetMatch() {
             })
             .catch(() => {});
 
-        fetchPulses(undefined, undefined, undefined, 100, 0, 'pet')
-            .then((data) => {
-                setPulses(data);
-                setLoading(false);
-            })
-            .catch(() => setLoading(false));
+        void fetchCurrentUserAreaSelection()
+            .then((selection) => setAreaSelection(selection))
+            .catch(() => setAreaSelection(null));
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        fetchPulses(areaSelection?.lat, areaSelection?.lng, areaSelection?.radius, 100, 0, 'pet')
+            .then((data) => {
+                if (!cancelled) {
+                    setPulses(data);
+                }
+            })
+            .catch(() => {})
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [areaSelection?.lat, areaSelection?.lng, areaSelection?.radius]);
 
     const lostPets = useMemo(
         () =>

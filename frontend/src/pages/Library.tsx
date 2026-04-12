@@ -32,25 +32,7 @@ export function Library() {
     } = useLibraryData();
 
     return (
-        <AppLayout
-            title="Library"
-            headerRight={
-                <HoverButton
-                    type="button"
-                    id="add-library-btn"
-                    class="btn-primary"
-                    onClick={() => setShowAdd(true)}
-                    style="height:30px;font-size:12px;"
-                    onMouseEnter={(e) =>
-                        ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                    }
-                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
-                >
-                    <Plus size={13} />
-                    Add
-                </HoverButton>
-            }
-        >
+        <AppLayout title="Library">
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
                 {actionError && (
                     <div style="padding:10px 12px;border-radius:10px;border:1px solid var(--danger-muted);background:var(--danger-subtle);color:var(--danger);font-size:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -76,7 +58,23 @@ export function Library() {
                     onSearchChange={setSearch}
                     onClear={() => setSearch('')}
                 />
-                <LibraryFilterTabs filter={filter} onFilterChange={setFilter} />
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <LibraryFilterTabs filter={filter} onFilterChange={setFilter} />
+                    <HoverButton
+                        type="button"
+                        id="add-library-btn"
+                        class="btn-primary"
+                        onClick={() => setShowAdd(true)}
+                        style="height:34px;padding:0 12px;font-size:12px;background:var(--accent);display:flex;align-items:center;gap:6px;"
+                        onMouseEnter={(e) =>
+                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                        }
+                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                    >
+                        <Plus size={14} />
+                        Add
+                    </HoverButton>
+                </div>
                 {loading ? (
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         {[1, 2, 3].map((i) => (
