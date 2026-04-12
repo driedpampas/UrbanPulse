@@ -374,12 +374,12 @@ function isUniqueViolation(error: unknown): boolean {
 
 type AuthMailerRequestPayload =
     | {
-          action: 'verification';
-          email: string;
-          verification_link: string;
-      }
+        action: 'verification';
+        email: string;
+        verification_link: string;
+    }
     | {
-          action: 'password_change';
-          email: string;
-          password_change_link: string;
-      };
+        action: 'password_change';
+        email: string;
+        password_change_link: string;
+    };
