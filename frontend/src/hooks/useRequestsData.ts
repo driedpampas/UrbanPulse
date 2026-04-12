@@ -27,7 +27,7 @@ export function useRequestsData() {
         Promise.all([fetchMyPostedPulses(50, 0), fetchAcceptedPulseInteractions(50, 0)])
             .then(([postedPulses, accepted]) => {
                 if (cancelled) return;
-                setMyPulses(postedPulses);
+                setMyPulses(postedPulses.filter((pulse) => pulse.type !== 'update'));
                 setAcceptedByMe(accepted);
             })
             .catch((apiError) => {
@@ -97,7 +97,7 @@ export function useRequestsData() {
                     ...current,
                     [pulseId]: freshInteractions,
                 }));
-                setMyPulses(freshMyPulses);
+                setMyPulses(freshMyPulses.filter((pulse) => pulse.type !== 'update'));
                 setAcceptedByMe(freshAccepted);
             } catch (apiError) {
                 alert(apiError instanceof Error ? apiError.message : 'Could not confirm helper.');

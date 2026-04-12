@@ -39,12 +39,12 @@ function PostedPulsesSectionComponent({
         <section class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;align-items:center;gap:7px;">
                 <Users size={14} style="color:var(--accent);" />
-                <h2 style="margin:0;font-size:13px;color:var(--text);">My Posted Pulses</h2>
+                <h2 style="margin:0;font-size:13px;color:var(--text);">My Posted Requests</h2>
             </div>
 
             {myPulses.length === 0 && (
                 <p style="margin:0;font-size:12px;color:var(--text-tertiary);">
-                    You have not posted any pulses yet.
+                    You have not posted any requests yet.
                 </p>
             )}
 
