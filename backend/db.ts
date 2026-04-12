@@ -60,6 +60,8 @@ export interface PulseFeedItem {
     verified: boolean;
     confirmations: number;
     urgencyLevel: number;
+    isEmergency: boolean;
+    isSolved: boolean;
     requiredSkills: string[];
 }
 
@@ -174,6 +176,7 @@ interface User {
     location?: Location | null;
     quietHours?: Timerange[] | null;
     quietDays?: number[] | null;
+    timezone?: string | null;
     trustScore?: number | null;
     bio?: string | null;
     verified?: boolean;
@@ -208,6 +211,7 @@ interface PulseCreateParams {
     content: string;
     location: Location;
     type: string;
+    isEmergency?: boolean;
     urgencyLevel: number;
     requiredSkills: string[];
 }
@@ -225,6 +229,10 @@ type PulseRow = {
     confirmations?: number | string | null;
     urgencyLevel?: number | string | null;
     urgency_level?: number | string | null;
+    isEmergency?: boolean | null;
+    is_emergency?: boolean | null;
+    isSolved?: boolean | null;
+    is_solved?: boolean | null;
     type?: string | null;
     required_skills?: string[] | null;
     accepted_count?: number | string | null;
@@ -277,6 +285,7 @@ type UserRow = {
     lng?: number | string | null;
     quiet_hours?: Timerange[] | null;
     quiet_days?: number[] | null;
+    timezone?: string | null;
     bio?: string | null;
     deletion_requested_at?: Date | string | number | null;
 };
@@ -384,6 +393,8 @@ function mapReportRow(row: ReportRow): Report {
 
 function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
     const normalizedType = String(rawPulse.type ?? 'update').toLowerCase() as PulseType;
+    const isEmergency =
+        Boolean(rawPulse.isEmergency ?? rawPulse.is_emergency) || normalizedType === 'emergency';
 
     return {
         id: String(rawPulse.id),
@@ -400,6 +411,8 @@ function mapPulseRow(rawPulse: PulseRow): PulseFeedItem {
         verified: Boolean(rawPulse.verified),
         confirmations: Number(rawPulse.confirmations ?? 0),
         urgencyLevel: Number(rawPulse.urgencyLevel ?? rawPulse.urgency_level ?? 1),
+        isEmergency,
+        isSolved: Boolean(rawPulse.isSolved ?? rawPulse.is_solved),
         requiredSkills: rawPulse.required_skills ?? [],
     };
 }
@@ -787,6 +800,103 @@ async function ensureSchema() {
             CREATE INDEX IF NOT EXISTS users_deletion_requested_at_idx
             ON app.users (deletion_requested_at)
         `;
+
+        const timezoneCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'users' AND column_name = 'timezone'
+            LIMIT 1
+        `;
+        if (timezoneCol.length === 0) {
+            await tx`
+                ALTER TABLE app.users
+                ADD COLUMN timezone text
+            `;
+        }
+
+        await tx`
+            UPDATE app.users
+            SET timezone = COALESCE(NULLIF(timezone, ''), 'UTC')
+            WHERE timezone IS NULL OR timezone = ''
+        `;
+
+        await tx`
+            ALTER TABLE app.users
+            ALTER COLUMN timezone SET DEFAULT 'UTC'
+        `;
+
+        await tx`
+            ALTER TABLE app.users
+            ALTER COLUMN timezone SET NOT NULL
+        `;
+
+        const pulseEmergencyCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_emergency'
+            LIMIT 1
+        `;
+        if (pulseEmergencyCol.length === 0) {
+            await tx`
+                ALTER TABLE app.pulses
+                ADD COLUMN is_emergency boolean
+            `;
+        }
+
+        await tx`
+            UPDATE app.pulses
+            SET is_emergency = CASE
+                WHEN LOWER(COALESCE(pulse_type, '')) = 'emergency' THEN true
+                ELSE COALESCE(is_emergency, false)
+            END
+            WHERE is_emergency IS NULL OR LOWER(COALESCE(pulse_type, '')) = 'emergency'
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_emergency SET DEFAULT false
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_emergency SET NOT NULL
+        `;
+
+        const pulseSolvedCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_solved'
+            LIMIT 1
+        `;
+        if (pulseSolvedCol.length === 0) {
+            await tx`
+                ALTER TABLE app.pulses
+                ADD COLUMN is_solved boolean
+            `;
+        }
+
+        await tx`
+            UPDATE app.pulses
+            SET is_solved = COALESCE(is_solved, false)
+            WHERE is_solved IS NULL
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_solved SET DEFAULT false
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_solved SET NOT NULL
+        `;
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS pulses_is_emergency_idx
+            ON app.pulses (is_emergency)
+        `;
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS pulses_is_solved_idx
+            ON app.pulses (is_solved)
+        `;
     });
 
     isSchemaEnsured = true;
@@ -851,6 +961,8 @@ export async function selectPulses(
         COALESCE(pulses.is_verified_info, false) AS verified,
         COALESCE(pulses.confirmation_count, 0) AS confirmations,
         COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+        COALESCE(pulses.is_emergency, false) AS "is_emergency",
+        COALESCE(pulses.is_solved, false) AS "is_solved",
         COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
@@ -886,6 +998,8 @@ export async function selectPulseById(id: string): Promise<PulseFeedItem | null>
         COALESCE(pulses.is_verified_info, false) AS verified,
         COALESCE(pulses.confirmation_count, 0) AS confirmations,
         COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+        COALESCE(pulses.is_emergency, false) AS "is_emergency",
+        COALESCE(pulses.is_solved, false) AS "is_solved",
         COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
@@ -917,6 +1031,8 @@ export async function selectPulsesByAuthor(
             COALESCE(pulses.is_verified_info, false) AS verified,
             COALESCE(pulses.confirmation_count, 0) AS confirmations,
             COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+            COALESCE(pulses.is_emergency, false) AS "is_emergency",
+            COALESCE(pulses.is_solved, false) AS "is_solved",
             COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills",
             COALESCE(interactions.accepted_count, 0) AS accepted_count,
             COALESCE(interactions.successful_count, 0) AS successful_count
@@ -1570,10 +1686,29 @@ export async function insertMessage(
 export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedItem> {
     const lat = params.location.lat;
     const lng = params.location.lng;
+    const isEmergency = params.isEmergency ?? params.type.toLowerCase() === 'emergency';
 
     const [insertedPulse] = await sql`
-    INSERT INTO app.pulses (author_id, content, location, pulse_type, urgency_level, required_skills)
-    VALUES (${params.authorId}, ${params.content}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${params.type}, ${params.urgencyLevel}, ${JSON.stringify(params.requiredSkills)}::jsonb)
+    INSERT INTO app.pulses (
+        author_id,
+        content,
+        location,
+        pulse_type,
+        urgency_level,
+        is_emergency,
+        is_solved,
+        required_skills
+    )
+    VALUES (
+        ${params.authorId},
+        ${params.content},
+        ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+        ${params.type},
+        ${params.urgencyLevel},
+        ${isEmergency},
+        false,
+        ${JSON.stringify(params.requiredSkills)}::jsonb
+    )
     RETURNING id
     `;
 
@@ -1780,6 +1915,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
             FROM unnest(quiet_hours) AS rng), '[]'::jsonb)
       AS quiet_hours, 
       COALESCE(to_jsonb(quiet_days), '[]'::jsonb) AS quiet_days,
+    COALESCE(NULLIF(timezone, ''), 'UTC') AS timezone,
       deletion_requested_at,
       bio 
     FROM app.users 
@@ -1804,6 +1940,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
                 : null,
         quietHours: rawUser.quiet_hours ? rawUser.quiet_hours : [],
         quietDays: rawUser.quiet_days,
+        timezone: rawUser.timezone ?? 'UTC',
         bio: rawUser.bio,
         deletionRequestedAt: rawUser.deletion_requested_at
             ? Number(rawUser.deletion_requested_at)
@@ -1934,6 +2071,7 @@ export async function searchUsers(
             )
         ) FROM unnest(quiet_hours) AS rng), '[]'::jsonb) AS quiet_hours, 
         COALESCE((SELECT jsonb_agg(day::text) FROM unnest(quiet_days) AS day), '[]'::jsonb) AS quiet_days,
+        COALESCE(NULLIF(timezone, ''), 'UTC') AS timezone,
         bio,
         deletion_requested_at 
     FROM app.users 
@@ -1996,6 +2134,7 @@ export async function searchUsers(
                     : null,
             quietHours: rawUser.quiet_hours,
             quietDays: rawUser.quiet_days,
+            timezone: rawUser.timezone ?? 'UTC',
             bio: rawUser.bio,
             deletionRequestedAt: rawUser.deletion_requested_at
                 ? Number(rawUser.deletion_requested_at)
@@ -2026,9 +2165,11 @@ export async function updateUserProfile(user: User) {
     const lng = user.location?.lng ?? null;
     const quietHoursProvided = user.quietHours !== undefined;
     const quietDaysProvided = user.quietDays !== undefined;
+    const timezoneProvided = user.timezone !== undefined;
 
     const quietHoursJson = JSON.stringify(user.quietHours ?? null);
     const quietDaysJson = JSON.stringify(user.quietDays ?? null);
+    const timezone = user.timezone?.trim() || null;
 
     const shouldClearQuietHours = user.quietHours === null;
     const shouldClearQuietDays = user.quietDays === null;
@@ -2055,6 +2196,11 @@ export async function updateUserProfile(user: User) {
         WHEN ${shouldClearQuietDays} THEN '{}'::integer[]
         WHEN ${quietDaysProvided} THEN app.jsonb_to_integer_array(${quietDaysJson}::jsonb)
         ELSE quiet_days 
+                        END,
+
+            timezone = CASE
+                WHEN ${timezoneProvided} THEN COALESCE(${timezone}, timezone)
+                ELSE timezone
             END
 
       WHERE id = ${user.id}
@@ -2172,6 +2318,7 @@ export async function selectPendingUserDeletions(
                 )
             ) FROM unnest(quiet_hours) AS rng), '[]'::jsonb) AS quiet_hours,
             COALESCE((SELECT jsonb_agg(day::text) FROM unnest(quiet_days) AS day), '[]'::jsonb) AS quiet_days,
+            COALESCE(NULLIF(timezone, ''), 'UTC') AS timezone,
             bio,
             deletion_requested_at
         FROM app.users
@@ -2200,6 +2347,7 @@ export async function selectPendingUserDeletions(
                         : null,
                 quietHours: rawUser.quiet_hours,
                 quietDays: rawUser.quiet_days,
+                timezone: rawUser.timezone ?? 'UTC',
                 bio: rawUser.bio,
                 deletionRequestedAt: requestedAt,
             } as User,

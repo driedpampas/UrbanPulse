@@ -21,11 +21,18 @@ type BackendPulse = {
     verified: boolean;
     confirmations: number | string;
     urgencyLevel?: number;
+    urgency_level?: number;
+    isEmergency?: boolean;
+    is_emergency?: boolean;
+    isSolved?: boolean;
+    is_solved?: boolean;
     requiredSkills?: string[];
+    required_skills?: string[];
 };
 
 type CreatePulseInput = {
     type: Pulse['type'];
+    isEmergency?: boolean;
     content: string;
     lat: number;
     lng: number;
@@ -131,20 +138,26 @@ function normalizePulseType(value: string): Pulse['type'] {
 
 function mapBackendPulse(pulse: BackendPulse): Pulse {
     const userName = pulse.userName.trim() || `Neighbor ${pulse.userId.slice(0, 6)}`;
+    const normalizedType = normalizePulseType(pulse.type);
+    const isEmergency =
+        Boolean(pulse.isEmergency ?? pulse.is_emergency) || normalizedType === 'emergency';
 
     return {
         id: pulse.id,
         userId: pulse.userId,
         userName,
         userAvatar: getAvatarUrl(userName || pulse.userId),
-        type: normalizePulseType(pulse.type),
+        type: normalizedType,
         content: pulse.content,
         timestamp: Number(pulse.timestamp),
         lat: Number(pulse.lat),
         lng: Number(pulse.lng),
         verified: Boolean(pulse.verified),
         confirmations: Number(pulse.confirmations ?? 0),
-        requiredSkills: pulse.requiredSkills ?? [],
+        urgencyLevel: Number(pulse.urgencyLevel ?? pulse.urgency_level ?? 1),
+        isEmergency,
+        isSolved: Boolean(pulse.isSolved ?? pulse.is_solved),
+        requiredSkills: pulse.requiredSkills ?? pulse.required_skills ?? [],
     };
 }
 
@@ -416,8 +429,10 @@ export async function fetchPulses(
 
 export async function postPulse(input: CreatePulseInput): Promise<Pulse> {
     const type = normalizePulseType(input.type);
+    const isEmergency = input.isEmergency ?? type === 'emergency';
     const payload = {
         type,
+        isEmergency,
         urgencyLevel: input.urgencyLevel ?? DEFAULT_URGENCY_BY_TYPE[type],
         content: input.content,
         location: {

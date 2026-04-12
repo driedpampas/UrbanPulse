@@ -40,6 +40,7 @@ export const users = app.table(
         location: geography('location'),
         quietHours: timeMultirange('quiet_hours'),
         quietDays: integer('quiet_days').array(),
+        timezone: text('timezone').notNull().default('UTC'),
         trustScore: integer('trust_score').notNull().default(0),
         bio: text('bio'),
         isVerifiedNeighbor: boolean('is_verified_neighbor').notNull().default(false),
@@ -72,6 +73,8 @@ export const pulses = app.table(
         isVerifiedInfo: boolean('is_verified_info').notNull().default(false),
         confirmationCount: integer('confirmation_count').notNull().default(0),
         urgencyLevel: integer('urgency_level').notNull().default(1),
+        isEmergency: boolean('is_emergency').notNull().default(false),
+        isSolved: boolean('is_solved').notNull().default(false),
         requiredSkills: jsonb('required_skills')
             .$type<string[]>()
             .notNull()
@@ -83,6 +86,8 @@ export const pulses = app.table(
     (table) => [
         index('pulses_created_at_idx').on(table.createdAt),
         index('pulses_author_id_idx').on(table.authorId),
+        index('pulses_is_emergency_idx').on(table.isEmergency),
+        index('pulses_is_solved_idx').on(table.isSolved),
     ]
 );
 

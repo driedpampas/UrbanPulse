@@ -17,6 +17,7 @@ export interface User {
     quietHoursEnd?: string;
     distanceLimit: number;
     quietDays: number[];
+    timezone?: string;
     createdAt?: number;
     deletionRequestedAt?: number | null;
 }
@@ -33,6 +34,9 @@ export interface Pulse {
     lng: number;
     verified: boolean;
     confirmations: number;
+    urgencyLevel?: number;
+    isEmergency?: boolean;
+    isSolved?: boolean;
     distance?: number;
     requiredSkills?: string[];
 }
