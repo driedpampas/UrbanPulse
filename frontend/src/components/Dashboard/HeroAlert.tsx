@@ -4,6 +4,8 @@ import { acceptPulseRequest, connectWebSocket, disconnectWebSocket } from '../..
 import type { Pulse } from '../../lib/types';
 import { HoverButton } from '../ui/HoverButton';
 
+const HERO_NOTIFICATION_PROMPT_DISMISSED_KEY = 'hero-notification-prompt-dismissed';
+
 export function HeroAlert() {
     const [activeAlert, setActiveAlert] = useState<Pulse | null>(null);
     const [matchedResources, setMatchedResources] = useState<string[]>([]);
@@ -11,6 +13,13 @@ export function HeroAlert() {
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
+    const [notificationPromptDismissed, setNotificationPromptDismissed] = useState(() => {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        return localStorage.getItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY) === 'true';
+    });
     const [isForeground, setIsForeground] = useState(() => {
         if (typeof document === 'undefined') {
             return true;
@@ -74,6 +83,17 @@ export function HeroAlert() {
         if (typeof Notification === 'undefined') return;
         const result = await Notification.requestPermission();
         setPermissionStatus(result);
+        if (result !== 'default') {
+            setNotificationPromptDismissed(false);
+            localStorage.removeItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY);
+        }
+    };
+
+    const dismissNotificationPrompt = () => {
+        setNotificationPromptDismissed(true);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY, 'true');
+        }
     };
 
     const handleAcceptRequest = async () => {
@@ -99,23 +119,45 @@ export function HeroAlert() {
     };
 
     if (!activeAlert) {
-        if (permissionStatus === 'default' && typeof Notification !== 'undefined') {
+        if (
+            permissionStatus === 'default' &&
+            typeof Notification !== 'undefined' &&
+            !notificationPromptDismissed
+        ) {
             return (
-                <div class="fixed bottom-6 right-6 z-[90] stack-h gap-md p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg border-l-4 border-l-[var(--accent)] animate-fade-in">
-                    <div class="flex-1">
+                <div class="fixed bottom-6 right-6 z-[90] stack-h items-start gap-md p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg border-l-4 border-l-[var(--accent)] animate-fade-in max-w-[min(360px,calc(100vw-24px))]">
+                    <div class="flex-1 min-w-0">
                         <p class="m-0 text-[12px] font-bold text-[var(--text)]">
                             Enable Hero Notifications?
                         </p>
                         <p class="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                             Get alerted instantly when your skills are needed.
                         </p>
+                        <div class="stack-h gap-sm mt-3">
+                            <HoverButton
+                                type="button"
+                                onClick={requestNotificationPermission}
+                                class="btn-primary h-8 px-3 text-[11px]"
+                            >
+                                Enable
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                onClick={dismissNotificationPrompt}
+                                class="btn-ghost h-8 px-3 text-[11px]"
+                            >
+                                Not now
+                            </HoverButton>
+                        </div>
                     </div>
                     <HoverButton
                         type="button"
-                        onClick={requestNotificationPermission}
-                        class="btn-primary h-8 px-3 text-[11px]"
+                        onClick={dismissNotificationPrompt}
+                        class="btn-icon w-6 h-6 text-[var(--text-secondary)] shrink-0"
+                        aria-label="Dismiss notification prompt"
+                        title="Dismiss"
                     >
-                        Enable
+                        <X size={14} />
                     </HoverButton>
                 </div>
             );

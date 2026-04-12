@@ -1,12 +1,15 @@
 import {
     AlertTriangle,
+    Check,
     CheckCircle,
     Clock,
     Edit2,
     Flag,
+    Loader2,
     MapPin,
     MessageSquare,
     Package,
+    Plus,
     Send,
     Trash2,
     Wrench,
@@ -25,10 +28,11 @@ import {
     disconnectWebSocket,
     editPulse,
     fetchAcceptedPulseInteractions,
+    fetchPulseResourceCatalog,
     fetchPulses,
     mergePulses,
 } from '../../lib/pulseApi';
-import type { Pulse } from '../../lib/types';
+import type { Pulse, ResourceCatalogEntry } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
 import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { ReportModal } from '../Modals/ReportModal';
@@ -124,24 +128,6 @@ function pulseCanBeAcceptedByUser(pulse: Pulse, userTokens: Set<string>): boolea
     return false;
 }
 
-function parseRequiredSkillsInput(rawValue: string): string[] {
-    const values: string[] = [];
-    const seen = new Set<string>();
-
-    for (const item of rawValue.split(',')) {
-        const normalized = item.trim();
-        const key = normalized.toLowerCase();
-        if (!normalized || seen.has(key)) {
-            continue;
-        }
-
-        seen.add(key);
-        values.push(normalized);
-    }
-
-    return values;
-}
-
 export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const { session } = useAuth();
     const [, setLocation] = useLocation();
@@ -163,9 +149,59 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [editingPulseId, setEditingPulseId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
     const [editIsEmergency, setEditIsEmergency] = useState(false);
-    const [editRequiredSkills, setEditRequiredSkills] = useState('');
+    const [editResourceQuery, setEditResourceQuery] = useState('');
+    const [editSelectedResources, setEditSelectedResources] = useState<string[]>([]);
+    const [editCatalog, setEditCatalog] = useState<ResourceCatalogEntry[]>([]);
+    const [editCatalogLoading, setEditCatalogLoading] = useState(false);
+    const [editCatalogError, setEditCatalogError] = useState<string | null>(null);
     const [savingEdit, setSavingEdit] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
+
+    const editingPulse = editingPulseId
+        ? pulses.find((pulse) => pulse.id === editingPulseId) ?? null
+        : null;
+
+    useEffect(() => {
+        if (!editingPulse || editingPulse.type !== 'need') {
+            setEditResourceQuery('');
+            setEditCatalog([]);
+            setEditCatalogLoading(false);
+            setEditCatalogError(null);
+            return;
+        }
+
+        let cancelled = false;
+        setEditCatalogLoading(true);
+        setEditCatalogError(null);
+
+        const timer = window.setTimeout(() => {
+            fetchPulseResourceCatalog(editResourceQuery, 120)
+                .then((resources) => {
+                    if (!cancelled) {
+                        setEditCatalog(resources);
+                    }
+                })
+                .catch((apiError) => {
+                    if (!cancelled) {
+                        setEditCatalogError(
+                            apiError instanceof Error
+                                ? apiError.message
+                                : 'Could not load skills/items.'
+                        );
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setEditCatalogLoading(false);
+                    }
+                });
+        }, 180);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [editResourceQuery, editingPulse]);
 
     useEffect(() => {
         let cancelled = false;
@@ -467,7 +503,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         setEditingPulseId(pulse.id);
         setEditContent(pulse.content);
         setEditIsEmergency(Boolean(pulse.isEmergency));
-        setEditRequiredSkills((pulse.requiredSkills ?? []).join(', '));
+        setEditResourceQuery('');
+        setEditSelectedResources([...(pulse.requiredSkills ?? [])]);
+        setEditCatalog([]);
+        setEditCatalogError(null);
         setEditError(null);
     };
 
@@ -499,7 +538,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
         if (pulse.type === 'need') {
             updates.isEmergency = editIsEmergency;
-            updates.requiredSkills = parseRequiredSkillsInput(editRequiredSkills);
+            updates.requiredSkills = editSelectedResources;
         }
 
         setSavingEdit(true);
@@ -522,9 +561,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
-                (session.user.id === p.userId ||
-                    session.user.role === 'admin' ||
-                    session.user.role === 'mod')
+            (session.user.id === p.userId ||
+                session.user.role === 'admin' ||
+                session.user.role === 'mod')
         );
 
     /* ── States ── */
@@ -610,16 +649,15 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 const p = def.cssPrefix;
                 const canAcceptRequest = Boolean(
                     session &&
-                        session.user.id !== pulse.userId &&
-                        !acceptedPulseIds.has(pulse.id) &&
-                        !pulse.isSolved &&
-                        pulseCanBeAcceptedByUser(pulse, myResourceTokens)
+                    session.user.id !== pulse.userId &&
+                    !acceptedPulseIds.has(pulse.id) &&
+                    !pulse.isSolved &&
+                    pulseCanBeAcceptedByUser(pulse, myResourceTokens)
                 );
                 const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
                 const editCharactersLeft = PULSE_CONTENT_MAX - editContent.length;
                 const canMarkEmergency = pulse.type === 'need';
                 const showResourceSelector = pulse.type === 'need';
-                const parsedEditSkills = parseRequiredSkillsInput(editRequiredSkills);
 
                 return (
                     <article
@@ -668,8 +706,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             }
                                             style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;padding:0;cursor:pointer;text-align:left;"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
@@ -715,12 +753,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                     title="Delete"
                                                     aria-label="Delete pulse"
                                                     onMouseEnter={(e) =>
-                                                        ((e.target as HTMLElement).style.filter =
-                                                            'var(--hover-brightness)')
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'var(--hover-brightness)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                        ((e.target as HTMLElement).style.filter =
-                                                            'none')
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'none')
                                                     }
                                                 >
                                                     <Trash2 size={11} />
@@ -768,20 +806,19 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                 style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
                                             />
                                             <span
-                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${
-                                                    editCharactersLeft < 0
+                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${editCharactersLeft < 0
                                                         ? 'var(--danger)'
                                                         : editCharactersLeft < 40
-                                                          ? 'var(--warning)'
-                                                          : 'var(--text-tertiary)'
-                                                };`}
+                                                            ? 'var(--warning)'
+                                                            : 'var(--text-tertiary)'
+                                                    };`}
                                             >
                                                 {editCharactersLeft}
                                             </span>
                                         </div>
 
                                         {showResourceSelector && (
-                                            <div style="margin-bottom:10px;display:flex;flex-direction:column;gap:8px;">
+                                            <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
                                                 <label
                                                     htmlFor={`pulse-edit-skills-${pulse.id}`}
                                                     style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
@@ -791,44 +828,123 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                 <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised);">
                                                     <input
                                                         id={`pulse-edit-skills-${pulse.id}`}
-                                                        value={editRequiredSkills}
+                                                        type="text"
+                                                        value={editResourceQuery}
                                                         onInput={(event) =>
-                                                            setEditRequiredSkills(
+                                                            setEditResourceQuery(
                                                                 (event.target as HTMLInputElement)
                                                                     .value
                                                             )
                                                         }
-                                                        placeholder="first aid, transport, translation"
+                                                        placeholder="Search available skills or items"
                                                         style="flex:1;border:none;background:transparent;outline:none;color:var(--text);font-size:12px;font-family:inherit;"
                                                     />
+                                                    {editCatalogLoading && (
+                                                        <Loader2 size={12} class="animate-spin" />
+                                                    )}
+                                                </div>
+
+                                                <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);">
+                                                    {editCatalog.length === 0 &&
+                                                        !editCatalogLoading ? (
+                                                        <p style="margin:0;padding:10px 12px;font-size:12px;color:var(--text-tertiary);">
+                                                            {editCatalogError ||
+                                                                'No matching skills/items found.'}
+                                                        </p>
+                                                    ) : (
+                                                        editCatalog.map((resource) => {
+                                                            const isSelected =
+                                                                editSelectedResources.some(
+                                                                    (value) =>
+                                                                        value
+                                                                            .trim()
+                                                                            .toLowerCase() ===
+                                                                        resource.value
+                                                                            .trim()
+                                                                            .toLowerCase()
+                                                                );
+
+                                                            return (
+                                                                <HoverButton
+                                                                    key={`${resource.type}:${resource.value}`}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const normalized =
+                                                                            resource.value
+                                                                                .trim()
+                                                                                .toLowerCase();
+
+                                                                        setEditSelectedResources(
+                                                                            (current) => {
+                                                                                const exists =
+                                                                                    current.some(
+                                                                                        (entry) =>
+                                                                                            entry
+                                                                                                .trim()
+                                                                                                .toLowerCase() ===
+                                                                                            normalized
+                                                                                    );
+
+                                                                                if (exists) {
+                                                                                    return current.filter(
+                                                                                        (entry) =>
+                                                                                            entry
+                                                                                                .trim()
+                                                                                                .toLowerCase() !==
+                                                                                            normalized
+                                                                                    );
+                                                                                }
+
+                                                                                return [
+                                                                                    ...current,
+                                                                                    resource.value.trim(),
+                                                                                ];
+                                                                            }
+                                                                        );
+                                                                    }}
+                                                                    style={`
+                                                                        width:100%;display:flex;align-items:center;justify-content:space-between;
+                                                                        gap:10px;padding:8px 10px;border:none;border-bottom:1px solid var(--border);
+                                                                        background:${isSelected ? 'var(--accent-subtle)' : 'transparent'};
+                                                                        color:${isSelected ? 'var(--accent)' : 'var(--text-secondary)'};
+                                                                        font-size:12px;font-weight:600;cursor:pointer;text-align:left;
+                                                                    `}
+                                                                >
+                                                                    <span style="display:flex;align-items:center;gap:7px;">
+                                                                        <Plus size={11} />
+                                                                        {resource.value}
+                                                                    </span>
+                                                                    {isSelected && <Check size={12} />}
+                                                                </HoverButton>
+                                                            );
+                                                        })
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
 
-                                        {showResourceSelector && parsedEditSkills.length > 0 && (
+                                        {showResourceSelector && editSelectedResources.length > 0 && (
                                             <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                                                {parsedEditSkills.map((skill) => (
+                                                {editSelectedResources.map((resource) => (
                                                     <HoverButton
-                                                        key={skill}
+                                                        key={resource}
                                                         type="button"
                                                         onClick={() => {
-                                                            setEditRequiredSkills((current) =>
-                                                                parseRequiredSkillsInput(current)
-                                                                    .filter(
-                                                                        (entry) =>
-                                                                            entry
-                                                                                .toLowerCase()
-                                                                                .trim() !==
-                                                                            skill
-                                                                                .toLowerCase()
-                                                                                .trim()
-                                                                    )
-                                                                    .join(', ')
+                                                            setEditSelectedResources((current) =>
+                                                                current.filter(
+                                                                    (entry) =>
+                                                                        entry
+                                                                            .trim()
+                                                                            .toLowerCase() !==
+                                                                        resource
+                                                                            .trim()
+                                                                            .toLowerCase()
+                                                                )
                                                             );
                                                         }}
                                                         style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;"
                                                     >
-                                                        {skill}
+                                                        {resource}
                                                         <X size={10} />
                                                     </HoverButton>
                                                 ))}
@@ -890,8 +1006,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             onClick={() => handleConfirm(pulse.id)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
@@ -927,8 +1043,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
                                             title="Report content"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
