@@ -1,5 +1,6 @@
 import * as bun from 'bun';
 import { websocketHandlers } from './controllers/http.controller';
+import * as db from './db';
 import { httpRoutes } from './routes/http.routes';
 
 const PORT = 3000;
@@ -12,3 +13,8 @@ bun.serve({
     routes: httpRoutes,
     websocket: websocketHandlers,
 });
+
+void db.purgeExpiredUserDeletions().catch(console.error);
+setInterval(() => {
+    void db.purgeExpiredUserDeletions().catch(console.error);
+}, 60_000);

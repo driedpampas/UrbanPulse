@@ -42,6 +42,7 @@ import { readQueryParam } from '../lib/navigation';
 import { useTheme } from '../lib/theme';
 import type { User } from '../lib/types';
 import {
+    cancelAccountDeletion,
     deleteAccount,
     deleteAdminUser,
     fetchCurrentUser,
@@ -630,7 +631,9 @@ export function Profile() {
                         style="margin-top:10px;display:flex;flex-direction:column;gap:8px;background:var(--danger-subtle);padding:14px;border-radius:12px;border:1px solid var(--danger-muted);position:relative;"
                         class="animate-slide-up"
                     >
-                        <p style={`${S.label}color:var(--danger);opacity:0.8;`}>Admin Control Panel</p>
+                        <p style={`${S.label}color:var(--danger);opacity:0.8;`}>
+                            Admin Control Panel
+                        </p>
                         <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
                             <HoverButton
                                 id="manage-role-btn"
@@ -1090,7 +1093,7 @@ export function Profile() {
                             Delete Account?
                         </h3>
                         <p style="font-size:13px;color:var(--text-secondary);margin:0 0 18px;line-height:1.5;">
-                            This is permanent. All your pulses and profile data will be removed.
+                            Your account will be queued for deletion and removed after 7 days.
                         </p>
                         <div style="display:flex;gap:8px;">
                             <HoverButton
@@ -1102,7 +1105,18 @@ export function Profile() {
                                 }}
                                 style="flex:1;height:38px;border-radius:8px;border:none;background:var(--danger);color:#fff;font-size:13px;font-weight:600;cursor:pointer;"
                             >
-                                Delete
+                                Schedule Delete
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                class="btn-ghost"
+                                onClick={async () => {
+                                    await cancelAccountDeletion();
+                                    setShowDel(false);
+                                }}
+                                style="flex:1;height:38px;"
+                            >
+                                Cancel Queue
                             </HoverButton>
                             <HoverButton
                                 type="button"

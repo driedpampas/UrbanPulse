@@ -232,6 +232,8 @@ export const updateAdminUserRoleBodySchema = z.strictObject({
 });
 
 export const adminUsersQuerySchema = z.strictObject({
+    id: z.string().uuid().nullish(),
+    displayName: z.string().nullish(),
     role: z.string().nullish(),
     limit: z.coerce.number().optional(),
     offset: z.coerce.number().optional(),

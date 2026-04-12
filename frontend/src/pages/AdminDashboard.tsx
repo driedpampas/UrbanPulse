@@ -1,5 +1,5 @@
 import { Activity, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { LibraryRow } from '../components/Admin/LibraryRow';
 import { PulseRow } from '../components/Admin/PulseRow';
 import { ReportRow } from '../components/Admin/ReportRow';
@@ -34,14 +34,23 @@ export function AdminDashboard() {
         pulses,
         library,
         reports,
+        pendingDeletions,
         pulseId,
+        userSearch,
+        setUserSearch,
         setPulseId,
         loading,
         pulseSearchLoading,
+        userSearchLoading,
+        usersHasMore,
+        usersLoadingMore,
         loadData,
         searchPulse,
+        searchUsers,
+        loadMoreUsers,
         setUserRole,
         removeUser,
+        cancelUserDeletion,
         removePulse,
         changeReportStatus,
         updateLibrary,
@@ -56,6 +65,21 @@ export function AdminDashboard() {
         onConfirm: () => Promise<void>;
     } | null>(null);
     const [editingLibraryItem, setEditingLibraryItem] = useState<LibraryItem | null>(null);
+    const usersSentinelRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const target = usersSentinelRef.current;
+        if (!target) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting) {
+                void loadMoreUsers();
+            }
+        });
+
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [loadMoreUsers, section]);
 
     return (
         <AppLayout title="Admin">
@@ -126,6 +150,36 @@ export function AdminDashboard() {
 
                         {section === 'users' && (
                             <div style="display:flex;flex-direction:column;gap:10px;">
+                                <div
+                                    style={`${surfaceCard};padding:14px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;`}
+                                >
+                                    <input
+                                        value={userSearch}
+                                        onInput={(event) =>
+                                            setUserSearch((event.target as HTMLInputElement).value)
+                                        }
+                                        placeholder="Search users by name"
+                                        style="flex:1;min-width:240px;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;"
+                                    />
+                                    <HoverButton
+                                        type="button"
+                                        disabled={userSearchLoading}
+                                        onClick={() => void searchUsers()}
+                                        style="padding:9px 12px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;"
+                                    >
+                                        Search
+                                    </HoverButton>
+                                    <HoverButton
+                                        type="button"
+                                        onClick={loadData}
+                                        style="padding:9px 12px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:12px;font-weight:700;cursor:pointer;"
+                                    >
+                                        Reset
+                                    </HoverButton>
+                                    <span style="font-size:12px;color:var(--text-tertiary);">
+                                        {usersLoadingMore || userSearchLoading ? 'Loading…' : ''}
+                                    </span>
+                                </div>
                                 {users.map((user) => (
                                     <UserRow
                                         key={user.id}
@@ -144,8 +198,8 @@ export function AdminDashboard() {
                                         onDelete={(userId) => {
                                             setConfirmation({
                                                 title: 'Delete user',
-                                                message: `Delete ${user.name} permanently?`,
-                                                confirmLabel: 'Delete user',
+                                                message: `Schedule deletion for ${user.name}?`,
+                                                confirmLabel: 'Schedule deletion',
                                                 destructive: true,
                                                 onConfirm: async () => {
                                                     await removeUser(userId);
@@ -154,6 +208,17 @@ export function AdminDashboard() {
                                         }}
                                     />
                                 ))}
+                                <div ref={usersSentinelRef} style="height:1px;" />
+                                {usersLoadingMore && (
+                                    <div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px;">
+                                        Loading more users...
+                                    </div>
+                                )}
+                                {!usersHasMore && (
+                                    <div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:12px;">
+                                        No more users to display
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -279,6 +344,45 @@ export function AdminDashboard() {
                                         />
                                     ))
                                 )}
+                            </div>
+                        )}
+
+                        {section === 'overview' && pendingDeletions.length > 0 && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
+                                    Pending account deletions
+                                </h3>
+                                {pendingDeletions.map((item) => (
+                                    <div
+                                        key={item.user.id}
+                                        style={`${surfaceCard};padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;`}
+                                    >
+                                        <div style="min-width:0;">
+                                            <div style="font-size:13px;font-weight:700;color:var(--text);">
+                                                {item.user.name}
+                                            </div>
+                                            <div style="font-size:12px;color:var(--text-secondary);">
+                                                Purges in 7 days
+                                            </div>
+                                        </div>
+                                        <HoverButton
+                                            type="button"
+                                            onClick={() => {
+                                                setConfirmation({
+                                                    title: 'Cancel deletion',
+                                                    message: `Cancel deletion for ${item.user.name}?`,
+                                                    confirmLabel: 'Cancel deletion',
+                                                    onConfirm: async () => {
+                                                        await cancelUserDeletion(item.user.id);
+                                                    },
+                                                });
+                                            }}
+                                            style="padding:9px 12px;border-radius:8px;border:none;background:var(--bg-muted);color:var(--text-tertiary);font-size:12px;font-weight:700;cursor:pointer;"
+                                        >
+                                            Cancel
+                                        </HoverButton>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </>

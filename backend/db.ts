@@ -178,6 +178,7 @@ interface User {
     bio?: string | null;
     verified?: boolean;
     createdAt?: Date;
+    deletionRequestedAt?: number | null;
 }
 
 export interface UserSearchParams {
@@ -277,6 +278,7 @@ type UserRow = {
     quiet_hours?: Timerange[] | null;
     quiet_days?: number[] | null;
     bio?: string | null;
+    deletion_requested_at?: Date | string | number | null;
 };
 
 type MessageRow = {
@@ -348,6 +350,12 @@ export interface Report {
     timestamp: number;
     status: 'pending' | 'resolved' | 'dismissed';
     content: string;
+}
+
+export interface ScheduledUserDeletion {
+    user: User;
+    requestedAt: number;
+    purgeAt: number;
 }
 
 type ReportRow = {
@@ -1753,6 +1761,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
             FROM unnest(quiet_hours) AS rng), '[]'::jsonb)
       AS quiet_hours, 
       COALESCE(to_jsonb(quiet_days), '[]'::jsonb) AS quiet_days,
+      deletion_requested_at,
       bio 
     FROM app.users 
     WHERE 
@@ -1777,6 +1786,9 @@ export async function selectFullUser(id: string): Promise<User | null> {
         quietHours: rawUser.quiet_hours ? rawUser.quiet_hours : [],
         quietDays: rawUser.quiet_days,
         bio: rawUser.bio,
+        deletionRequestedAt: rawUser.deletion_requested_at
+            ? Number(rawUser.deletion_requested_at)
+            : null,
     } as User;
 }
 
@@ -1847,6 +1859,14 @@ export async function selectAdminOverview() {
     };
 }
 
+export async function selectAdminUsers(
+    search: UserSearchParams,
+    limit = SEARCH_LIMIT,
+    offset = 0
+): Promise<User[]> {
+    return searchUsers(search, limit, offset);
+}
+
 export async function updateUserRole(id: string, role: string): Promise<boolean> {
     const normalizedRole = role.toLowerCase();
 
@@ -1893,7 +1913,8 @@ export async function searchUsers(
             )
         ) FROM unnest(quiet_hours) AS rng), '[]'::jsonb) AS quiet_hours, 
         COALESCE((SELECT jsonb_agg(day::text) FROM unnest(quiet_days) AS day), '[]'::jsonb) AS quiet_days,
-        bio 
+        bio,
+        deletion_requested_at 
     FROM app.users 
     WHERE
         (
@@ -1955,6 +1976,9 @@ export async function searchUsers(
             quietHours: rawUser.quiet_hours,
             quietDays: rawUser.quiet_days,
             bio: rawUser.bio,
+            deletionRequestedAt: rawUser.deletion_requested_at
+                ? Number(rawUser.deletion_requested_at)
+                : null,
         } as User;
     });
 }
@@ -2071,6 +2095,103 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
         AND (${userSearch.created_after}::timestamptz IS NULL OR created_at >= ${userSearch.created_after}::timestamptz)
         ) OR id = ${userSearch.id}))
     `;
+}
+
+export async function requestUserDeletion(id: string): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.users
+        SET deletion_requested_at = COALESCE(deletion_requested_at, now())
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
+export async function cancelUserDeletion(id: string): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.users
+        SET deletion_requested_at = NULL
+        WHERE id = ${id} AND deletion_requested_at IS NOT NULL
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
+export async function selectPendingUserDeletions(
+    limit = 100,
+    offset = 0
+): Promise<ScheduledUserDeletion[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 100;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+
+    const rows = (await sql`
+        SELECT
+            id,
+            email,
+            role,
+            created_at,
+            trust_score,
+            display_name,
+            is_verified_neighbor,
+            distance_limit_meters,
+            ST_Y(location::geometry) AS lat,
+            ST_X(location::geometry) AS lng,
+            COALESCE((SELECT jsonb_agg(
+                jsonb_build_object(
+                    'start', lower(rng)::text,
+                    'end', upper(rng)::text
+                )
+            ) FROM unnest(quiet_hours) AS rng), '[]'::jsonb) AS quiet_hours,
+            COALESCE((SELECT jsonb_agg(day::text) FROM unnest(quiet_days) AS day), '[]'::jsonb) AS quiet_days,
+            bio,
+            deletion_requested_at
+        FROM app.users
+        WHERE deletion_requested_at IS NOT NULL
+        ORDER BY deletion_requested_at ASC, created_at ASC, id ASC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as UserRow[];
+
+    return rows.map((rawUser) => {
+        const requestedAt = Number(rawUser.deletion_requested_at ?? Date.now());
+
+        return {
+            user: {
+                id: rawUser.id,
+                email: rawUser.email,
+                role: rawUser.role,
+                trustScore: rawUser.trust_score,
+                createdAt: rawUser.created_at,
+                displayName: rawUser.display_name,
+                verified: rawUser.is_verified_neighbor,
+                radius: rawUser.distance_limit_meters,
+                location:
+                    rawUser.lat !== null && rawUser.lng !== null
+                        ? { lat: rawUser.lat, lng: rawUser.lng }
+                        : null,
+                quietHours: rawUser.quiet_hours,
+                quietDays: rawUser.quiet_days,
+                bio: rawUser.bio,
+                deletionRequestedAt: requestedAt,
+            } as User,
+            requestedAt,
+            purgeAt: requestedAt + 7 * 24 * 60 * 60 * 1000,
+        };
+    });
+}
+
+export async function purgeExpiredUserDeletions(now = Date.now()): Promise<number> {
+    const cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
+    const deleted = await sql`
+        DELETE FROM app.users
+        WHERE deletion_requested_at IS NOT NULL
+          AND deletion_requested_at <= ${cutoff}
+        RETURNING id
+    `;
+
+    return deleted.length;
 }
 
 export async function selectLibraryItems(

@@ -43,6 +43,10 @@ export const users = app.table(
         trustScore: integer('trust_score').notNull().default(0),
         bio: text('bio'),
         isVerifiedNeighbor: boolean('is_verified_neighbor').notNull().default(false),
+        deletionRequestedAt: timestamp('deletion_requested_at', {
+            withTimezone: true,
+            mode: 'date',
+        }),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
             .notNull()
             .defaultNow(),
@@ -51,6 +55,7 @@ export const users = app.table(
         uniqueIndex('users_email_unique').on(table.email),
         index('users_role_idx').on(table.role),
         index('users_trust_score_idx').on(table.trustScore),
+        index('users_deletion_requested_at_idx').on(table.deletionRequestedAt),
     ]
 );
 

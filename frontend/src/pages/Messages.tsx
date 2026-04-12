@@ -3,6 +3,7 @@ import {
     ChevronRight,
     Clock,
     Copy,
+    Flag,
     Info,
     Plus,
     Search,
@@ -1352,8 +1353,6 @@ function ChatView({
                                                 {msg.content}
                                             </p>
                                         </HoverButton>
-
-
 
                                         {isContextMenuOpen && contextMenuPosition && (
                                             <>

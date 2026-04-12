@@ -7,10 +7,13 @@ export async function createReport(params: {
     reason: string;
     content: string;
 }): Promise<AdminFlag> {
-    return httpClient<AdminFlag>('/reports', {
-        method: 'POST',
-        body: JSON.stringify(params),
-    });
+    return httpClient<AdminFlag>(
+        params.targetType === 'message' ? `/messages/${params.targetId}/report` : '/reports',
+        {
+            method: 'POST',
+            body: JSON.stringify(params),
+        }
+    );
 }
 
 export async function fetchAdminReports(limit = 50, offset = 0): Promise<AdminFlag[]> {

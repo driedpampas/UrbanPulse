@@ -334,8 +334,20 @@ export const httpRoutes: HttpRoutes = {
                 authorize(req, async (session) =>
                     caught(async () => {
                         const payload: JwtPayload = session as JwtPayload;
-                        await db.deleteUser(payload.id);
-                        return SUCCESS;
+                        const scheduled = await db.requestUserDeletion(payload.id);
+                        return withCors(scheduled ? SUCCESS : NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/user/deletion/cancel': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const cancelled = await db.cancelUserDeletion(payload.id);
+                        return withCors(cancelled ? SUCCESS : NOT_FOUND);
                     })
                 )
             ),
@@ -488,6 +500,8 @@ export const httpRoutes: HttpRoutes = {
                     caught(async () => {
                         const url = new URL(req.url);
                         const query = adminUsersQuerySchema.parse({
+                            id: url.searchParams.get('id'),
+                            displayName: url.searchParams.get('displayName'),
                             role: url.searchParams.get('role'),
                             limit: url.searchParams.get('limit'),
                             offset: url.searchParams.get('offset'),
@@ -495,7 +509,7 @@ export const httpRoutes: HttpRoutes = {
 
                         const users = await db.searchUsers(
                             buildSearchParams({
-                                id: null,
+                                id: query.id,
                                 email: null,
                                 anyskillres: null,
                                 skillres: null,
@@ -503,7 +517,7 @@ export const httpRoutes: HttpRoutes = {
                                 max_trust: null,
                                 created_before: null,
                                 created_after: null,
-                                displayName: null,
+                                displayName: query.displayName,
                                 role: query.role,
                                 verified: null,
                                 radius: null,
@@ -565,13 +579,37 @@ export const httpRoutes: HttpRoutes = {
             validate(req, async () =>
                 adminAuthorize(req, async () =>
                     caught(async () => {
-                        const deleted = await db.deleteUser(req.params.id as string);
+                        const scheduled = await db.requestUserDeletion(req.params.id as string);
+                        return withCors(scheduled ? SUCCESS : NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/admin/user-deletions': {
+        GET: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const url = new URL(req.url);
+                        const limit = Number(url.searchParams.get('limit') ?? '50');
+                        const offset = Number(url.searchParams.get('offset') ?? '0');
+                        const deletions = await db.selectPendingUserDeletions(
+                            Number.isFinite(limit) ? limit : 50,
+                            Number.isFinite(offset) ? offset : 0
+                        );
 
-                        if (!deleted) {
-                            return withCors(NOT_FOUND);
-                        }
-
-                        return withCors(new Response(null, { status: 204 }));
+                        return withCors(Response.json({ deletions }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/admin/user-deletions/:id/cancel': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const cancelled = await db.cancelUserDeletion(req.params.id as string);
+                        return withCors(cancelled ? SUCCESS : NOT_FOUND);
                     })
                 )
             ),
@@ -707,6 +745,25 @@ export const httpRoutes: HttpRoutes = {
                         );
                         if (!updated) return withCors(NOT_FOUND);
                         return withCors(SUCCESS);
+                    })
+                )
+            ),
+    },
+    '/api/messages/:id/report': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const body = createReportSchema.parse(await req.json());
+                        const report = await db.insertReport({
+                            reporterId: payload.id,
+                            targetId: req.params.id as string,
+                            targetType: 'message',
+                            reason: body.reason,
+                            content: body.content,
+                        });
+                        return withCors(Response.json(report, { status: 201 }));
                     })
                 )
             ),

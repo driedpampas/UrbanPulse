@@ -18,6 +18,7 @@ export interface User {
     distanceLimit: number;
     quietDays: number[];
     createdAt?: number;
+    deletionRequestedAt?: number | null;
 }
 
 export interface Pulse {

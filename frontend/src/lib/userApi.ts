@@ -22,6 +22,7 @@ type BackendUser = {
     }> | null;
     quietDays?: Array<number | string> | null;
     bio?: string | null;
+    deletionRequestedAt?: number | string | null;
 };
 
 class ApiError extends Error {
@@ -114,6 +115,7 @@ function mapBackendUser(user: BackendUser): User {
         distanceLimit: Math.max(user.radius ?? 1, 1),
         quietDays: normalizeQuietDays(user.quietDays),
         createdAt: user.createdAt ? Number(user.createdAt) : undefined,
+        deletionRequestedAt: user.deletionRequestedAt ? Number(user.deletionRequestedAt) : null,
     };
 }
 
@@ -254,6 +256,10 @@ export async function deleteAccount(): Promise<void> {
     await request<void>('/user', { method: 'DELETE' });
 }
 
+export async function cancelAccountDeletion(): Promise<void> {
+    await request<void>('/user/deletion/cancel', { method: 'POST' });
+}
+
 export async function fetchUsers(params?: {
     displayName?: string;
     id?: string;
@@ -266,12 +272,16 @@ export async function fetchUsers(params?: {
 }
 
 export async function fetchAdminUsers(params?: {
+    id?: string;
+    displayName?: string;
     role?: string;
     limit?: number;
     offset?: number;
 }): Promise<User[]> {
     const query = new URLSearchParams();
 
+    if (params?.id?.trim()) query.set('id', params.id.trim());
+    if (params?.displayName?.trim()) query.set('displayName', params.displayName.trim());
     if (params?.role) query.set('role', params.role);
     if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
     if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
@@ -282,6 +292,31 @@ export async function fetchAdminUsers(params?: {
     );
 
     return result.users.map(mapBackendUser);
+}
+
+export async function fetchAdminUserDeletions(params?: {
+    limit?: number;
+    offset?: number;
+}): Promise<Array<{ user: User; requestedAt: number; purgeAt: number }>> {
+    const query = new URLSearchParams();
+    if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
+    if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
+
+    const result = await request<{
+        deletions: Array<{ user: BackendUser; requestedAt: number; purgeAt: number }>;
+    }>(`/admin/user-deletions${query.toString() ? `?${query.toString()}` : ''}`, {
+        method: 'GET',
+    });
+
+    return result.deletions.map((deletion) => ({
+        user: mapBackendUser(deletion.user),
+        requestedAt: deletion.requestedAt,
+        purgeAt: deletion.purgeAt,
+    }));
+}
+
+export async function cancelAdminUserDeletion(userId: string): Promise<void> {
+    await request<void>(`/admin/user-deletions/${userId}/cancel`, { method: 'POST' });
 }
 
 export async function updateAdminUserRole(userId: string, role: string): Promise<void> {
