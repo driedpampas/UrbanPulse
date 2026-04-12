@@ -245,6 +245,7 @@ type HeroCandidateRow = {
     display_name?: string | null;
     quiet_hours?: Timerange[] | null;
     quiet_days?: number[] | null;
+    timezone?: string | null;
 };
 
 type UserResourceRow = {
@@ -553,13 +554,11 @@ function isMinuteWithinRange(minute: number, start: number, end: number): boolea
 
 function isWithinQuietHours(
     quietHours: Array<{ start?: string; end?: string }> | null | undefined,
-    now: Date = new Date()
+    minuteOfDay: number
 ): boolean {
     if (!quietHours || quietHours.length === 0) {
         return false;
     }
-
-    const minute = now.getHours() * 60 + now.getMinutes();
 
     for (const range of quietHours) {
         const start = parseClockMinutes(range.start);
@@ -567,7 +566,7 @@ function isWithinQuietHours(
         if (start === null || end === null) {
             continue;
         }
-        if (isMinuteWithinRange(minute, start, end)) {
+        if (isMinuteWithinRange(minuteOfDay, start, end)) {
             return true;
         }
     }
@@ -575,17 +574,73 @@ function isWithinQuietHours(
     return false;
 }
 
+const WEEKDAY_INDEX: Record<string, number> = {
+    sun: 0,
+    mon: 1,
+    tue: 2,
+    wed: 3,
+    thu: 4,
+    fri: 5,
+    sat: 6,
+};
+
+function getLocalQuietWindowContext(now: Date, timezone?: string | null): {
+    day: number;
+    minuteOfDay: number;
+} {
+    if (!timezone) {
+        return {
+            day: now.getDay(),
+            minuteOfDay: now.getHours() * 60 + now.getMinutes(),
+        };
+    }
+
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            weekday: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+            hourCycle: 'h23',
+        }).formatToParts(now);
+
+        const weekdayPart = parts.find((part) => part.type === 'weekday')?.value.toLowerCase();
+        const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? NaN);
+        const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? NaN);
+
+        if (
+            weekdayPart &&
+            weekdayPart in WEEKDAY_INDEX &&
+            !Number.isNaN(hour) &&
+            !Number.isNaN(minute)
+        ) {
+            return {
+                day: WEEKDAY_INDEX[weekdayPart],
+                minuteOfDay: hour * 60 + minute,
+            };
+        }
+    } catch {
+        // Fall back to server-local context when timezone is invalid.
+    }
+
+    return {
+        day: now.getDay(),
+        minuteOfDay: now.getHours() * 60 + now.getMinutes(),
+    };
+}
+
 function isSuppressedByQuietWindow(
     quietDays: Array<number | string> | null | undefined,
     quietHours: Array<{ start?: string; end?: string }> | null | undefined,
+    timezone?: string | null,
     now: Date = new Date()
 ): boolean {
-    const day = now.getDay();
-    if (normalizeQuietDays(quietDays).includes(day)) {
+    const local = getLocalQuietWindowContext(now, timezone);
+    if (normalizeQuietDays(quietDays).includes(local.day)) {
         return true;
     }
 
-    return isWithinQuietHours(quietHours, now);
+    return isWithinQuietHours(quietHours, local.minuteOfDay);
 }
 
 function tokensMatch(needle: string, candidate: string): boolean {
@@ -1751,6 +1806,7 @@ export async function matchHeroesByResources(params: {
     lat: number;
     lng: number;
     requestedResources: string[];
+    requesterTimezone?: string | null;
 }): Promise<HeroMatchUser[]> {
     const requestedResources = params.requestedResources
         .map((value) => value.trim())
@@ -1776,7 +1832,8 @@ export async function matchHeroesByResources(params: {
                 ),
                 '[]'::jsonb
             ) AS quiet_hours,
-            COALESCE(to_jsonb(u.quiet_days), '[]'::jsonb) AS quiet_days
+            COALESCE(to_jsonb(u.quiet_days), '[]'::jsonb) AS quiet_days,
+            COALESCE(NULLIF(u.timezone, ''), NULL) AS timezone
         FROM app.users AS u
         WHERE u.id != ${params.authorId}::uuid
           AND u.location IS NOT NULL
@@ -1832,6 +1889,7 @@ export async function matchHeroesByResources(params: {
             suppressedByQuietHours: isSuppressedByQuietWindow(
                 candidate.quiet_days,
                 candidate.quiet_hours,
+                candidate.timezone ?? params.requesterTimezone ?? 'UTC',
                 now
             ),
         });
@@ -1870,6 +1928,7 @@ export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
         lat: pulse.lat,
         lng: pulse.lng,
         requestedResources: pulse.required_skills,
+        requesterTimezone: null,
     });
 
     return matches.filter((match) => !match.suppressedByQuietHours).map((match) => match.id);

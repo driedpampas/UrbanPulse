@@ -291,6 +291,7 @@ export const httpRoutes: HttpRoutes = {
                             location: body.location,
                             quietHours: body.quietHours as Timerange[] | null,
                             quietDays: body.quietDays as number[] | null,
+                            timezone: body.timezone,
                         });
 
                         return SUCCESS;
@@ -813,8 +814,11 @@ export const httpRoutes: HttpRoutes = {
                             .then((raw) => pulseMatchSchema.parse(raw));
 
                         let location = body.location;
+                        const fullUser = await db.selectFullUser(payload.id);
+                        const requesterTimezone =
+                            body.timezone?.trim() || fullUser?.timezone || 'UTC';
+
                         if (!location) {
-                            const fullUser = await db.selectFullUser(payload.id);
                             if (!fullUser?.location) {
                                 return withCors(BAD_REQUEST);
                             }
@@ -830,6 +834,7 @@ export const httpRoutes: HttpRoutes = {
                             lat: location.lat,
                             lng: location.lng,
                             requestedResources: body.resources,
+                            requesterTimezone,
                         });
 
                         return withCors(Response.json({ matches }, { status: 200 }));
@@ -894,6 +899,9 @@ export const httpRoutes: HttpRoutes = {
                             )
                                 .map((value) => value.trim())
                                 .filter((value) => value.length > 0);
+                            const fullUser = await db.selectFullUser(payload.id);
+                            const requesterTimezone =
+                                body.timezone?.trim() || fullUser?.timezone || 'UTC';
 
                             const createdPulse = await db.insertPulse({
                                 authorId: payload.id,
@@ -918,6 +926,7 @@ export const httpRoutes: HttpRoutes = {
                                 lat: createdPulse.lat,
                                 lng: createdPulse.lng,
                                 requestedResources: selectedResources,
+                                requesterTimezone,
                             });
 
                             for (const match of heroMatches) {

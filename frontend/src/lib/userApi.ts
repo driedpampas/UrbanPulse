@@ -21,6 +21,7 @@ type BackendUser = {
         end?: string;
     }> | null;
     quietDays?: Array<number | string> | null;
+    timezone?: string | null;
     bio?: string | null;
     deletionRequestedAt?: number | string | null;
 };
@@ -114,6 +115,7 @@ function mapBackendUser(user: BackendUser): User {
         quietHoursEnd: quiet.end,
         distanceLimit: Math.max(user.radius ?? 1, 1),
         quietDays: normalizeQuietDays(user.quietDays),
+        timezone: user.timezone ?? 'UTC',
         createdAt: user.createdAt ? Number(user.createdAt) : undefined,
         deletionRequestedAt: user.deletionRequestedAt ? Number(user.deletionRequestedAt) : null,
     };
@@ -206,7 +208,14 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         location?: { lat: number; lng: number };
         quietHours?: Array<{ start: string; end: string }> | null;
         quietDays?: number[] | null;
+        timezone?: string;
     } = {};
+
+    try {
+        patchBody.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    } catch {
+        patchBody.timezone = undefined;
+    }
 
     if (typeof updates.name === 'string') {
         patchBody.displayName = updates.name.trim();

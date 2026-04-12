@@ -120,6 +120,14 @@ function getAvatarUrl(seed: string): string {
     return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
 }
 
+function getClientTimezone(): string | undefined {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 function normalizePulseType(value: string): Pulse['type'] {
     const normalized = value.toLowerCase();
 
@@ -432,9 +440,11 @@ export async function fetchPulses(
 export async function postPulse(input: CreatePulseInput): Promise<Pulse> {
     const type = normalizePulseType(input.type);
     const isEmergency = input.isEmergency ?? type === 'emergency';
+    const timezone = getClientTimezone();
     const payload = {
         type,
         isEmergency,
+        timezone,
         urgencyLevel: input.urgencyLevel ?? DEFAULT_URGENCY_BY_TYPE[type],
         content: input.content,
         location: {
@@ -517,11 +527,14 @@ export async function matchPulseHeroes(
     resources: string[],
     location?: { lat: number; lng: number }
 ): Promise<HeroMatchUser[]> {
+    const timezone = getClientTimezone();
     const payload: {
         resources: string[];
         location?: { lat: number; lng: number };
+        timezone?: string;
     } = {
         resources,
+        timezone,
     };
 
     if (location) {

@@ -20,6 +20,7 @@ export const pulseTypeSchema = z.union([z.enum(PULSE_TYPES), z.enum(PULSE_TYPE_A
 export const createPulseSchema = z.strictObject({
     type: pulseTypeSchema,
     isEmergency: z.boolean().optional(),
+    timezone: z.string().trim().min(1).optional(),
     urgencyLevel: z.number().int().min(1).max(5).optional(),
     content: z.string().nonempty(),
     location: z.object({
@@ -32,6 +33,7 @@ export const createPulseSchema = z.strictObject({
 
 export const pulseMatchSchema = z.strictObject({
     resources: z.array(z.string().trim().min(1)).min(1).max(30),
+    timezone: z.string().trim().min(1).optional(),
     location: z
         .object({
             lat: z.number(),
