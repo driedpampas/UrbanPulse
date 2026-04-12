@@ -115,6 +115,7 @@ const confirmedSubscribedThreadIds = new Set<string>();
 const subscribedThreadWaiters = new Map<string, Set<() => void>>();
 let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
+let disconnectTimer: number | null = null;
 let reconnectEnabled = false;
 let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'disconnected';
 const statusHandlers = new Set<(status: 'connected' | 'connecting' | 'disconnected') => void>();
@@ -737,6 +738,9 @@ function sendUnsubscribe(threadId: string) {
 }
 
 function resubscribeAllThreads() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+    }
     for (const threadId of subscribedThreadIds) {
         sendSubscribe(threadId);
     }
@@ -763,6 +767,11 @@ function ensureSocket() {
         (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
     ) {
         return;
+    }
+
+    if (disconnectTimer !== null) {
+        globalThis.clearTimeout(disconnectTimer);
+        disconnectTimer = null;
     }
 
     updateStatus('connecting');
@@ -823,15 +832,34 @@ export function disconnectChatWebSocket(handler: ChatSocketHandler) {
     wsHandlers.delete(handler);
 
     if (wsHandlers.size === 0) {
-        reconnectEnabled = false;
-
-        if (reconnectTimer !== null) {
-            globalThis.clearTimeout(reconnectTimer);
-            reconnectTimer = null;
+        if (disconnectTimer !== null) {
+            globalThis.clearTimeout(disconnectTimer);
         }
 
-        socket?.close();
-        socket = null;
+        disconnectTimer = globalThis.setTimeout(() => {
+            disconnectTimer = null;
+            if (wsHandlers.size > 0) {
+                return;
+            }
+
+            reconnectEnabled = false;
+
+            if (reconnectTimer !== null) {
+                globalThis.clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+
+            if (socket) {
+                if (
+                    socket.readyState === WebSocket.OPEN ||
+                    socket.readyState === WebSocket.CONNECTING
+                ) {
+                    socket.close();
+                }
+                socket = null;
+            }
+            updateStatus('disconnected');
+        }, 100);
     }
 }
 

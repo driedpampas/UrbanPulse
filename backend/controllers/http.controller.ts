@@ -34,6 +34,7 @@ import type {
     PulseMatchBody,
     RegisterUserBody,
     SearchUsersQuery,
+    UpdateChatNameBody,
     UpdateEmailBody,
     UpdateLibraryItemBody,
     UpdateMessageBody,
@@ -71,6 +72,7 @@ import {
     searchUsersSchema,
     sendMessageResponseSchema,
     updateAdminUserRoleBodySchema,
+    updateChatNameSchema,
     updateEmailSchema,
     updateLibraryItemSchema,
     updateMessageSchema,
@@ -2281,6 +2283,7 @@ export const httpRoutes: HttpRoutes = {
                             senderName:
                                 sender?.displayName?.trim() || `Neighbor ${payload.id.slice(0, 6)}`,
                             threadName:
+                                (thread?.isGroup && thread.name?.trim()) ||
                                 threadSummary?.participants
                                     .filter((participant) => participant.userId !== payload.id)
                                     .map(
@@ -2288,7 +2291,8 @@ export const httpRoutes: HttpRoutes = {
                                             participant.displayName?.trim() ||
                                             `Neighbor ${participant.userId.slice(0, 6)}`
                                     )
-                                    .join(', ') || undefined,
+                                    .join(', ') ||
+                                undefined,
                         });
 
                         server.publish(
@@ -2537,6 +2541,36 @@ export const httpRoutes: HttpRoutes = {
                         );
 
                         return withCors(SUCCESS);
+                    })
+                )
+            ),
+    },
+    '/api/chats/:id/name': {
+        PATCH: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const threadId = req.params.id as string;
+                        const body: UpdateChatNameBody = await req
+                            .json()
+                            .then((raw) => updateChatNameSchema.parse(raw));
+
+                        const updated = await db.updateChatName(threadId, payload.id, body.name);
+                        if (!updated) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        server.publish(
+                            `chat-${threadId}`,
+                            JSON.stringify({
+                                event: 'chat.updated',
+                                threadId,
+                                name: updated.name,
+                            })
+                        );
+
+                        return withCors(Response.json(updated, { status: 200 }));
                     })
                 )
             ),

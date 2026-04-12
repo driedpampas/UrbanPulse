@@ -105,6 +105,7 @@ const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
 const wsHandlers = new Set<PulseSocketHandler>();
 let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
+let disconnectTimer: number | null = null;
 let reconnectEnabled = false;
 
 class PulseApiError extends Error {
@@ -385,13 +386,22 @@ function ensureSocket() {
         return;
     }
 
+    if (disconnectTimer !== null) {
+        globalThis.clearTimeout(disconnectTimer);
+        disconnectTimer = null;
+    }
+
     reconnectEnabled = true;
     socket = new WebSocket(PULSE_FEED_WS_URL);
 
     socket.onopen = () => {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
         const session = readStoredAuthSession();
         if (session?.token) {
-            socket?.send(
+            socket.send(
                 JSON.stringify({
                     action: 'auth.identify',
                     token: session.token,
@@ -726,14 +736,32 @@ export function disconnectWebSocket(handler: PulseSocketHandler) {
     wsHandlers.delete(handler);
 
     if (wsHandlers.size === 0) {
-        reconnectEnabled = false;
-
-        if (reconnectTimer !== null) {
-            globalThis.clearTimeout(reconnectTimer);
-            reconnectTimer = null;
+        if (disconnectTimer !== null) {
+            globalThis.clearTimeout(disconnectTimer);
         }
 
-        socket?.close();
-        socket = null;
+        disconnectTimer = globalThis.setTimeout(() => {
+            disconnectTimer = null;
+            if (wsHandlers.size > 0) {
+                return;
+            }
+
+            reconnectEnabled = false;
+
+            if (reconnectTimer !== null) {
+                globalThis.clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+
+            if (socket) {
+                if (
+                    socket.readyState === WebSocket.OPEN ||
+                    socket.readyState === WebSocket.CONNECTING
+                ) {
+                    socket.close();
+                }
+                socket = null;
+            }
+        }, 100);
     }
 }
