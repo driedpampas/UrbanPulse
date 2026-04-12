@@ -11,11 +11,13 @@ import {
 import { ThemeProvider } from './lib/theme';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { Auth } from './pages/Auth';
+import { ConfirmPassword } from './pages/ConfirmPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Library } from './pages/Library';
 import { Messages } from './pages/Messages';
 import { Profile } from './pages/Profile';
 import { Requests } from './pages/Requests';
+import { Settings } from './pages/Settings';
 import { VerifyEmail } from './pages/VerifyEmail';
 import './index.css';
 
@@ -54,6 +56,7 @@ function AppRoutes() {
     if (!isAuthenticated) {
         return (
             <Switch>
+                <Route path="/confirm-password" component={ConfirmPassword} />
                 <Route path="/verify-email" component={VerifyEmail} />
                 <Route path="/auth" component={Auth} />
                 <Route>
@@ -65,12 +68,14 @@ function AppRoutes() {
 
     return (
         <Switch>
+            <Route path="/confirm-password" component={ConfirmPassword} />
             <Route path="/verify-email" component={VerifyEmail} />
             <Route path="/" component={Dashboard} />
             <Route path="/library" component={Library} />
             <Route path="/messages" component={Messages} />
             <Route path="/requests" component={Requests} />
             <Route path="/profile" component={Profile} />
+            <Route path="/settings" component={Settings} />
             <Route path="/auth">
                 <RouteRedirect to="/" />
             </Route>

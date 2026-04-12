@@ -22,6 +22,7 @@ const FRONTEND_URL = (bun.env.FRONTEND_URL?.trim() || 'https://urbanpulse.syu.nl
     ''
 );
 const verificationTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
+const PASSWORD_RESET_TTL_MS = 20 * 60 * 1000;
 
 const authTokenPayloadSchema = z.object({
     id: z.string().uuid(),
@@ -34,6 +35,11 @@ export type AuthResult =
     | { success: false; status: number };
 
 export type VerifyEmailResult = { success: true } | { success: false; status: number };
+export type PasswordResetRequestResult = { success: true } | { success: false; status: number };
+export type PasswordResetConfirmResult = { success: true } | { success: false; status: number };
+export type UpdateEmailResult =
+    | { success: true; email: string; isEmailVerified: false }
+    | { success: false; status: number };
 
 export type RegisterUser = {
     email: string;
@@ -128,6 +134,114 @@ export async function verifyEmailToken(token: string): Promise<VerifyEmailResult
     return { success: true };
 }
 
+export async function requestPasswordChange(userId: string): Promise<PasswordResetRequestResult> {
+    const email = await db.selectUserEmailById(userId);
+    if (!email) {
+        return { success: false, status: 404 };
+    }
+
+    const resetToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    const stored = await db.storePasswordResetToken(userId, resetToken, expiresAt);
+
+    if (!stored) {
+        return { success: false, status: 404 };
+    }
+
+    try {
+        await triggerPasswordChangeEmail(email, resetToken);
+    } catch (error) {
+        console.error('Failed to enqueue password reset email:', error);
+        await db.clearPasswordResetToken(userId);
+        return { success: false, status: 502 };
+    }
+
+    return { success: true };
+}
+
+export async function confirmPasswordChange(
+    token: string,
+    newPassword: string
+): Promise<PasswordResetConfirmResult> {
+    const parsedToken = verificationTokenSchema.safeParse(token.trim());
+    if (!parsedToken.success) {
+        return { success: false, status: 400 };
+    }
+
+    const resetRecord = await db.selectPasswordResetRecord(parsedToken.data);
+    if (!resetRecord) {
+        return { success: false, status: 404 };
+    }
+
+    const expiresAt = resetRecord.password_reset_expires
+        ? new Date(resetRecord.password_reset_expires).getTime()
+        : NaN;
+
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        await db.clearPasswordResetTokenByToken(parsedToken.data);
+        return { success: false, status: 410 };
+    }
+
+    const hashedPass = await bun.password.hash(newPassword);
+    const consumed = await db.consumePasswordResetToken(parsedToken.data, hashedPass, new Date());
+
+    if (!consumed) {
+        return { success: false, status: 410 };
+    }
+
+    return { success: true };
+}
+
+export async function changeUserEmail(
+    userId: string,
+    email: string
+): Promise<UpdateEmailResult> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const currentEmail = await db.selectUserEmailById(userId);
+
+    if (!currentEmail) {
+        return { success: false, status: 404 };
+    }
+
+    if (currentEmail.toLowerCase() === normalizedEmail) {
+        return { success: false, status: 400 };
+    }
+
+    const [existingUser] = await db.selectId(normalizedEmail);
+    if (existingUser && existingUser.id !== userId) {
+        return { success: false, status: 409 };
+    }
+
+    const verificationToken = randomBytes(32).toString('hex');
+
+    try {
+        const updated = await db.updateUserEmailWithVerificationToken(
+            userId,
+            normalizedEmail,
+            verificationToken
+        );
+
+        if (!updated) {
+            return { success: false, status: 404 };
+        }
+    } catch (error) {
+        if (isUniqueViolation(error)) {
+            return { success: false, status: 409 };
+        }
+
+        throw error;
+    }
+
+    try {
+        await triggerVerificationEmail(normalizedEmail, verificationToken);
+    } catch (error) {
+        console.error('Failed to enqueue email verification after email update:', error);
+        return { success: false, status: 502 };
+    }
+
+    return { success: true, email: normalizedEmail, isEmailVerified: false };
+}
+
 function createAuthToken(userId: string) {
     return jwt.sign({ id: userId }, JWT_SECRET, {
         algorithm: 'HS256',
@@ -165,25 +279,65 @@ export function verifyBearerToken(token: string): AuthTokenPayload | null {
 }
 
 async function triggerVerificationEmail(email: string, verificationToken: string): Promise<void> {
+    const verificationLink = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+
+    await triggerAuthMailerRequest({
+        action: 'verification',
+        email,
+        verification_link: verificationLink,
+    });
+}
+
+async function triggerPasswordChangeEmail(email: string, resetToken: string): Promise<void> {
+    const passwordChangeLink = `${FRONTEND_URL}/confirm-password?token=${encodeURIComponent(resetToken)}`;
+
+    await triggerAuthMailerRequest({
+        action: 'password_change',
+        email,
+        password_change_link: passwordChangeLink,
+    });
+}
+
+async function triggerAuthMailerRequest(payload: AuthMailerRequestPayload): Promise<void> {
     if (!AUTH_MAILER_URL) {
-        console.warn('AUTH_MAILER_URL is not configured. Verification email trigger skipped.');
+        console.warn('AUTH_MAILER_URL is not configured. Auth mailer dispatch skipped.');
         return;
     }
-
-    const verificationLink = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`;
 
     const response = await fetch(AUTH_MAILER_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            email,
-            verification_link: verificationLink,
-        }),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
         throw new Error(`Mailer worker returned ${response.status}`);
     }
 }
+
+function isUniqueViolation(error: unknown): boolean {
+    const value = error as
+        | {
+            code?: unknown;
+            cause?: {
+                code?: unknown;
+            };
+        }
+        | null;
+
+    return String(value?.code ?? value?.cause?.code ?? '') === '23505';
+}
+
+type AuthMailerRequestPayload =
+    | {
+        action: 'verification';
+        email: string;
+        verification_link: string;
+    }
+    | {
+        action: 'password_change';
+        email: string;
+        password_change_link: string;
+    };

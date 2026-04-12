@@ -1071,6 +1071,17 @@ export function Profile() {
                     <>
                         <HoverButton
                             type="button"
+                            id="account-settings-btn"
+                            class="btn-ghost"
+                            onClick={() => setLocation('/settings')}
+                            style="height:38px;width:100%;font-size:13px;color:var(--text-secondary);"
+                        >
+                            <ShieldCheck size={14} />
+                            Account Settings
+                        </HoverButton>
+
+                        <HoverButton
+                            type="button"
                             id="sign-out-btn"
                             class="btn-ghost"
                             onClick={() => {

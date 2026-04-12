@@ -37,6 +37,11 @@ export const users = app.table(
         passwordHash: text('password_hash').notNull(),
         isEmailVerified: boolean('is_email_verified').notNull().default(false),
         verificationToken: text('verification_token'),
+        passwordResetToken: text('password_reset_token'),
+        passwordResetExpires: timestamp('password_reset_expires', {
+            withTimezone: true,
+            mode: 'date',
+        }),
         displayName: text('display_name'),
         distanceLimitMeters: integer('distance_limit_meters'),
         location: geography('location'),

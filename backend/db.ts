@@ -175,6 +175,8 @@ interface User {
     passwordHash?: string | null;
     isEmailVerified?: boolean;
     verificationToken?: string | null;
+    passwordResetToken?: string | null;
+    passwordResetExpires?: Date | null;
     displayName?: string | null;
     radius?: number | null;
     location?: Location | null;
@@ -284,6 +286,8 @@ type UserRow = {
     role?: string;
     is_email_verified?: boolean | null;
     verification_token?: string | null;
+    password_reset_token?: string | null;
+    password_reset_expires?: Date | string | number | null;
     created_at?: Date | string | number;
     trust_score?: number | string | null;
     display_name?: string | null;
@@ -2003,6 +2007,94 @@ export async function selectPasswordHash(id: string) {
     `;
 }
 
+export async function selectUserEmailById(id: string): Promise<string | null> {
+    const [row] = (await sql`
+        SELECT email
+        FROM app.users
+        WHERE id = ${id}
+        LIMIT 1
+    `) as Array<{ email: string | null }>;
+
+    return row?.email ?? null;
+}
+
+export async function storePasswordResetToken(
+    id: string,
+    token: string,
+    expiresAt: Date
+): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.users
+        SET password_reset_token = ${token},
+            password_reset_expires = ${expiresAt}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
+export async function clearPasswordResetToken(id: string): Promise<void> {
+    await sql`
+        UPDATE app.users
+        SET password_reset_token = NULL,
+            password_reset_expires = NULL
+        WHERE id = ${id}
+    `;
+}
+
+export async function clearPasswordResetTokenByToken(token: string): Promise<void> {
+    await sql`
+        UPDATE app.users
+        SET password_reset_token = NULL,
+            password_reset_expires = NULL
+        WHERE password_reset_token = ${token}
+    `;
+}
+
+export async function selectPasswordResetRecord(token: string): Promise<
+    | {
+        id: string;
+        email: string;
+        password_reset_expires: Date | string | number | null;
+    }
+    | null
+> {
+    const [row] = (await sql`
+        SELECT id::text AS id,
+               email,
+               password_reset_expires
+        FROM app.users
+        WHERE password_reset_token = ${token}
+        LIMIT 1
+    `) as Array<{
+        id: string;
+        email: string;
+        password_reset_expires: Date | string | number | null;
+    }>;
+
+    return row ?? null;
+}
+
+export async function consumePasswordResetToken(
+    token: string,
+    hashedPassword: string,
+    now: Date
+): Promise<boolean> {
+    const [updated] = await sql`
+        UPDATE app.users
+        SET password_hash = ${hashedPassword},
+            password_reset_token = NULL,
+            password_reset_expires = NULL
+        WHERE password_reset_token = ${token}
+          AND password_reset_expires IS NOT NULL
+          AND password_reset_expires > ${now}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
 export async function selectFullUser(id: string): Promise<User | null> {
     await ensureSchema();
 
@@ -2312,6 +2404,23 @@ export async function verifyUserEmailByToken(token: string): Promise<boolean> {
     `;
 
     return Boolean(verifiedUser);
+}
+
+export async function updateUserEmailWithVerificationToken(
+    id: string,
+    email: string,
+    verificationToken: string
+): Promise<boolean> {
+    const [updatedUser] = await sql`
+        UPDATE app.users
+        SET email = ${email},
+            is_email_verified = false,
+            verification_token = ${verificationToken}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updatedUser);
 }
 
 export async function updateUserPassword(id: string, newHashedPass: string) {

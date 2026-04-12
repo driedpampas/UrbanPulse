@@ -18,6 +18,8 @@ import {
 import swaggerDoc from '../swagger.json';
 import type {
     AddChatParticipantsBody,
+    PasswordConfirmBody,
+    PasswordRequestBody,
     CreateChatBody,
     CreateLibraryItemBody,
     CreateMessageBody,
@@ -28,6 +30,7 @@ import type {
     PulseMatchBody,
     RegisterUserBody,
     SearchUsersQuery,
+    UpdateEmailBody,
     UpdateLibraryItemBody,
     UpdatePassBody,
     UpdateUserBody,
@@ -46,6 +49,8 @@ import {
     deleteMessageSchema,
     loginUserSchema,
     messageNotificationPayloadSchema,
+    passwordConfirmSchema,
+    passwordRequestSchema,
     pulseListQuerySchema,
     pulseMatchSchema,
     registerUserSchema,
@@ -53,6 +58,7 @@ import {
     searchUsersSchema,
     sendMessageResponseSchema,
     updateAdminUserRoleBodySchema,
+    updateEmailSchema,
     updateLibraryItemSchema,
     updatePassSchema,
     updateReportStatusSchema,
@@ -282,29 +288,172 @@ export const httpRoutes: HttpRoutes = {
             validate(req, async () =>
                 authorize(req, async (session) =>
                     caught(async () => {
-                        const payload: JwtPayload = session as JwtPayload;
-                        const body: UpdatePassBody = await req
+                        const _payload: JwtPayload = session as JwtPayload;
+                        const _body: UpdatePassBody = await req
                             .json()
                             .then((raw) => updatePassSchema.parse(raw));
 
-                        const [passwordRow] = await db.selectPasswordHash(payload.id);
-                        if (!passwordRow?.password_hash) {
-                            return UNAUTHORIZED;
-                        }
-
-                        const isCorrect = await bun.password.verify(
-                            body.oldPassword,
-                            passwordRow.password_hash
+                        return withCors(
+                            Response.json(
+                                {
+                                    error: 'Direct password updates are disabled. Use /api/password/request and /api/password/confirm.',
+                                },
+                                { status: 403 }
+                            )
                         );
+                    })
+                )
+            ),
+    },
+    '/api/password/request': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const rawBody = await req.text();
+                        let parsedBody: unknown = {};
+                        if (rawBody.length > 0) {
+                            try {
+                                parsedBody = JSON.parse(rawBody);
+                            } catch {
+                                return withCors(BAD_REQUEST);
+                            }
+                        }
+                        const _body: PasswordRequestBody = passwordRequestSchema.parse(parsedBody);
 
-                        if (!isCorrect) {
-                            return UNAUTHORIZED;
+                        const result = await auth.requestPasswordChange(payload.id);
+
+                        if (!result.success) {
+                            if (result.status === 404) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to send password change email.' },
+                                    { status: result.status }
+                                )
+                            );
                         }
 
-                        const newPassHash = await bun.password.hash(body.newPassword);
-                        await db.updateUserPassword(payload.id, newPassHash);
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    message:
+                                        'Password change link sent to your current email address.',
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
+    '/api/password/confirm': {
+        POST: async (req) =>
+            validate(req, async () =>
+                caught(async () => {
+                    const body: PasswordConfirmBody = await req
+                        .json()
+                        .then((raw) => passwordConfirmSchema.parse(raw));
 
-                        return SUCCESS;
+                    const result = await auth.confirmPasswordChange(body.token, body.newPassword);
+
+                    if (!result.success) {
+                        if (result.status === 404) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Password reset token is invalid.' },
+                                    { status: 404 }
+                                )
+                            );
+                        }
+
+                        if (result.status === 410) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Password reset token has expired.' },
+                                    { status: 410 }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                { error: 'Invalid password reset request.' },
+                                { status: result.status }
+                            )
+                        );
+                    }
+
+                    return withCors(
+                        Response.json(
+                            { success: true, message: 'Password updated successfully.' },
+                            { status: 200 }
+                        )
+                    );
+                })
+            ),
+    },
+    '/api/settings/email': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const body: UpdateEmailBody = await req
+                            .json()
+                            .then((raw) => updateEmailSchema.parse(raw));
+
+                        const result = await auth.changeUserEmail(payload.id, body.email);
+
+                        if (!result.success) {
+                            if (result.status === 409) {
+                                return withCors(
+                                    Response.json(
+                                        { error: 'Email is already in use.' },
+                                        { status: 409 }
+                                    )
+                                );
+                            }
+
+                            if (result.status === 400) {
+                                return withCors(
+                                    Response.json(
+                                        {
+                                            error: 'Please choose a different email address to update your account.',
+                                        },
+                                        { status: 400 }
+                                    )
+                                );
+                            }
+
+                            if (result.status === 404) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to send verification email to the new address.' },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    email: result.email,
+                                    isEmailVerified: result.isEmailVerified,
+                                    message:
+                                        'Email updated. Please verify your new email address to unlock high-trust features.',
+                                },
+                                { status: 200 }
+                            )
+                        );
                     })
                 )
             ),
