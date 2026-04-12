@@ -112,7 +112,7 @@ function buildVerificationEmailHtml(verificationLink: string): string {
 }
 
 function buildPasswordChangeEmailHtml(passwordChangeLink: string): string {
-        return `
+    return `
 <!doctype html>
 <html lang="en">
     <head>

@@ -60,7 +60,9 @@ function MessageReportRowComponent({ report, onAction }: Props) {
             </div>
 
             <div style="display:flex;flex-direction:column;gap:6px;">
-                <p style="margin:0;font-size:12px;font-weight:700;color:var(--text-secondary);">Reason</p>
+                <p style="margin:0;font-size:12px;font-weight:700;color:var(--text-secondary);">
+                    Reason
+                </p>
                 <p style="margin:0;font-size:13px;color:var(--text);">{report.reason}</p>
             </div>
 

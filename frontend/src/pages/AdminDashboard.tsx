@@ -1,4 +1,12 @@
-import { Activity, CheckCircle, ClipboardList, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
+import {
+    Activity,
+    CheckCircle,
+    ClipboardList,
+    Flag,
+    LibraryBig,
+    Search,
+    UsersRound,
+} from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LibraryRow } from '../components/Admin/LibraryRow';
 import { MessageReportRow } from '../components/Admin/MessageReportRow';
@@ -226,7 +234,9 @@ export function AdminDashboard() {
                                                 destructive: role === 'banned',
                                                 onConfirm: async () => {
                                                     await setUserRole(userId, role);
-                                                    showToast(`${user.name} role changed to ${role}.`);
+                                                    showToast(
+                                                        `${user.name} role changed to ${role}.`
+                                                    );
                                                 },
                                             });
                                         }}
@@ -372,7 +382,10 @@ export function AdminDashboard() {
                                                         {canSolve && (
                                                             <HoverButton
                                                                 type="button"
-                                                                disabled={requestSolveActionId === request.id}
+                                                                disabled={
+                                                                    requestSolveActionId ===
+                                                                    request.id
+                                                                }
                                                                 onClick={() => {
                                                                     setConfirmation({
                                                                         title: 'Mark request solved',
@@ -399,7 +412,9 @@ export function AdminDashboard() {
                                                         <HoverButton
                                                             type="button"
                                                             onClick={() =>
-                                                                void toggleRequestDetails(request.id)
+                                                                void toggleRequestDetails(
+                                                                    request.id
+                                                                )
                                                             }
                                                             style="height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;"
                                                         >
@@ -414,10 +429,10 @@ export function AdminDashboard() {
                                                     <div style="display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--border);">
                                                         {requestInteractionsLoadingFor ===
                                                             request.id && (
-                                                                <div style="font-size:12px;color:var(--text-tertiary);">
-                                                                    Loading interactions...
-                                                                </div>
-                                                            )}
+                                                            <div style="font-size:12px;color:var(--text-tertiary);">
+                                                                Loading interactions...
+                                                            </div>
+                                                        )}
 
                                                         {requestInteractionsLoadingFor !==
                                                             request.id &&
@@ -438,18 +453,18 @@ export function AdminDashboard() {
                                                                     </span>
                                                                     <span style="font-size:11px;color:var(--text-tertiary);">
                                                                         {interaction.status ===
-                                                                            'successful'
+                                                                        'successful'
                                                                             ? `Successful (+${interaction.trustAwarded} trust)`
                                                                             : 'Accepted'}
                                                                     </span>
                                                                 </div>
                                                                 {interaction.status ===
-                                                                    'accepted' ? (
+                                                                'accepted' ? (
                                                                     <HoverButton
                                                                         type="button"
                                                                         disabled={
                                                                             requestInteractionActionId ===
-                                                                            interaction.id ||
+                                                                                interaction.id ||
                                                                             request.isSolved
                                                                         }
                                                                         onClick={() => {
@@ -459,21 +474,22 @@ export function AdminDashboard() {
                                                                                     'Mark this interaction as successful? This is restricted to admin/mod from this panel.',
                                                                                 confirmLabel:
                                                                                     'Mark successful',
-                                                                                onConfirm: async () => {
-                                                                                    await markRequestInteractionSuccessful(
-                                                                                        request.id,
-                                                                                        interaction.id
-                                                                                    );
-                                                                                    showToast(
-                                                                                        'Interaction marked successful.'
-                                                                                    );
-                                                                                },
+                                                                                onConfirm:
+                                                                                    async () => {
+                                                                                        await markRequestInteractionSuccessful(
+                                                                                            request.id,
+                                                                                            interaction.id
+                                                                                        );
+                                                                                        showToast(
+                                                                                            'Interaction marked successful.'
+                                                                                        );
+                                                                                    },
                                                                             });
                                                                         }}
                                                                         style="height:28px;padding:0 10px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
                                                                     >
                                                                         {requestInteractionActionId ===
-                                                                            interaction.id
+                                                                        interaction.id
                                                                             ? 'Saving...'
                                                                             : 'Mark successful'}
                                                                     </HoverButton>
@@ -679,9 +695,7 @@ export function AdminDashboard() {
                             await confirmation.onConfirm();
                         } catch (error) {
                             console.error(error);
-                            window.alert(
-                                error instanceof Error ? error.message : 'Action failed.'
-                            );
+                            window.alert(error instanceof Error ? error.message : 'Action failed.');
                         } finally {
                             setConfirmation(null);
                         }

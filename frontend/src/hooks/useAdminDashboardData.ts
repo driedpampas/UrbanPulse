@@ -194,7 +194,9 @@ export function useAdminDashboardData() {
                 const [freshUser] = await fetchAdminUsers({ id: userId, limit: 1, offset: 0 });
                 if (freshUser) {
                     setUsers((current) =>
-                        current.map((user) => (user.id === userId ? { ...user, ...freshUser } : user))
+                        current.map((user) =>
+                            user.id === userId ? { ...user, ...freshUser } : user
+                        )
                     );
                 }
             } catch {
@@ -301,7 +303,10 @@ export function useAdminDashboardData() {
             setRequestInteractionsLoadingFor(pulseId);
             try {
                 const interactions = await fetchAdminRequestInteractions(pulseId);
-                setRequestInteractionsByPulse((current) => ({ ...current, [pulseId]: interactions }));
+                setRequestInteractionsByPulse((current) => ({
+                    ...current,
+                    [pulseId]: interactions,
+                }));
             } finally {
                 setRequestInteractionsLoadingFor(null);
             }

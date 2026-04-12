@@ -32,7 +32,9 @@ export function VerifyEmail() {
         const verifyEmail = async () => {
             if (!token) {
                 setState('error');
-                setMessage('Verification token is missing. Please open the verification link from your inbox.');
+                setMessage(
+                    'Verification token is missing. Please open the verification link from your inbox.'
+                );
                 return;
             }
 
@@ -76,7 +78,9 @@ export function VerifyEmail() {
                 }
 
                 setState('error');
-                setMessage('Unable to contact the verification service right now. Please retry in a minute.');
+                setMessage(
+                    'Unable to contact the verification service right now. Please retry in a minute.'
+                );
             }
         };
 
@@ -106,8 +110,12 @@ export function VerifyEmail() {
                         {state === 'loading' && (
                             <LoaderCircle class="h-5 w-5 animate-spin text-[var(--accent)]" />
                         )}
-                        {state === 'success' && <CheckCircle2 class="h-5 w-5 text-[var(--success)]" />}
-                        {state === 'error' && <AlertTriangle class="h-5 w-5 text-[var(--danger)]" />}
+                        {state === 'success' && (
+                            <CheckCircle2 class="h-5 w-5 text-[var(--success)]" />
+                        )}
+                        {state === 'error' && (
+                            <AlertTriangle class="h-5 w-5 text-[var(--danger)]" />
+                        )}
                         <p class="text-sm font-semibold text-[var(--text)]">
                             {state === 'loading' && 'Checking your verification token'}
                             {state === 'success' && 'Verification complete'}
@@ -121,7 +129,9 @@ export function VerifyEmail() {
                                 <div class="mt-0.5 rounded-full bg-[var(--accent-muted)] p-2">
                                     <MailCheck class="h-4 w-4 text-[var(--accent)]" />
                                 </div>
-                                <p class="text-sm leading-6 text-[var(--text-secondary)]">{message}</p>
+                                <p class="text-sm leading-6 text-[var(--text-secondary)]">
+                                    {message}
+                                </p>
                             </div>
                         </div>
 

@@ -192,10 +192,7 @@ export async function confirmPasswordChange(
     return { success: true };
 }
 
-export async function changeUserEmail(
-    userId: string,
-    email: string
-): Promise<UpdateEmailResult> {
+export async function changeUserEmail(userId: string, email: string): Promise<UpdateEmailResult> {
     const normalizedEmail = email.trim().toLowerCase();
     const currentEmail = await db.selectUserEmailById(userId);
 
@@ -317,26 +314,24 @@ async function triggerAuthMailerRequest(payload: AuthMailerRequestPayload): Prom
 }
 
 function isUniqueViolation(error: unknown): boolean {
-    const value = error as
-        | {
+    const value = error as {
+        code?: unknown;
+        cause?: {
             code?: unknown;
-            cause?: {
-                code?: unknown;
-            };
-        }
-        | null;
+        };
+    } | null;
 
     return String(value?.code ?? value?.cause?.code ?? '') === '23505';
 }
 
 type AuthMailerRequestPayload =
     | {
-        action: 'verification';
-        email: string;
-        verification_link: string;
-    }
+          action: 'verification';
+          email: string;
+          verification_link: string;
+      }
     | {
-        action: 'password_change';
-        email: string;
-        password_change_link: string;
-    };
+          action: 'password_change';
+          email: string;
+          password_change_link: string;
+      };

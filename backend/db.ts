@@ -363,12 +363,12 @@ type ChatSummaryRow = {
     is_group: boolean;
     timestamp: number | string | Date;
     participants:
-    | Array<{
-        userId: string;
-        displayName: string | null;
-        roles: string[];
-    }>
-    | unknown;
+        | Array<{
+              userId: string;
+              displayName: string | null;
+              roles: string[];
+          }>
+        | unknown;
     owner_id: string | null;
 };
 export interface Report {
@@ -2275,14 +2275,11 @@ export async function clearPasswordResetTokenByToken(token: string): Promise<voi
     `;
 }
 
-export async function selectPasswordResetRecord(token: string): Promise<
-    | {
-        id: string;
-        email: string;
-        password_reset_expires: Date | string | number | null;
-    }
-    | null
-> {
+export async function selectPasswordResetRecord(token: string): Promise<{
+    id: string;
+    email: string;
+    password_reset_expires: Date | string | number | null;
+} | null> {
     const [row] = (await sql`
         SELECT id::text AS id,
                email,

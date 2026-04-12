@@ -87,7 +87,8 @@ export function Settings() {
                         <div>
                             <h2 class="text-sm font-semibold text-[var(--text)]">Email Address</h2>
                             <p class="text-xs text-[var(--text-secondary)]">
-                                Changing your email resets verification until you confirm the new inbox.
+                                Changing your email resets verification until you confirm the new
+                                inbox.
                             </p>
                         </div>
                     </div>
@@ -99,9 +100,7 @@ export function Settings() {
                         <input
                             type="email"
                             value={email}
-                            onInput={(event) =>
-                                setEmail((event.target as HTMLInputElement).value)
-                            }
+                            onInput={(event) => setEmail((event.target as HTMLInputElement).value)}
                             autoComplete="email"
                             class="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] px-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--border-focus)]"
                             placeholder="you@domain.com"
@@ -134,7 +133,9 @@ export function Settings() {
                             <KeyRound class="h-4 w-4 text-[var(--warning)]" />
                         </div>
                         <div>
-                            <h2 class="text-sm font-semibold text-[var(--text)]">Password Security</h2>
+                            <h2 class="text-sm font-semibold text-[var(--text)]">
+                                Password Security
+                            </h2>
                             <p class="text-xs text-[var(--text-secondary)]">
                                 Password updates require a secure email confirmation token.
                             </p>
@@ -169,7 +170,9 @@ export function Settings() {
                             onClick={handlePasswordRequest}
                             style="height:40px;width:100%;"
                         >
-                            {passwordSubmitting ? 'Sending secure link…' : 'Send Password Change Link'}
+                            {passwordSubmitting
+                                ? 'Sending secure link…'
+                                : 'Send Password Change Link'}
                         </HoverButton>
                     </div>
                 </section>
@@ -180,7 +183,8 @@ export function Settings() {
                             <ShieldCheck class="h-4 w-4 text-[var(--accent)]" />
                         </div>
                         <p class="text-xs text-[var(--text-secondary)]">
-                            UrbanPulse enforces token-based confirmation for sensitive account changes.
+                            UrbanPulse enforces token-based confirmation for sensitive account
+                            changes.
                         </p>
                     </div>
                 </section>

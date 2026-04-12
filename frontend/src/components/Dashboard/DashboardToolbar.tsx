@@ -14,7 +14,6 @@ type Props = {
     onOpenPostForm: () => void;
 };
 
-
 function DashboardToolbarComponent({
     view,
     showFilters,

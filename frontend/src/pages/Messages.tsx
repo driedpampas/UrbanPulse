@@ -1424,7 +1424,7 @@ function ChatView({
                                                 handleContextMenu(e as any, msg.id);
                                             }}
                                             style={`
-                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isEditingMessage ? 'default' : isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
+                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                                 ${
                                                     isMe
                                                         ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
@@ -1468,7 +1468,9 @@ function ChatView({
                                                 <div
                                                     style="display:flex;flex-direction:column;gap:8px;"
                                                     onClick={(event) => event.stopPropagation()}
-                                                    onContextMenu={(event) => event.stopPropagation()}
+                                                    onContextMenu={(event) =>
+                                                        event.stopPropagation()
+                                                    }
                                                 >
                                                     <input
                                                         value={editDraft}
@@ -1599,9 +1601,7 @@ function ChatView({
                                                             onClick={() =>
                                                                 handleStartMessageEdit(msg)
                                                             }
-                                                            disabled={
-                                                                savingEditMessageId !== null
-                                                            }
+                                                            disabled={savingEditMessageId !== null}
                                                             role="menuitem"
                                                             key="edit-message"
                                                             style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"

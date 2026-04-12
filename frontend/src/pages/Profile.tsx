@@ -92,10 +92,10 @@ const MAP_FRAME_STYLE =
 function resolveLocationValue(
     value:
         | {
-            location?: { lat?: number | null; lng?: number | null } | null;
-            lat?: number | null;
-            lng?: number | null;
-        }
+              location?: { lat?: number | null; lng?: number | null } | null;
+              lat?: number | null;
+              lng?: number | null;
+          }
         | null
         | undefined
 ): { lat: number; lng: number } | null {
@@ -331,8 +331,8 @@ export function Profile() {
     const mapSubtitle = editableLocationMap
         ? 'Click the map or drag the pin to update your profile.'
         : selectedLocation
-            ? 'Profile location preview'
-            : 'No location shared yet';
+          ? 'Profile location preview'
+          : 'No location shared yet';
 
     const handleSave = async () => {
         if (!draft) return;
@@ -411,24 +411,24 @@ export function Profile() {
                 nextRole === 'banned'
                     ? 'Ban user'
                     : nextRole === 'admin'
+                      ? 'Promote user'
+                      : nextRole === 'mod'
                         ? 'Promote user'
-                        : nextRole === 'mod'
-                            ? 'Promote user'
-                            : 'Demote user',
+                        : 'Demote user',
             message:
                 nextRole === 'banned'
                     ? `Ban ${user?.name ?? 'this user'}?`
                     : nextRole === 'admin'
-                        ? `Promote ${user?.name ?? 'this user'} to admin?`
-                        : nextRole === 'mod'
-                            ? `Promote ${user?.name ?? 'this user'} to mod?`
-                            : `Demote ${user?.name ?? 'this user'}?`,
+                      ? `Promote ${user?.name ?? 'this user'} to admin?`
+                      : nextRole === 'mod'
+                        ? `Promote ${user?.name ?? 'this user'} to mod?`
+                        : `Demote ${user?.name ?? 'this user'}?`,
             confirmLabel:
                 nextRole === 'admin' || nextRole === 'mod'
                     ? 'Promote'
                     : nextRole === 'banned'
-                        ? 'Ban'
-                        : 'Demote',
+                      ? 'Ban'
+                      : 'Demote',
             destructive: nextRole === 'banned' || nextRole === 'user',
             onConfirm: async () => {
                 await handleAdminRole(nextRole);
@@ -457,9 +457,7 @@ export function Profile() {
             }, 2400);
         } catch (error) {
             console.error(error);
-            window.alert(
-                error instanceof Error ? error.message : 'Could not update user role.'
-            );
+            window.alert(error instanceof Error ? error.message : 'Could not update user role.');
         } finally {
             setActionBusy(false);
         }
@@ -660,10 +658,11 @@ export function Profile() {
                                 class="btn-ghost"
                                 onClick={() => setShowRoleOptions(!showRoleOptions)}
                                 disabled={actionBusy}
-                                style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${showRoleOptions
-                                    ? 'background:var(--accent);color:#fff;'
-                                    : 'color:var(--accent);'
-                                    }`}
+                                style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${
+                                    showRoleOptions
+                                        ? 'background:var(--accent);color:#fff;'
+                                        : 'color:var(--accent);'
+                                }`}
                             >
                                 <ShieldCheck size={14} />
                                 {showRoleOptions ? 'Close Menu' : 'Manage User Role'}
@@ -823,8 +822,9 @@ export function Profile() {
                                         </div>
                                         <div
                                             ref={mapContainerRef}
-                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${displayLocationMap ? 'block' : 'none'
-                                                };`}
+                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${
+                                                displayLocationMap ? 'block' : 'none'
+                                            };`}
                                         />
                                         {displayLocationMap && !mapLoaded && !mapError && (
                                             <div style="position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
@@ -834,10 +834,11 @@ export function Profile() {
                                         )}
                                         {displayLocationMap && mapError && (
                                             <div
-                                                style={`position:absolute;${mapLoaded
-                                                    ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
-                                                    : 'inset:0;justify-content:center;'
-                                                    } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
+                                                style={`position:absolute;${
+                                                    mapLoaded
+                                                        ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
+                                                        : 'inset:0;justify-content:center;'
+                                                } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
                                                 class="animate-slide-up"
                                             >
                                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -860,15 +861,15 @@ export function Profile() {
                                                         onClick={() => setMapError(null)}
                                                         style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
                                                         onMouseEnter={(e) =>
-                                                        ((
-                                                            e.target as HTMLElement
-                                                        ).style.background =
-                                                            'var(--danger-muted)')
+                                                            ((
+                                                                e.target as HTMLElement
+                                                            ).style.background =
+                                                                'var(--danger-muted)')
                                                         }
                                                         onMouseLeave={(e) =>
-                                                        ((
-                                                            e.target as HTMLElement
-                                                        ).style.background = 'transparent')
+                                                            ((
+                                                                e.target as HTMLElement
+                                                            ).style.background = 'transparent')
                                                         }
                                                         aria-label="Clear error"
                                                     >
@@ -1019,9 +1020,10 @@ export function Profile() {
 												padding:4px 10px;border-radius:5px;border:1px solid;
 												font-size:12px;font-weight:500;cursor:${editing ? 'pointer' : 'default'};
 												transition:all 0.15s;
-												${active
-                                                    ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
-                                                    : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+												${
+                                                    active
+                                                        ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
+                                                        : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                                 }
 											`}
                                         >
@@ -1049,8 +1051,8 @@ export function Profile() {
                             {saving
                                 ? 'Saving…'
                                 : isSetupMode && !selectedLocation
-                                    ? 'Choose a location'
-                                    : 'Save Changes'}
+                                  ? 'Choose a location'
+                                  : 'Save Changes'}
                         </HoverButton>
                         <HoverButton
                             type="button"

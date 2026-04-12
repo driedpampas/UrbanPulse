@@ -416,8 +416,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
 
     const threads = threadResults
         .filter(
-            (result): result is PromiseFulfilledResult<ChatThread> =>
-                result.status === 'fulfilled'
+            (result): result is PromiseFulfilledResult<ChatThread> => result.status === 'fulfilled'
         )
         .map((result) => result.value);
 
@@ -446,11 +445,11 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
     const response = await request<BackendChatMessage | BackendSendMessageResponse>(
         `/chats/${threadId}/messages`,
         {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content }),
         }
     );
 
@@ -611,7 +610,9 @@ export async function editChatMessage(messageId: string, content: string): Promi
         senderId: payload.message.senderId,
         senderName:
             sessionUser && sessionUser.id === payload.message.senderId
-                ? sessionUser.displayName || sessionUser.email || `Neighbor ${sessionUser.id.slice(0, 6)}`
+                ? sessionUser.displayName ||
+                  sessionUser.email ||
+                  `Neighbor ${sessionUser.id.slice(0, 6)}`
                 : `Neighbor ${payload.message.senderId.slice(0, 6)}`,
         content: payload.message.content,
         isEdited: Boolean(payload.message.isEdited),

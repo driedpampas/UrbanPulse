@@ -95,9 +95,9 @@ function mapBackendUser(user: BackendUser): User {
     const location =
         user.location && isUsableCoordinates(user.location.lat ?? 0, user.location.lng ?? 0)
             ? {
-                lat: user.location.lat ?? 0,
-                lng: user.location.lng ?? 0,
-            }
+                  lat: user.location.lat ?? 0,
+                  lng: user.location.lng ?? 0,
+              }
             : null;
 
     return {
@@ -197,11 +197,11 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         updates.location && isUsableCoordinates(updates.location.lat, updates.location.lng)
             ? updates.location
             : isUsableCoordinates(updates.lat ?? 0, updates.lng ?? 0)
-                ? {
+              ? {
                     lat: updates.lat ?? 0,
                     lng: updates.lng ?? 0,
                 }
-                : null;
+              : null;
 
     const patchBody: {
         displayName?: string;

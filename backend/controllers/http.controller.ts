@@ -443,7 +443,9 @@ export const httpRoutes: HttpRoutes = {
 
                             return withCors(
                                 Response.json(
-                                    { error: 'Unable to send verification email to the new address.' },
+                                    {
+                                        error: 'Unable to send verification email to the new address.',
+                                    },
                                     { status: result.status }
                                 )
                             );
@@ -1062,7 +1064,10 @@ export const httpRoutes: HttpRoutes = {
 
                         if (!result.success && result.invalidState) {
                             return withCors(
-                                Response.json({ error: 'Report already processed.' }, { status: 409 })
+                                Response.json(
+                                    { error: 'Report already processed.' },
+                                    { status: 409 }
+                                )
                             );
                         }
 
