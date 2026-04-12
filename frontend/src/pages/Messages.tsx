@@ -317,7 +317,7 @@ export function Messages() {
                     return;
                 }
 
-                void refreshThread(event.threadId).catch(() => {});
+                void refreshThread(event.threadId).catch(() => { });
                 return;
             }
 
@@ -325,7 +325,7 @@ export function Messages() {
                 return;
             }
 
-            void refreshThread(event.threadId).catch(() => {});
+            void refreshThread(event.threadId).catch(() => { });
         };
 
         connectChatWebSocket(handleRefresh);
@@ -358,9 +358,9 @@ export function Messages() {
                     event.event === 'notification.message' && event.senderName
                         ? event.senderName
                         : senderIndex >= 0
-                          ? thread.participantNames[senderIndex] ||
+                            ? thread.participantNames[senderIndex] ||
                             `Neighbor ${event.message.senderId.slice(0, 6)}`
-                          : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                            : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
                 const mappedMessage: ChatMessage = {
                     id: event.message.id,
@@ -835,6 +835,10 @@ function ChatView({
         if (typeof window === 'undefined') return false;
         return localStorage.getItem('wide-chat-view') === 'true';
     });
+    const [isMobileViewport, setIsMobileViewport] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.innerWidth < 900;
+    });
     const [connectionStatus, setConnectionStatus] = useState<
         'connected' | 'connecting' | 'disconnected'
     >(() => 'connected');
@@ -849,6 +853,19 @@ function ChatView({
     useEffect(() => {
         localStorage.setItem('wide-chat-view', wideChatView.toString());
     }, [wideChatView]);
+
+    useEffect(() => {
+        const updateViewport = () => {
+            setIsMobileViewport(window.innerWidth < 900);
+        };
+
+        updateViewport();
+        window.addEventListener('resize', updateViewport);
+
+        return () => {
+            window.removeEventListener('resize', updateViewport);
+        };
+    }, []);
     const sendingRef = useRef(false);
     const copyNoticeTimerRef = useRef<number | null>(null);
     const replyHighlightTimerRef = useRef<number | null>(null);
@@ -1108,7 +1125,7 @@ function ChatView({
                     return;
                 }
 
-                void onThreadRefresh(thread.id).catch(() => {});
+                void onThreadRefresh(thread.id).catch(() => { });
                 return;
             }
 
@@ -1129,11 +1146,11 @@ function ChatView({
             const senderName = isMe
                 ? currentUserName
                 : event.event === 'notification.message' && event.senderName
-                  ? event.senderName
-                  : senderIndex >= 0
-                    ? thread.participantNames[senderIndex] ||
-                      `Neighbor ${event.message.senderId.slice(0, 6)}`
-                    : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                    ? event.senderName
+                    : senderIndex >= 0
+                        ? thread.participantNames[senderIndex] ||
+                        `Neighbor ${event.message.senderId.slice(0, 6)}`
+                        : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
             const mappedMessage: ChatMessage = {
                 id: event.message.id,
@@ -1541,7 +1558,7 @@ function ChatView({
                         <img
                             src={avatarUrl(
                                 thread.participants.find((p) => p !== currentUserId) ||
-                                    thread.participants[0]
+                                thread.participants[0]
                             )}
                             alt=""
                             style="width:100%;height:100%;object-fit:cover;"
@@ -1726,15 +1743,14 @@ function ChatView({
                                                 handleContextMenu(e as any, msg.id);
                                             }}
                                             style={`
-                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
-                                                ${
-                                                    isMe
-                                                        ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
-                                                        : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
+                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere;
+                                                ${isMe
+                                                    ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
+                                                    : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
                                                 }
                                             `}
                                         >
-                                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;min-width:0;">
                                                 {!isMe ? (
                                                     <HoverButton
                                                         type="button"
@@ -1743,7 +1759,7 @@ function ChatView({
                                                                 `/profile?userId=${encodeURIComponent(msg.senderId)}`
                                                             )
                                                         }
-                                                        style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;"
+                                                        style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;min-width:0;max-width:58%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
                                                     >
                                                         {msg.senderName}
                                                     </HoverButton>
@@ -1856,16 +1872,18 @@ function ChatView({
                                                                     'Unknown user'}
                                                             </span>
                                                             <span
-                                                                style={`font-size:11px;line-height:1.35;word-break:break-word;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
+                                                                style={`font-size:11px;line-height:1.35;word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
                                                             >
                                                                 {msg.replyTo?.isUnavailable
                                                                     ? 'Original message unavailable'
                                                                     : msg.replyTo?.snippet ||
-                                                                      'Original message unavailable'}
+                                                                    'Original message unavailable'}
                                                             </span>
                                                         </HoverButton>
                                                     )}
-                                                    <p style="margin:0;word-break:break-word;">
+                                                    <p
+                                                        style="margin:0;word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;"
+                                                    >
                                                         {msg.content}
                                                     </p>
                                                 </>
@@ -2040,39 +2058,39 @@ function ChatView({
                                                                 thread.participantRoles?.[
                                                                     currentUserId
                                                                 ]?.includes('admin')))) && (
-                                                        <>
-                                                            <div style="height:1px;background:var(--border);" />
-                                                            <HoverButton
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    handleDeleteMessage(
-                                                                        msg,
-                                                                        'everyone'
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    deletingMessageId !== null
-                                                                }
-                                                                role="menuitem"
-                                                                key="delete-everyone"
-                                                                style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                                onMouseEnter={(e) => {
-                                                                    (
-                                                                        e.currentTarget as HTMLElement
-                                                                    ).style.background =
-                                                                        'var(--danger-subtle)';
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    (
-                                                                        e.currentTarget as HTMLElement
-                                                                    ).style.background = 'none';
-                                                                }}
-                                                            >
-                                                                <Trash2 size={14} />
-                                                                Delete for everyone
-                                                            </HoverButton>
-                                                        </>
-                                                    )}
+                                                            <>
+                                                                <div style="height:1px;background:var(--border);" />
+                                                                <HoverButton
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        handleDeleteMessage(
+                                                                            msg,
+                                                                            'everyone'
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        deletingMessageId !== null
+                                                                    }
+                                                                    role="menuitem"
+                                                                    key="delete-everyone"
+                                                                    style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                                    onMouseEnter={(e) => {
+                                                                        (
+                                                                            e.currentTarget as HTMLElement
+                                                                        ).style.background =
+                                                                            'var(--danger-subtle)';
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        (
+                                                                            e.currentTarget as HTMLElement
+                                                                        ).style.background = 'none';
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Delete for everyone
+                                                                </HoverButton>
+                                                            </>
+                                                        )}
                                                 </div>
                                             </>
                                         )}
@@ -2143,8 +2161,8 @@ function ChatView({
                                         isBlockedConversation
                                             ? 'You have blocked this user'
                                             : connectionStatus !== 'connected' || !threadSubscribed
-                                              ? 'Connecting…'
-                                              : 'Message…'
+                                                ? 'Connecting…'
+                                                : 'Message…'
                                     }
                                     style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                                     onFocus={(e) => {
@@ -2198,421 +2216,381 @@ function ChatView({
                 </div>
 
                 {showSidebar && (
-                    <aside
-                        class="animate-slide-in-right"
-                        style="width:min(320px, 86vw);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:30;flex-shrink:0;overflow:hidden;"
-                    >
-                        <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;">
-                            <div>
-                                <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
-                                    {sidebarTab === 'info' ? 'Chat Info' : 'Participants'}
-                                </p>
-                            </div>
+                    <>
+                        {isMobileViewport && (
                             <HoverButton
                                 type="button"
-                                class="btn-icon"
-                                onClick={() => setShowSidebar(false)}
                                 aria-label="Close sidebar"
-                            >
-                                <X size={14} />
-                            </HoverButton>
-                        </div>
-
-                        {sidebarTab === 'info' ? (
-                            <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px;">
-                                <div style="padding:16px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,var(--bg-subtle),var(--surface));box-shadow:var(--shadow-sm);display:flex;flex-direction:column;align-items:center;gap:14px;">
-                                    <div style="display:flex;align-items:center;justify-content:center;">
-                                        {isGroup ? (
-                                            <div style="display:flex;align-items:center;justify-content:center;">
-                                                {groupPreviewParticipants.map(
-                                                    (participant, index) => (
-                                                        <HoverButton
-                                                            key={participant.id}
-                                                            type="button"
-                                                            onClick={() =>
-                                                                openProfile(participant.id)
-                                                            }
-                                                            aria-label={`Open ${participant.name}'s profile`}
-                                                            style={`width:42px;height:42px;border-radius:14px;overflow:hidden;border:2px solid var(--surface);background:var(--bg-muted);margin-left:${index === 0 ? 0 : -10}px;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,0.12);padding:0;`}
-                                                        >
-                                                            <img
-                                                                src={participant.avatar}
-                                                                alt=""
-                                                                style="width:100%;height:100%;object-fit:cover;"
-                                                            />
-                                                        </HoverButton>
-                                                    )
-                                                )}
-                                                {thread.participants.length > 4 && (
-                                                    <div style="width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-left:-10px;border:2px solid var(--surface);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:0 6px 18px rgba(15,23,42,0.12);">
-                                                        +{thread.participants.length - 4}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <HoverButton
-                                                type="button"
-                                                onClick={() =>
-                                                    directCounterpartId &&
-                                                    openProfile(directCounterpartId)
-                                                }
-                                                aria-label="Open profile"
-                                                style="width:72px;height:72px;border-radius:22px;overflow:hidden;border:2px solid var(--border);background:var(--bg-muted);padding:0;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,0.14);"
-                                            >
-                                                <img
-                                                    src={
-                                                        directCounterpartProfile?.avatar ||
-                                                        avatarUrl(
-                                                            directCounterpartId ||
-                                                                thread.participants[0]
-                                                        )
-                                                    }
-                                                    alt=""
-                                                    style="width:100%;height:100%;object-fit:cover;"
-                                                />
-                                            </HoverButton>
-                                        )}
-                                    </div>
-                                    <div style="text-align:center;">
-                                        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">
-                                            {chatTitle}
-                                        </h3>
-                                        <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">
-                                            {isGroup
-                                                ? `${thread.participants.length} members`
-                                                : 'Direct message'}
-                                        </p>
-                                    </div>
-                                    {!isGroup && directCounterpartId && (
-                                        <HoverButton
-                                            type="button"
-                                            class="btn-secondary"
-                                            onClick={() => openProfile(directCounterpartId)}
-                                            style="height:32px;padding:0 14px;font-size:12px;gap:6px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:600;"
-                                        >
-                                            View profile
-                                            <ChevronRight size={12} />
-                                        </HoverButton>
-                                    )}
-                                </div>
-
-                                {isGroup && (
-                                    <HoverButton
-                                        type="button"
-                                        class="btn-secondary"
-                                        onClick={() => setSidebarTab('participants')}
-                                        style="width:100%;height:38px;font-size:13px;gap:8px;display:flex;align-items:center;justify-content:center;background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;color:var(--text);"
-                                    >
-                                        <Users size={14} />
-                                        View Members ({thread.participants.length})
-                                    </HoverButton>
-                                )}
-
-                                <div style="border-top:1px solid var(--border);padding-top:20px;">
-                                    <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">
-                                        Chat Styles
+                                onClick={() => setShowSidebar(false)}
+                                style="position:absolute;inset:0;z-index:29;background:rgba(0,0,0,0.35);border:none;padding:0;cursor:default;"
+                            />
+                        )}
+                        <aside
+                            class="animate-slide-in-right"
+                            style={`width:min(320px, 86vw);background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:30;flex-shrink:0;overflow:hidden;${isMobileViewport ? 'position:absolute;top:0;right:0;bottom:0;' : ''}`}
+                        >
+                            <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;">
+                                <div>
+                                    <p style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
+                                        {sidebarTab === 'info' ? 'Chat Info' : 'Participants'}
                                     </p>
-
-                                    <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 12px;background:var(--bg-subtle);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;">
-                                        <span style="font-size:13px;font-weight:600;color:var(--text);">
-                                            Wide chat view
-                                        </span>
-                                        <div style="position:relative;display:flex;align-items:center;">
-                                            <input
-                                                type="checkbox"
-                                                checked={wideChatView}
-                                                onChange={() => setWideChatView(!wideChatView)}
-                                                style="opacity:0;position:absolute;width:0;height:0;"
-                                            />
-                                            <div
-                                                style={`width:36px;height:20px;background:${wideChatView ? 'var(--accent)' : 'var(--border-strong)'};border-radius:20px;position:relative;transition:all 0.2s;`}
-                                            >
-                                                <div
-                                                    style={`width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:3px;left:${wideChatView ? '19px' : '3px'};transition:all 0.2s;box-shadow:var(--shadow-sm);`}
-                                                />
-                                            </div>
-                                        </div>
-                                    </label>
-
-                                    <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">
-                                        Chat Color
-                                    </p>
-                                    <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;">
-                                        {[
-                                            '#3b82f6', // blue
-                                            '#8b5cf6', // violet
-                                            '#ec4899', // pink
-                                            '#f97316', // orange
-                                            '#10b981', // emerald
-                                            '#0ea5e9', // sky
-                                            '#f43f5e', // rose
-                                            '#6366f1', // indigo
-                                            '#14b8a6', // teal
-                                            '#22c55e', // green
-                                        ].map((color) => (
-                                            <HoverButton
-                                                key={color}
-                                                type="button"
-                                                onClick={() => setSelectedColor(color)}
-                                                style={`
-                                                    aspect-ratio:1;border-radius:8px;border:2px solid ${selectedColor === color ? 'var(--text)' : 'transparent'};
-                                                    background:${color};cursor:pointer;transition:transform 0.1s;
-                                                `}
-                                                onMouseEnter={(e) =>
-                                                    (e.currentTarget.style.transform = 'scale(1.1)')
-                                                }
-                                                onMouseLeave={(e) =>
-                                                    (e.currentTarget.style.transform = 'scale(1)')
-                                                }
-                                                aria-label={`Select color ${color}`}
-                                            />
-                                        ))}
-                                    </div>
                                 </div>
-
-                                <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
-                                    {isGroup &&
-                                        (thread.ownerId === currentUserId ? (
-                                            <HoverButton
-                                                type="button"
-                                                class="btn-ghost"
-                                                onClick={() =>
-                                                    setConfirmAction({
-                                                        title: 'Delete group chat',
-                                                        message:
-                                                            'Are you sure you want to delete this group chat? This cannot be undone.',
-                                                        confirmLabel: 'Delete group',
-                                                        destructive: true,
-                                                        onConfirm: async () => {
-                                                            await deleteGroupChat(thread.id);
-                                                            onThreadDeleted(thread.id);
-                                                        },
-                                                    })
-                                                }
-                                                style="width:100%;height:38px;font-size:13px;color:var(--danger);justify-content:center;gap:8px;background:var(--danger-subtle);border-radius:8px;"
-                                            >
-                                                <Trash2 size={14} />
-                                                Delete Group
-                                            </HoverButton>
-                                        ) : (
-                                            <HoverButton
-                                                type="button"
-                                                class="btn-ghost"
-                                                onClick={() =>
-                                                    setConfirmAction({
-                                                        title: 'Leave group chat',
-                                                        message:
-                                                            'Are you sure you want to leave this group?',
-                                                        confirmLabel: 'Leave group',
-                                                        destructive: true,
-                                                        onConfirm: async () => {
-                                                            await removeGroupChatParticipant(
-                                                                thread.id,
-                                                                currentUserId
-                                                            );
-                                                            onThreadDeleted(thread.id);
-                                                        },
-                                                    })
-                                                }
-                                                style="width:100%;height:38px;font-size:13px;justify-content:center;gap:8px;background:var(--bg-subtle);border-radius:8px;"
-                                            >
-                                                <ArrowLeft size={14} />
-                                                Leave Group
-                                            </HoverButton>
-                                        ))}
-                                </div>
+                                <HoverButton
+                                    type="button"
+                                    class="btn-icon"
+                                    onClick={() => setShowSidebar(false)}
+                                    aria-label="Close sidebar"
+                                >
+                                    <X size={14} />
+                                </HoverButton>
                             </div>
-                        ) : (
-                            <div style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
-                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                                    <HoverButton
-                                        type="button"
-                                        class="btn-icon"
-                                        onClick={() => setSidebarTab('info')}
-                                        style="width:28px;height:28px;"
-                                    >
-                                        <ArrowLeft size={14} />
-                                    </HoverButton>
-                                    <HoverButton
-                                        type="button"
-                                        class="btn-ghost"
-                                        onClick={() => setShowAddMembers((current) => !current)}
-                                        style="height:30px;padding:0 10px;font-size:11px;"
-                                    >
-                                        Add members
-                                    </HoverButton>
-                                </div>
 
-                                {showAddMembers && (
-                                    <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
-                                        <input
-                                            value={addMemberQuery}
-                                            onInput={(e) =>
-                                                setAddMemberQuery(
-                                                    (e.target as HTMLInputElement).value
-                                                )
-                                            }
-                                            placeholder="Search neighbors"
-                                            style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
-                                        />
-                                        {searchingAddMembers ? (
-                                            <div style="font-size:12px;color:var(--text-tertiary);">
-                                                Searching…
-                                            </div>
-                                        ) : (
-                                            addMemberResults.slice(0, 5).map((user) => (
+                            {sidebarTab === 'info' ? (
+                                <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px;">
+                                    <div style="padding:16px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(180deg,var(--bg-subtle),var(--surface));box-shadow:var(--shadow-sm);display:flex;flex-direction:column;align-items:center;gap:14px;">
+                                        <div style="display:flex;align-items:center;justify-content:center;">
+                                            {isGroup ? (
+                                                <div style="display:flex;align-items:center;justify-content:center;">
+                                                    {groupPreviewParticipants.map(
+                                                        (participant, index) => (
+                                                            <HoverButton
+                                                                key={participant.id}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openProfile(participant.id)
+                                                                }
+                                                                aria-label={`Open ${participant.name}'s profile`}
+                                                                style={`width:42px;height:42px;border-radius:14px;overflow:hidden;border:2px solid var(--surface);background:var(--bg-muted);margin-left:${index === 0 ? 0 : -10}px;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,0.12);padding:0;`}
+                                                            >
+                                                                <img
+                                                                    src={participant.avatar}
+                                                                    alt=""
+                                                                    style="width:100%;height:100%;object-fit:cover;"
+                                                                />
+                                                            </HoverButton>
+                                                        )
+                                                    )}
+                                                    {thread.participants.length > 4 && (
+                                                        <div style="width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-left:-10px;border:2px solid var(--surface);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:0 6px 18px rgba(15,23,42,0.12);">
+                                                            +{thread.participants.length - 4}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
                                                 <HoverButton
-                                                    key={user.id}
                                                     type="button"
-                                                    class="btn-ghost"
-                                                    disabled={addingMembers}
-                                                    onClick={async () => {
-                                                        setAddingMembers(true);
-                                                        try {
-                                                            await addGroupChatParticipants(
-                                                                thread.id,
-                                                                [user.id]
-                                                            );
-                                                            await onThreadRefresh(thread.id);
-                                                            setShowAddMembers(false);
-                                                        } finally {
-                                                            setAddingMembers(false);
-                                                        }
-                                                    }}
-                                                    style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
+                                                    onClick={() =>
+                                                        directCounterpartId &&
+                                                        openProfile(directCounterpartId)
+                                                    }
+                                                    aria-label="Open profile"
+                                                    style="width:72px;height:72px;border-radius:22px;overflow:hidden;border:2px solid var(--border);background:var(--bg-muted);padding:0;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,0.14);"
                                                 >
-                                                    <span>{user.name}</span>
-                                                    <span>+</span>
-                                                </HoverButton>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
-                                {thread.participants.map((participantId, index) => {
-                                    const profile = participantProfiles[participantId];
-                                    const name =
-                                        profile?.name ||
-                                        thread.participantNames[index] ||
-                                        participantNameById.get(participantId) ||
-                                        `Neighbor ${participantId.slice(0, 6)}`;
-                                    const avatar = profile?.avatar || getAvatarUrl(participantId);
-                                    const roles = thread.participantRoles?.[participantId] ?? [];
-                                    const isOwner =
-                                        thread.ownerId === participantId || roles.includes('owner');
-                                    const isAdmin = roles.includes('admin');
-                                    const isSelf = participantId === currentUserId;
-                                    return (
-                                        <div key={participantId} class="participant-card">
-                                            <HoverButton
-                                                type="button"
-                                                onClick={() => openProfile(participantId)}
-                                                style="background:none;border:none;padding:0;display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;text-align:left;"
-                                            >
-                                                <div style="width:40px;height:40px;border-radius:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:var(--bg-muted);box-shadow:inset 0 1px 0 rgba(255,255,255,0.3);">
                                                     <img
-                                                        src={avatar}
+                                                        src={
+                                                            directCounterpartProfile?.avatar ||
+                                                            avatarUrl(
+                                                                directCounterpartId ||
+                                                                thread.participants[0]
+                                                            )
+                                                        }
                                                         alt=""
                                                         style="width:100%;height:100%;object-fit:cover;"
                                                     />
-                                                </div>
-                                                <div style="min-width:0;flex:1;">
-                                                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                                                        <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                            {isSelf ? `${name} (You)` : name}
-                                                        </div>
-                                                        {isOwner && (
-                                                            <span
-                                                                class="type-badge"
-                                                                style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
-                                                            >
-                                                                Owner
-                                                            </span>
-                                                        )}
-                                                        {isAdmin && (
-                                                            <span
-                                                                class="type-badge"
-                                                                style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
-                                                            >
-                                                                Admin
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div style="margin-top:4px;font-size:11px;color:var(--text-tertiary);">
-                                                        {isSelf
-                                                            ? 'Open your profile'
-                                                            : 'Open profile'}
-                                                    </div>
-                                                </div>
+                                                </HoverButton>
+                                            )}
+                                        </div>
+                                        <div style="text-align:center;">
+                                            <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--text);">
+                                                {chatTitle}
+                                            </h3>
+                                            <p style="margin:4px 0 0;font-size:12px;color:var(--text-tertiary);">
+                                                {isGroup
+                                                    ? `${thread.participants.length} members`
+                                                    : 'Direct message'}
+                                            </p>
+                                        </div>
+                                        {!isGroup && directCounterpartId && (
+                                            <HoverButton
+                                                type="button"
+                                                class="btn-secondary"
+                                                onClick={() => openProfile(directCounterpartId)}
+                                                style="height:32px;padding:0 14px;font-size:12px;gap:6px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:600;"
+                                            >
+                                                View profile
+                                                <ChevronRight size={12} />
                                             </HoverButton>
-                                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
-                                                {thread.ownerId === currentUserId && !isOwner && (
+                                        )}
+                                    </div>
+
+                                    {isGroup && (
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-secondary"
+                                            onClick={() => setSidebarTab('participants')}
+                                            style="width:100%;height:38px;font-size:13px;gap:8px;display:flex;align-items:center;justify-content:center;background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;color:var(--text);"
+                                        >
+                                            <Users size={14} />
+                                            View Members ({thread.participants.length})
+                                        </HoverButton>
+                                    )}
+
+                                    <div style="border-top:1px solid var(--border);padding-top:20px;">
+                                        <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">
+                                            Chat Styles
+                                        </p>
+
+                                        <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:8px 12px;background:var(--bg-subtle);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;">
+                                            <span style="font-size:13px;font-weight:600;color:var(--text);">
+                                                Wide chat view
+                                            </span>
+                                            <div style="position:relative;display:flex;align-items:center;">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={wideChatView}
+                                                    onChange={() => setWideChatView(!wideChatView)}
+                                                    style="opacity:0;position:absolute;width:0;height:0;"
+                                                />
+                                                <div
+                                                    style={`width:36px;height:20px;background:${wideChatView ? 'var(--accent)' : 'var(--border-strong)'};border-radius:20px;position:relative;transition:all 0.2s;`}
+                                                >
+                                                    <div
+                                                        style={`width:14px;height:14px;background:#fff;border-radius:50%;position:absolute;top:3px;left:${wideChatView ? '19px' : '3px'};transition:all 0.2s;box-shadow:var(--shadow-sm);`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <p style="margin:0 0 10px;font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">
+                                            Chat Color
+                                        </p>
+                                        <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:8px;">
+                                            {[
+                                                '#3b82f6', // blue
+                                                '#8b5cf6', // violet
+                                                '#ec4899', // pink
+                                                '#f97316', // orange
+                                                '#10b981', // emerald
+                                                '#0ea5e9', // sky
+                                                '#f43f5e', // rose
+                                                '#6366f1', // indigo
+                                                '#14b8a6', // teal
+                                                '#22c55e', // green
+                                            ].map((color) => (
+                                                <HoverButton
+                                                    key={color}
+                                                    type="button"
+                                                    onClick={() => setSelectedColor(color)}
+                                                    style={`
+                                                    aspect-ratio:1;border-radius:8px;border:2px solid ${selectedColor === color ? 'var(--text)' : 'transparent'};
+                                                    background:${color};cursor:pointer;transition:transform 0.1s;
+                                                `}
+                                                    onMouseEnter={(e) =>
+                                                        (e.currentTarget.style.transform = 'scale(1.1)')
+                                                    }
+                                                    onMouseLeave={(e) =>
+                                                        (e.currentTarget.style.transform = 'scale(1)')
+                                                    }
+                                                    aria-label={`Select color ${color}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div style="border-top:1px solid var(--border);padding-top:20px;display:flex;flex-direction:column;gap:10px;">
+                                        {isGroup &&
+                                            (thread.ownerId === currentUserId ? (
+                                                <HoverButton
+                                                    type="button"
+                                                    class="btn-ghost"
+                                                    onClick={() =>
+                                                        setConfirmAction({
+                                                            title: 'Delete group chat',
+                                                            message:
+                                                                'Are you sure you want to delete this group chat? This cannot be undone.',
+                                                            confirmLabel: 'Delete group',
+                                                            destructive: true,
+                                                            onConfirm: async () => {
+                                                                await deleteGroupChat(thread.id);
+                                                                onThreadDeleted(thread.id);
+                                                            },
+                                                        })
+                                                    }
+                                                    style="width:100%;height:38px;font-size:13px;color:var(--danger);justify-content:center;gap:8px;background:var(--danger-subtle);border-radius:8px;"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete Group
+                                                </HoverButton>
+                                            ) : (
+                                                <HoverButton
+                                                    type="button"
+                                                    class="btn-ghost"
+                                                    onClick={() =>
+                                                        setConfirmAction({
+                                                            title: 'Leave group chat',
+                                                            message:
+                                                                'Are you sure you want to leave this group?',
+                                                            confirmLabel: 'Leave group',
+                                                            destructive: true,
+                                                            onConfirm: async () => {
+                                                                await removeGroupChatParticipant(
+                                                                    thread.id,
+                                                                    currentUserId
+                                                                );
+                                                                onThreadDeleted(thread.id);
+                                                            },
+                                                        })
+                                                    }
+                                                    style="width:100%;height:38px;font-size:13px;justify-content:center;gap:8px;background:var(--bg-subtle);border-radius:8px;"
+                                                >
+                                                    <ArrowLeft size={14} />
+                                                    Leave Group
+                                                </HoverButton>
+                                            ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-icon"
+                                            onClick={() => setSidebarTab('info')}
+                                            style="width:28px;height:28px;"
+                                        >
+                                            <ArrowLeft size={14} />
+                                        </HoverButton>
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-ghost"
+                                            onClick={() => setShowAddMembers((current) => !current)}
+                                            style="height:30px;padding:0 10px;font-size:11px;"
+                                        >
+                                            Add members
+                                        </HoverButton>
+                                    </div>
+
+                                    {showAddMembers && (
+                                        <div style="padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--bg-subtle);display:flex;flex-direction:column;gap:8px;">
+                                            <input
+                                                value={addMemberQuery}
+                                                onInput={(e) =>
+                                                    setAddMemberQuery(
+                                                        (e.target as HTMLInputElement).value
+                                                    )
+                                                }
+                                                placeholder="Search neighbors"
+                                                style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;"
+                                            />
+                                            {searchingAddMembers ? (
+                                                <div style="font-size:12px;color:var(--text-tertiary);">
+                                                    Searching…
+                                                </div>
+                                            ) : (
+                                                addMemberResults.slice(0, 5).map((user) => (
                                                     <HoverButton
+                                                        key={user.id}
                                                         type="button"
                                                         class="btn-ghost"
-                                                        disabled={
-                                                            participantActionBusy === participantId
-                                                        }
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setMemberActionConfirm({
-                                                                title: 'Promote member',
-                                                                message: `Promote ${name} to admin?`,
-                                                                confirmLabel: 'Promote',
-                                                                onConfirm: async () => {
-                                                                    setParticipantActionBusy(
-                                                                        participantId
-                                                                    );
-                                                                    try {
-                                                                        await promoteGroupChatParticipant(
-                                                                            thread.id,
-                                                                            participantId
-                                                                        );
-                                                                        const updated =
-                                                                            await onThreadRefresh(
-                                                                                thread.id
-                                                                            );
-                                                                        onThreadUpdate(updated);
-                                                                    } finally {
-                                                                        setParticipantActionBusy(
-                                                                            null
-                                                                        );
-                                                                    }
-                                                                },
-                                                            });
+                                                        disabled={addingMembers}
+                                                        onClick={async () => {
+                                                            setAddingMembers(true);
+                                                            try {
+                                                                await addGroupChatParticipants(
+                                                                    thread.id,
+                                                                    [user.id]
+                                                                );
+                                                                await onThreadRefresh(thread.id);
+                                                                setShowAddMembers(false);
+                                                            } finally {
+                                                                setAddingMembers(false);
+                                                            }
                                                         }}
-                                                        aria-label="Promote to admin"
-                                                        title="Promote to admin"
-                                                        style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
+                                                        style="justify-content:space-between;height:32px;padding:0 10px;font-size:12px;"
                                                     >
-                                                        <ShieldCheck size={14} />
+                                                        <span>{user.name}</span>
+                                                        <span>+</span>
                                                     </HoverButton>
-                                                )}
-                                                {(thread.ownerId === currentUserId ||
-                                                    (thread.participantRoles?.[
-                                                        currentUserId
-                                                    ]?.includes('admin') ??
-                                                        false)) &&
-                                                    !isOwner && (
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                    {thread.participants.map((participantId, index) => {
+                                        const profile = participantProfiles[participantId];
+                                        const name =
+                                            profile?.name ||
+                                            thread.participantNames[index] ||
+                                            participantNameById.get(participantId) ||
+                                            `Neighbor ${participantId.slice(0, 6)}`;
+                                        const avatar = profile?.avatar || getAvatarUrl(participantId);
+                                        const roles = thread.participantRoles?.[participantId] ?? [];
+                                        const isOwner =
+                                            thread.ownerId === participantId || roles.includes('owner');
+                                        const isAdmin = roles.includes('admin');
+                                        const isSelf = participantId === currentUserId;
+                                        return (
+                                            <div key={participantId} class="participant-card">
+                                                <HoverButton
+                                                    type="button"
+                                                    onClick={() => openProfile(participantId)}
+                                                    style="background:none;border:none;padding:0;display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;text-align:left;"
+                                                >
+                                                    <div style="width:40px;height:40px;border-radius:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:var(--bg-muted);box-shadow:inset 0 1px 0 rgba(255,255,255,0.3);">
+                                                        <img
+                                                            src={avatar}
+                                                            alt=""
+                                                            style="width:100%;height:100%;object-fit:cover;"
+                                                        />
+                                                    </div>
+                                                    <div style="min-width:0;flex:1;">
+                                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                                                            <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                                {isSelf ? `${name} (You)` : name}
+                                                            </div>
+                                                            {isOwner && (
+                                                                <span
+                                                                    class="type-badge"
+                                                                    style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);"
+                                                                >
+                                                                    Owner
+                                                                </span>
+                                                            )}
+                                                            {isAdmin && (
+                                                                <span
+                                                                    class="type-badge"
+                                                                    style="background:var(--warning-subtle);color:var(--warning);border-color:var(--warning-muted);"
+                                                                >
+                                                                    Admin
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div style="margin-top:4px;font-size:11px;color:var(--text-tertiary);">
+                                                            {isSelf
+                                                                ? 'Open your profile'
+                                                                : 'Open profile'}
+                                                        </div>
+                                                    </div>
+                                                </HoverButton>
+                                                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+                                                    {thread.ownerId === currentUserId && !isOwner && (
                                                         <HoverButton
                                                             type="button"
                                                             class="btn-ghost"
                                                             disabled={
-                                                                participantActionBusy ===
-                                                                participantId
+                                                                participantActionBusy === participantId
                                                             }
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setMemberActionConfirm({
-                                                                    title: 'Remove member',
-                                                                    message: `Remove ${name} from this group?`,
-                                                                    confirmLabel: 'Remove',
-                                                                    destructive: true,
+                                                                    title: 'Promote member',
+                                                                    message: `Promote ${name} to admin?`,
+                                                                    confirmLabel: 'Promote',
                                                                     onConfirm: async () => {
                                                                         setParticipantActionBusy(
                                                                             participantId
                                                                         );
                                                                         try {
-                                                                            await removeGroupChatParticipant(
+                                                                            await promoteGroupChatParticipant(
                                                                                 thread.id,
                                                                                 participantId
                                                                             );
@@ -2629,20 +2607,70 @@ function ChatView({
                                                                     },
                                                                 });
                                                             }}
-                                                            aria-label="Remove from group"
-                                                            title="Remove from group"
-                                                            style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-subtle);color:var(--danger);border:1px solid var(--danger-muted);"
+                                                            aria-label="Promote to admin"
+                                                            title="Promote to admin"
+                                                            style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
                                                         >
-                                                            <UserMinus size={14} />
+                                                            <ShieldCheck size={14} />
                                                         </HoverButton>
                                                     )}
+                                                    {(thread.ownerId === currentUserId ||
+                                                        (thread.participantRoles?.[
+                                                            currentUserId
+                                                        ]?.includes('admin') ??
+                                                            false)) &&
+                                                        !isOwner && (
+                                                            <HoverButton
+                                                                type="button"
+                                                                class="btn-ghost"
+                                                                disabled={
+                                                                    participantActionBusy ===
+                                                                    participantId
+                                                                }
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setMemberActionConfirm({
+                                                                        title: 'Remove member',
+                                                                        message: `Remove ${name} from this group?`,
+                                                                        confirmLabel: 'Remove',
+                                                                        destructive: true,
+                                                                        onConfirm: async () => {
+                                                                            setParticipantActionBusy(
+                                                                                participantId
+                                                                            );
+                                                                            try {
+                                                                                await removeGroupChatParticipant(
+                                                                                    thread.id,
+                                                                                    participantId
+                                                                                );
+                                                                                const updated =
+                                                                                    await onThreadRefresh(
+                                                                                        thread.id
+                                                                                    );
+                                                                                onThreadUpdate(updated);
+                                                                            } finally {
+                                                                                setParticipantActionBusy(
+                                                                                    null
+                                                                                );
+                                                                            }
+                                                                        },
+                                                                    });
+                                                                }}
+                                                                aria-label="Remove from group"
+                                                                title="Remove from group"
+                                                                style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--danger-subtle);color:var(--danger);border:1px solid var(--danger-muted);"
+                                                            >
+                                                                <UserMinus size={14} />
+                                                            </HoverButton>
+                                                        )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </aside>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </aside>
+                    </>
                 )}
             </div>
             <ConfirmDialog
