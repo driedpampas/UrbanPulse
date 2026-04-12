@@ -36,3 +36,10 @@ export async function updateEmailAddress(email: string): Promise<EmailUpdateResp
         body: JSON.stringify({ email }),
     });
 }
+
+export async function requestVerificationEmail(): Promise<SuccessResponse> {
+    return httpClient<SuccessResponse>('/auth/verify/request', {
+        method: 'POST',
+        body: JSON.stringify({}),
+    });
+}

@@ -1,4 +1,5 @@
 import { ShieldCheck } from 'lucide-preact';
+import { useState } from 'preact/hooks';
 import { DashboardFiltersPanel } from '../components/Dashboard/DashboardFiltersPanel';
 import { DashboardToolbar } from '../components/Dashboard/DashboardToolbar';
 import { HeroAlert } from '../components/Dashboard/HeroAlert';
@@ -7,13 +8,47 @@ import { PulseMap } from '../components/Dashboard/PulseMap';
 import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
+import { HoverButton } from '../components/ui/HoverButton';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
 import { useAuth } from '../lib/auth';
+import { requestVerificationEmail } from '../lib/settingsApi';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
     const { session } = useAuth();
     const showEmailVerificationBanner = session?.user.isEmailVerified === false;
+    const [sendingVerificationEmail, setSendingVerificationEmail] = useState(false);
+    const [verificationEmailFeedback, setVerificationEmailFeedback] = useState<{
+        type: 'success' | 'error';
+        message: string;
+    } | null>(null);
+
+    const handleSendVerificationEmail = async () => {
+        if (sendingVerificationEmail) {
+            return;
+        }
+
+        setSendingVerificationEmail(true);
+        setVerificationEmailFeedback(null);
+
+        try {
+            const result = await requestVerificationEmail();
+            setVerificationEmailFeedback({
+                type: 'success',
+                message: result.message || 'Verification link sent. Check your inbox.',
+            });
+        } catch (error) {
+            setVerificationEmailFeedback({
+                type: 'error',
+                message:
+                    error instanceof Error
+                        ? error.message
+                        : 'Unable to send verification email right now.',
+            });
+        } finally {
+            setSendingVerificationEmail(false);
+        }
+    };
 
     const {
         view,
@@ -63,6 +98,27 @@ export function Dashboard() {
                                         High-trust features require a verified account. Check your
                                         inbox for the link.
                                     </p>
+                                    <div class="mt-2 stack-h gap-sm">
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-primary"
+                                            onClick={() => void handleSendVerificationEmail()}
+                                            disabled={sendingVerificationEmail}
+                                            style="height:30px;padding:0 12px;font-size:11px;"
+                                        >
+                                            {sendingVerificationEmail
+                                                ? 'Sending...'
+                                                : 'Send verification email'}
+                                        </HoverButton>
+                                    </div>
+                                    {verificationEmailFeedback && (
+                                        <p
+                                            class="text-xs mt-2"
+                                            style={`color:${verificationEmailFeedback.type === 'success' ? 'var(--success)' : 'var(--danger)'};`}
+                                        >
+                                            {verificationEmailFeedback.message}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

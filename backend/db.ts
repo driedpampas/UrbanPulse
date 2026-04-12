@@ -3111,6 +3111,31 @@ export async function verifyUserEmailByToken(token: string): Promise<boolean> {
     return Boolean(verifiedUser);
 }
 
+export async function selectUserVerificationStateById(
+    id: string
+): Promise<{ email: string; is_email_verified: boolean } | null> {
+    const [user] = (await sql`
+        SELECT email,
+               is_email_verified
+        FROM app.users
+        WHERE id = ${id}
+        LIMIT 1
+    `) as Array<{ email: string; is_email_verified: boolean }>;
+
+    return user ?? null;
+}
+
+export async function updateUserVerificationToken(id: string, verificationToken: string): Promise<boolean> {
+    const [updatedUser] = await sql`
+        UPDATE app.users
+        SET verification_token = ${verificationToken}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updatedUser);
+}
+
 export async function updateUserEmailWithVerificationToken(
     id: string,
     email: string,

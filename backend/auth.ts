@@ -35,6 +35,7 @@ export type AuthResult =
     | { success: false; status: number };
 
 export type VerifyEmailResult = { success: true } | { success: false; status: number };
+export type VerifyEmailRequestResult = { success: true } | { success: false; status: number };
 export type PasswordResetRequestResult = { success: true } | { success: false; status: number };
 export type PasswordResetConfirmResult = { success: true } | { success: false; status: number };
 export type UpdateEmailResult =
@@ -129,6 +130,33 @@ export async function verifyEmailToken(token: string): Promise<VerifyEmailResult
 
     if (!verified) {
         return { success: false, status: 404 };
+    }
+
+    return { success: true };
+}
+
+export async function requestVerificationEmail(userId: string): Promise<VerifyEmailRequestResult> {
+    const user = await db.selectUserVerificationStateById(userId);
+    if (!user?.email) {
+        return { success: false, status: 404 };
+    }
+
+    if (Boolean(user.is_email_verified)) {
+        return { success: false, status: 409 };
+    }
+
+    const verificationToken = randomBytes(32).toString('hex');
+    const updated = await db.updateUserVerificationToken(userId, verificationToken);
+
+    if (!updated) {
+        return { success: false, status: 404 };
+    }
+
+    try {
+        await triggerVerificationEmail(user.email, verificationToken);
+    } catch (error) {
+        console.error('Failed to enqueue verification email resend:', error);
+        return { success: false, status: 502 };
     }
 
     return { success: true };

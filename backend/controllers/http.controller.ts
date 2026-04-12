@@ -292,6 +292,59 @@ export const httpRoutes: HttpRoutes = {
                 })
             ),
     },
+    '/api/auth/verify/request': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+
+                        const rawBody = await req.text();
+                        if (rawBody.length > 0) {
+                            try {
+                                JSON.parse(rawBody);
+                            } catch {
+                                return withCors(BAD_REQUEST);
+                            }
+                        }
+
+                        const result = await auth.requestVerificationEmail(payload.id);
+
+                        if (!result.success) {
+                            if (result.status === 404) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            if (result.status === 409) {
+                                return withCors(
+                                    Response.json(
+                                        { error: 'Email is already verified.' },
+                                        { status: 409 }
+                                    )
+                                );
+                            }
+
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to send verification email.' },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    message: 'Verification link sent to your email address.',
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
     '/api/auth/password': {
         PATCH: async (req) =>
             validate(req, async () =>
