@@ -2823,20 +2823,8 @@ export async function selectPulseInteractions(
     return rows.map((row) => mapPulseInteractionRow(row));
 }
 
-function trustAwardForUrgency(urgencyLevel: number): number {
-    if (urgencyLevel >= 5) {
-        return 5;
-    }
-    if (urgencyLevel >= 4) {
-        return 4;
-    }
-    if (urgencyLevel >= 3) {
-        return 3;
-    }
-    if (urgencyLevel >= 2) {
-        return 2;
-    }
-    return 1;
+function trustAwardForEmergency(isEmergency: boolean): number {
+    return isEmergency ? 4 : 1;
 }
 
 export async function confirmPulseInteraction(params: {
@@ -2866,7 +2854,7 @@ export async function confirmPulseInteraction(params: {
                     ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
                 END AS confirmed_at,
                 pi.trust_awarded,
-                COALESCE(p.urgency_level, 1) AS pulse_urgency_level,
+                COALESCE(p.is_emergency, false) AS pulse_is_emergency,
                 COALESCE(p.is_solved, false) AS pulse_is_solved,
                 LOWER(COALESCE(p.pulse_type, 'update')) AS pulse_type
             FROM app.pulse_interactions AS pi
@@ -2878,7 +2866,7 @@ export async function confirmPulseInteraction(params: {
             LIMIT 1
         `) as Array<
             PulseInteractionRow & {
-                pulse_urgency_level: number | string | null;
+                pulse_is_emergency: boolean;
                 pulse_is_solved: boolean;
                 pulse_type: string;
             }
@@ -2900,7 +2888,7 @@ export async function confirmPulseInteraction(params: {
             return { success: false, nonRequestType: true };
         }
 
-        const trustAward = trustAwardForUrgency(Number(interaction.pulse_urgency_level ?? 1));
+        const trustAward = trustAwardForEmergency(Boolean(interaction.pulse_is_emergency));
 
         const [updated] = (await tx`
             UPDATE app.pulse_interactions
