@@ -1445,15 +1445,15 @@ export async function selectPulses(
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
     WHERE (
-        (${lat}::double precision IS NULL OR 
-        ${lng}::double precision IS NULL OR 
-        ${radius}::double precision IS NULL OR
+        (${lat ?? null}::double precision IS NULL OR 
+        ${lng ?? null}::double precision IS NULL OR 
+        ${radius ?? null}::double precision IS NULL OR
         ST_DWithin(
             pulses.location,
-            ST_SetSRID(ST_MakePoint(${lng}::double precision, ${lat}::double precision), 4326)::geography,
-            ${radius}::double precision
+            ST_SetSRID(ST_MakePoint(${lng ?? null}::double precision, ${lat ?? null}::double precision), 4326)::geography,
+            ${radius ?? null}::double precision
         ))
-        AND (${type}::text IS NULL OR LOWER(pulses.pulse_type) = LOWER(${type}::text))
+        AND (${type ?? null}::text IS NULL OR LOWER(pulses.pulse_type) = LOWER(${type ?? null}::text))
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}

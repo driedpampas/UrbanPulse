@@ -4,6 +4,7 @@ import {
     Home,
     MessageCircle,
     MoreHorizontal,
+    PawPrint,
     ShieldCheck,
     User,
 } from 'lucide-preact';
@@ -18,6 +19,7 @@ const tabs = [
     { path: '/library', icon: BookOpen, label: 'Library' },
     { path: '/messages', icon: MessageCircle, label: 'Chat' },
     { path: '/requests', icon: ClipboardList, label: 'Requests' },
+    { path: '/pet-match', icon: PawPrint, label: 'Pets' },
     { path: '/profile', icon: User, label: 'Profile' },
 ];
 

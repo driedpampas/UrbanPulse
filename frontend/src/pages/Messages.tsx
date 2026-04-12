@@ -319,7 +319,7 @@ export function Messages() {
                     return;
                 }
 
-                void refreshThread(event.threadId).catch(() => { });
+                void refreshThread(event.threadId).catch(() => {});
                 return;
             }
 
@@ -327,7 +327,7 @@ export function Messages() {
                 return;
             }
 
-            void refreshThread(event.threadId).catch(() => { });
+            void refreshThread(event.threadId).catch(() => {});
         };
 
         connectChatWebSocket(handleRefresh);
@@ -363,9 +363,9 @@ export function Messages() {
                     event.event === 'notification.message' && event.senderName
                         ? event.senderName
                         : senderIndex >= 0
-                            ? thread.participantNames[senderIndex] ||
+                          ? thread.participantNames[senderIndex] ||
                             `Neighbor ${event.message.senderId.slice(0, 6)}`
-                            : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                          : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
                 const mappedMessage: ChatMessage = {
                     id: event.message.id,
@@ -712,7 +712,9 @@ export function Messages() {
                                         <div style="width:36px;height:36px;border-radius:8px;flex-shrink:0;overflow:hidden;background:var(--bg-muted);border:1px solid var(--border);">
                                             <UserAvatar
                                                 userId={user.id}
-                                                fallbackSrc={user.avatar || avatarFallback(user.name)}
+                                                fallbackSrc={
+                                                    user.avatar || avatarFallback(user.name)
+                                                }
                                                 alt={`${user.name} profile picture`}
                                                 style="width:100%;height:100%;object-fit:cover;"
                                             />
@@ -1133,7 +1135,7 @@ function ChatView({
                     return;
                 }
 
-                void onThreadRefresh(thread.id).catch(() => { });
+                void onThreadRefresh(thread.id).catch(() => {});
                 return;
             }
 
@@ -1154,11 +1156,11 @@ function ChatView({
             const senderName = isMe
                 ? currentUserName
                 : event.event === 'notification.message' && event.senderName
-                    ? event.senderName
-                    : senderIndex >= 0
-                        ? thread.participantNames[senderIndex] ||
-                        `Neighbor ${event.message.senderId.slice(0, 6)}`
-                        : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                  ? event.senderName
+                  : senderIndex >= 0
+                    ? thread.participantNames[senderIndex] ||
+                      `Neighbor ${event.message.senderId.slice(0, 6)}`
+                    : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
             const mappedMessage: ChatMessage = {
                 id: event.message.id,
@@ -1568,7 +1570,7 @@ function ChatView({
                             }
                             fallbackSrc={avatarFallback(
                                 thread.participants.find((p) => p !== currentUserId) ||
-                                thread.participants[0]
+                                    thread.participants[0]
                             )}
                             alt={`${chatTitle} profile picture`}
                             style="width:100%;height:100%;object-fit:cover;"
@@ -1757,10 +1759,11 @@ function ChatView({
                                                         msg.id
                                                     );
                                                 }}
-                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${isMe
+                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${
+                                                    isMe
                                                         ? 'bg-[var(--accent)] text-white rounded-br-none shadow-md'
                                                         : 'bg-[var(--surface-raised)] text-[var(--text)] border border-[var(--border)] rounded-bl-none shadow-sm'
-                                                    }`}
+                                                }`}
                                                 style={`max-width:${wideChatView ? 'min(85%, 900px)' : '80%'}; cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'}`}
                                             >
                                                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
@@ -1898,7 +1901,7 @@ function ChatView({
                                                                     {msg.replyTo?.isUnavailable
                                                                         ? 'Original message unavailable'
                                                                         : msg.replyTo?.snippet ||
-                                                                        'Original message unavailable'}
+                                                                          'Original message unavailable'}
                                                                 </span>
                                                             </HoverButton>
                                                         )}
@@ -2032,34 +2035,34 @@ function ChatView({
                                                                         currentUserId
                                                                     ]?.includes('admin') ??
                                                                         false)))) && (
-                                                                <>
-                                                                    <div class="h-px bg-[var(--border)] mx-1" />
-                                                                    <HoverButton
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setContextMenuMessageId(
-                                                                                null
-                                                                            );
-                                                                            setContextMenuPosition(
-                                                                                null
-                                                                            );
-                                                                            handleDeleteMessage(
-                                                                                msg,
-                                                                                'everyone'
-                                                                            );
-                                                                        }}
-                                                                        disabled={
-                                                                            deletingMessageId !== null
-                                                                        }
-                                                                        role="menuitem"
-                                                                        key="delete-everyone"
-                                                                        class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--danger)] stack-h gap-sm text-left hover:bg-[var(--danger-subtle)] transition-colors"
-                                                                    >
-                                                                        <Trash2 size={14} />
-                                                                        Delete for everyone
-                                                                    </HoverButton>
-                                                                </>
-                                                            )}
+                                                            <>
+                                                                <div class="h-px bg-[var(--border)] mx-1" />
+                                                                <HoverButton
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setContextMenuMessageId(
+                                                                            null
+                                                                        );
+                                                                        setContextMenuPosition(
+                                                                            null
+                                                                        );
+                                                                        handleDeleteMessage(
+                                                                            msg,
+                                                                            'everyone'
+                                                                        );
+                                                                    }}
+                                                                    disabled={
+                                                                        deletingMessageId !== null
+                                                                    }
+                                                                    role="menuitem"
+                                                                    key="delete-everyone"
+                                                                    class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--danger)] stack-h gap-sm text-left hover:bg-[var(--danger-subtle)] transition-colors"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Delete for everyone
+                                                                </HoverButton>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </>
                                             )}
@@ -2131,8 +2134,8 @@ function ChatView({
                                         isBlockedConversation
                                             ? 'You have blocked this user'
                                             : connectionStatus !== 'connected' || !threadSubscribed
-                                                ? 'Connecting…'
-                                                : 'Message…'
+                                              ? 'Connecting…'
+                                              : 'Message…'
                                     }
                                     style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                                     onFocus={(e) => {
@@ -2258,12 +2261,15 @@ function ChatView({
                                                     style="width:72px;height:72px;border-radius:22px;overflow:hidden;border:2px solid var(--border);background:var(--bg-muted);padding:0;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,0.14);"
                                                 >
                                                     <UserAvatar
-                                                        userId={directCounterpartId || thread.participants[0]}
+                                                        userId={
+                                                            directCounterpartId ||
+                                                            thread.participants[0]
+                                                        }
                                                         fallbackSrc={
                                                             directCounterpartProfile?.avatar ||
                                                             avatarFallback(
                                                                 directCounterpartId ||
-                                                                thread.participants[0]
+                                                                    thread.participants[0]
                                                             )
                                                         }
                                                         alt={`${chatTitle} profile picture`}
@@ -2358,12 +2364,12 @@ function ChatView({
                                                     background:${color};cursor:pointer;transition:transform 0.1s;
                                                 `}
                                                     onMouseEnter={(e) =>
-                                                    (e.currentTarget.style.transform =
-                                                        'scale(1.1)')
+                                                        (e.currentTarget.style.transform =
+                                                            'scale(1.1)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                    (e.currentTarget.style.transform =
-                                                        'scale(1)')
+                                                        (e.currentTarget.style.transform =
+                                                            'scale(1)')
                                                     }
                                                     aria-label={`Select color ${color}`}
                                                 />

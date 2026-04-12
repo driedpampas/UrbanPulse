@@ -290,11 +290,11 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
     try {
         const parsed = JSON.parse(rawMessage) as
             | {
-                event?: string;
-                pulse?: BackendPulse;
-                pulseId?: string;
-                matchedResources?: string[];
-            }
+                  event?: string;
+                  pulse?: BackendPulse;
+                  pulseId?: string;
+                  matchedResources?: string[];
+              }
             | BackendPulse;
 
         if (

@@ -142,7 +142,7 @@ export function AdminDashboard() {
                     </span>
                 </div>
 
-                <div style="display:flex;gap:8px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;padding-bottom:4px;">
+                <div style="display:flex;gap:8px;overflow-x:auto;padding:2px 16px 10px;margin:0 -16px -4px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;">
                     {SECTIONS.map((item) => (
                         <SectionButton
                             key={item.id}
