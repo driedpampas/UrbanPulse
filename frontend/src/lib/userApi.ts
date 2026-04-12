@@ -99,9 +99,9 @@ function mapBackendUser(user: BackendUser): User {
     const location =
         user.location && isUsableCoordinates(user.location.lat ?? 0, user.location.lng ?? 0)
             ? {
-                  lat: user.location.lat ?? 0,
-                  lng: user.location.lng ?? 0,
-              }
+                lat: user.location.lat ?? 0,
+                lng: user.location.lng ?? 0,
+            }
             : null;
 
     return {
@@ -230,9 +230,14 @@ export async function deleteProfilePicture(): Promise<void> {
     await request<void>('/user/pfp', { method: 'DELETE' });
 }
 
-export async function fetchProtectedProfilePicture(userId: string): Promise<string | null> {
-    const response = await fetch(`${API_BASE_URL}/user/pfp/${encodeURIComponent(userId)}`, {
+export async function fetchProtectedProfilePicture(
+    userId: string,
+    cacheBuster?: string | number
+): Promise<string | null> {
+    const query = cacheBuster === undefined ? '' : `?v=${encodeURIComponent(String(cacheBuster))}`;
+    const response = await fetch(`${API_BASE_URL}/user/pfp/${encodeURIComponent(userId)}${query}`, {
         method: 'GET',
+        cache: 'no-store',
         headers: getAuthHeaders(),
     });
 
@@ -264,11 +269,11 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         updates.location && isUsableCoordinates(updates.location.lat, updates.location.lng)
             ? updates.location
             : isUsableCoordinates(updates.lat ?? 0, updates.lng ?? 0)
-              ? {
+                ? {
                     lat: updates.lat ?? 0,
                     lng: updates.lng ?? 0,
                 }
-              : null;
+                : null;
 
     const patchBody: {
         displayName?: string;
