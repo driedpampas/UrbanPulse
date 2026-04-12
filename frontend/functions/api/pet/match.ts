@@ -1,5 +1,3 @@
-import { Ai } from '@cloudflare/ai';
-
 interface PetPulse {
     id: string;
     content: string;
@@ -20,7 +18,7 @@ interface AiMatch {
     reason: string;
 }
 
-export const onRequestPost = async (context: { request: Request; env: { AI: unknown } }) => {
+export const onRequestPost = async (context: { request: Request; env: { AI: any } }) => {
     const { request, env } = context;
 
     if (!env.AI) {
@@ -37,8 +35,6 @@ export const onRequestPost = async (context: { request: Request; env: { AI: unkn
         if (!source || !candidates || candidates.length === 0) {
             return Response.json({ matches: [] });
         }
-
-        const ai = new Ai(env.AI);
 
         const messages = [
             {
@@ -61,7 +57,7 @@ Identify matches where the physical description (species, breed, colors, size, m
             },
         ];
 
-        const response = await ai.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+        const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
             messages,
             response_format: {
                 type: 'json_schema',
