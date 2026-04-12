@@ -76,29 +76,42 @@ export const createChatSchema = z.strictObject({
     participantIds: z.array(z.uuid()).min(1).max(50),
 });
 
+const quotedReplySchema = z.strictObject({
+    id: z.uuid(),
+    senderId: z.uuid(),
+    senderName: z.string(),
+    snippet: z.string(),
+    isUnavailable: z.boolean(),
+});
+
+const messagePayloadSchema = z.strictObject({
+    id: z.uuid(),
+    threadId: z.uuid(),
+    senderId: z.uuid(),
+    content: z.string(),
+    isEdited: z.boolean().optional(),
+    messageType: z.enum(['text', 'notice']).optional(),
+    replyToId: z.uuid().nullable().optional(),
+    replyTo: quotedReplySchema.nullable().optional(),
+    timestamp: z.union([z.number(), z.string()]),
+});
+
 export const messageNotificationPayloadSchema = z.strictObject({
     event: z.literal('notification.message'),
-    message: z.strictObject({
-        id: z.uuid(),
-        threadId: z.uuid(),
-        senderId: z.uuid(),
-        content: z.string(),
-        isEdited: z.boolean().optional(),
-        messageType: z.enum(['text', 'notice']).optional(),
-        timestamp: z.union([z.number(), z.string()]),
-    }),
+    message: messagePayloadSchema,
     senderName: z.string(),
     threadName: z.string().optional(),
 });
 
 export const sendMessageResponseSchema = z.strictObject({
-    message: messageNotificationPayloadSchema.shape.message,
+    message: messagePayloadSchema,
     senderName: z.string(),
     threadName: z.string().optional(),
 });
 
 export const createMessageSchema = z.strictObject({
     content: z.string().trim().min(1).max(5000),
+    replyToId: z.uuid().optional(),
 });
 
 export const deleteMessageSchema = z.strictObject({
@@ -231,9 +244,22 @@ export const createReportSchema = z.strictObject({
     content: z.string().nonempty(),
 });
 
-export const createMessageReportSchema = z.strictObject({
-    reason: z.string().nonempty().max(500),
-});
+export const createMessageReportSchema = z
+    .union([
+        z.strictObject({
+            reason: z.string().nonempty().max(500),
+        }),
+        z.strictObject({
+            targetId: z.uuid(),
+            targetType: z.literal('message'),
+            reason: z.string().nonempty().max(500),
+            content: z.string().optional(),
+        }),
+    ])
+    .transform((value) => ({
+        reason: value.reason,
+        targetId: 'targetId' in value ? value.targetId : undefined,
+    }));
 
 export const adminMessageReportsQuerySchema = z.strictObject({
     status: z.enum(['pending', 'reviewed', 'action_taken']).optional(),

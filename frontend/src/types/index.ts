@@ -97,6 +97,14 @@ export interface WeatherData {
     warning?: string;
 }
 
+export interface ChatMessageReply {
+    id: string;
+    senderId: string;
+    senderName: string;
+    snippet: string;
+    isUnavailable: boolean;
+}
+
 export interface ChatMessage {
     id: string;
     senderId: string;
@@ -104,6 +112,8 @@ export interface ChatMessage {
     content: string;
     isEdited?: boolean;
     type?: 'text' | 'notice';
+    replyToId?: string | null;
+    replyTo?: ChatMessageReply | null;
     timestamp: number;
 }
 

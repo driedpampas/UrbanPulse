@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+    type AnyPgColumn,
     boolean,
     customType,
     index,
@@ -155,6 +156,9 @@ export const messages = app.table(
         senderId: uuid('sender_id')
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
+        replyToId: uuid('reply_to_id').references((): AnyPgColumn => messages.id, {
+            onDelete: 'set null',
+        }),
         content: text('content').notNull(),
         isEdited: boolean('is_edited').notNull().default(false),
         messageType: text('message_type').notNull().default('text'),
@@ -165,6 +169,7 @@ export const messages = app.table(
     (table) => [
         index('messages_thread_id_idx').on(table.threadId),
         index('messages_sender_id_idx').on(table.senderId),
+        index('messages_reply_to_id_idx').on(table.replyToId),
     ]
 );
 

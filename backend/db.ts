@@ -111,6 +111,14 @@ export interface AcceptedInteraction {
     };
 }
 
+export interface MessageReply {
+    id: string;
+    senderId: string;
+    senderName: string;
+    snippet: string;
+    isUnavailable: boolean;
+}
+
 export interface Message {
     id: string;
     threadId: string;
@@ -118,6 +126,8 @@ export interface Message {
     content: string;
     isEdited: boolean;
     messageType: 'text' | 'notice';
+    replyToId: string | null;
+    replyTo: MessageReply | null;
     timestamp: number;
 }
 
@@ -317,6 +327,11 @@ type MessageRow = {
     content: string;
     is_edited?: boolean | null;
     message_type?: string | null;
+    reply_to_id?: string | null;
+    reply_to_sender_id?: string | null;
+    reply_to_sender_name?: string | null;
+    reply_to_snippet?: string | null;
+    reply_to_unavailable?: boolean | null;
     timestamp: number | string | Date;
 };
 
@@ -693,7 +708,49 @@ function isSuppressedByQuietWindow(
     return isWithinQuietHours(quietHours, local.minuteOfDay);
 }
 
+const MESSAGE_REPLY_SNIPPET_MAX_LENGTH = 180;
+
+function normalizeReplySnippet(snippet: string | null | undefined): string {
+    const normalized = String(snippet ?? '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (normalized.length === 0) {
+        return 'Original message unavailable';
+    }
+
+    if (normalized.length <= MESSAGE_REPLY_SNIPPET_MAX_LENGTH) {
+        return normalized;
+    }
+
+    return `${normalized.slice(0, MESSAGE_REPLY_SNIPPET_MAX_LENGTH)}...`;
+}
+
 function mapMessageRow(rawMessage: MessageRow): Message {
+    const replyToId = rawMessage.reply_to_id ? String(rawMessage.reply_to_id) : null;
+    const replyToUnavailable = Boolean(rawMessage.reply_to_unavailable);
+    const replySenderId = rawMessage.reply_to_sender_id
+        ? String(rawMessage.reply_to_sender_id)
+        : null;
+    const replySenderName = rawMessage.reply_to_sender_name?.trim().length
+        ? String(rawMessage.reply_to_sender_name)
+        : replySenderId
+          ? `Neighbor ${replySenderId.slice(0, 6)}`
+          : 'Unknown user';
+
+    const replyTo =
+        replyToId && replySenderId
+            ? {
+                  id: replyToId,
+                  senderId: replySenderId,
+                  senderName: replySenderName,
+                  snippet: replyToUnavailable
+                      ? 'Original message unavailable'
+                      : normalizeReplySnippet(rawMessage.reply_to_snippet),
+                  isUnavailable: replyToUnavailable,
+              }
+            : null;
+
     return {
         id: String(rawMessage.id),
         threadId: String(rawMessage.thread_id),
@@ -701,6 +758,8 @@ function mapMessageRow(rawMessage: MessageRow): Message {
         content: String(rawMessage.content),
         isEdited: Boolean(rawMessage.is_edited),
         messageType: (rawMessage.message_type as 'text' | 'notice') ?? 'text',
+        replyToId,
+        replyTo,
         timestamp: Number(rawMessage.timestamp ?? Date.now()),
     };
 }
@@ -909,6 +968,62 @@ async function ensureSchema() {
                 ADD COLUMN message_type text NOT NULL DEFAULT 'text'
             `;
         }
+
+        const messageReplyToCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'reply_to_id'
+            LIMIT 1
+        `;
+        if (messageReplyToCol.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD COLUMN reply_to_id uuid
+            `;
+        }
+
+        const messageReplyToForeignKey = await tx`
+            SELECT 1
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+                ON tc.constraint_name = kcu.constraint_name
+               AND tc.table_schema = kcu.table_schema
+            WHERE tc.table_schema = 'app'
+                AND tc.table_name = 'messages'
+                AND tc.constraint_type = 'FOREIGN KEY'
+                AND kcu.column_name = 'reply_to_id'
+            LIMIT 1
+        `;
+        if (messageReplyToForeignKey.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD CONSTRAINT messages_reply_to_id_fk
+                FOREIGN KEY (reply_to_id)
+                REFERENCES app.messages(id)
+                ON DELETE SET NULL
+            `;
+        }
+
+        const messageReplyToNoSelfConstraint = await tx`
+            SELECT 1
+            FROM information_schema.table_constraints
+            WHERE table_schema = 'app'
+                AND table_name = 'messages'
+                AND constraint_type = 'CHECK'
+                AND constraint_name = 'messages_reply_to_no_self_reply'
+            LIMIT 1
+        `;
+        if (messageReplyToNoSelfConstraint.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD CONSTRAINT messages_reply_to_no_self_reply
+                CHECK (reply_to_id IS NULL OR reply_to_id <> id)
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS messages_reply_to_id_idx
+            ON app.messages (reply_to_id)
+        `;
 
         const messageEditsHistoryTable = await tx`
             SELECT 1
@@ -1496,16 +1611,48 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content, is_edited, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-            FROM app.messages
-                        WHERE thread_id = ${threadId}
-                            AND NOT EXISTS (
-                                SELECT 1
-                                FROM app.hidden_messages AS hidden
-                                WHERE hidden.message_id = app.messages.id
-                                    AND hidden.user_id = ${currentUser}::uuid
-                            );
+            SELECT
+                m.id,
+                m.thread_id,
+                m.sender_id,
+                m.content,
+                m.is_edited,
+                m.message_type,
+                m.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN m.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN m.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            LEFT JOIN app.messages AS reply
+                ON reply.id = m.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${currentUser}::uuid
+            WHERE m.thread_id = ${threadId}::uuid
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app.hidden_messages AS hidden
+                    WHERE hidden.message_id = m.id
+                        AND hidden.user_id = ${currentUser}::uuid
+                )
+            ORDER BY m.created_at ASC, m.id ASC;
         `) as MessageRow[];
     })) as MessageRow[];
 
@@ -1516,30 +1663,86 @@ export async function selectMessage(
     messageId: string,
     currentUser: string
 ): Promise<Message | null> {
+    await ensureSchema();
     const [message] = (await sql.begin(async (tx) => {
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
 
         return (await tx`
-                        SELECT m.id, m.thread_id, m.sender_id, m.content, m.is_edited, m.message_type,
-                        ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
-                        FROM app.messages AS m
-                        JOIN app.chat_participants AS cp
-                            ON cp.thread_id = m.thread_id
-                         AND cp.user_id = ${currentUser}::uuid
-                        WHERE m.id = ${messageId}
-                            AND NOT EXISTS (
-                                    SELECT 1
-                                    FROM app.hidden_messages AS hidden
-                                    WHERE hidden.message_id = m.id
-                                        AND hidden.user_id = ${currentUser}::uuid
-                            )
-                        LIMIT 1;
+            SELECT
+                m.id,
+                m.thread_id,
+                m.sender_id,
+                m.content,
+                m.is_edited,
+                m.message_type,
+                m.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN m.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN m.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            JOIN app.chat_participants AS cp
+                ON cp.thread_id = m.thread_id
+               AND cp.user_id = ${currentUser}::uuid
+            LEFT JOIN app.messages AS reply
+                ON reply.id = m.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${currentUser}::uuid
+            WHERE m.id = ${messageId}::uuid
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app.hidden_messages AS hidden
+                    WHERE hidden.message_id = m.id
+                        AND hidden.user_id = ${currentUser}::uuid
+                )
+            LIMIT 1;
         `) as MessageRow[];
     })) as MessageRow[];
 
     return message ? mapMessageRow(message) : null;
+}
+
+export async function selectThreadMessageById(
+    threadId: string,
+    messageId: string
+): Promise<{ id: string; threadId: string } | null> {
+    await ensureSchema();
+
+    const [message] = (await sql`
+        SELECT id::text AS id, thread_id::text AS thread_id
+        FROM app.messages
+        WHERE id = ${messageId}::uuid
+            AND thread_id = ${threadId}::uuid
+        LIMIT 1;
+    `) as Array<{ id: string; thread_id: string }>;
+
+    if (!message) {
+        return null;
+    }
+
+    return {
+        id: message.id,
+        threadId: message.thread_id,
+    };
 }
 
 export async function selectChat(chatId: string, currentUser: string): Promise<Chat | null> {
@@ -1915,12 +2118,47 @@ export async function editMessage(
         `;
 
         const [updatedMessage] = (await tx`
-            UPDATE app.messages
-            SET content = ${newContent},
-                is_edited = true
-            WHERE id = ${messageId}::uuid
-            RETURNING id, thread_id, sender_id, content, is_edited, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
+            WITH updated AS (
+                UPDATE app.messages
+                SET content = ${newContent},
+                    is_edited = true
+                WHERE id = ${messageId}::uuid
+                RETURNING id, thread_id, sender_id, content, is_edited, message_type, reply_to_id, created_at
+            )
+            SELECT
+                updated.id,
+                updated.thread_id,
+                updated.sender_id,
+                updated.content,
+                updated.is_edited,
+                updated.message_type,
+                updated.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN updated.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN updated.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM updated.created_at) * 1000)::bigint AS "timestamp"
+            FROM updated
+            LEFT JOIN app.messages AS reply
+                ON reply.id = updated.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${editorId}::uuid;
         `) as MessageRow[];
 
         if (!updatedMessage) {
@@ -1991,7 +2229,8 @@ export async function insertMessage(
     threadId: string,
     senderId: string,
     content: string,
-    messageType: 'text' | 'notice' = 'text'
+    messageType: 'text' | 'notice' = 'text',
+    replyToId: string | null = null
 ): Promise<Message> {
     await ensureSchema();
     const [insertedMessage] = (await sql.begin(async (tx) => {
@@ -1999,15 +2238,61 @@ export async function insertMessage(
             SELECT set_config('app.current_user_id', ${senderId}, true);
         `;
 
+        const [inserted] = (await tx`
+            INSERT INTO app.messages (thread_id, sender_id, content, message_type, reply_to_id)
+            VALUES (${threadId}, ${senderId}, ${content}, ${messageType}, ${replyToId}::uuid)
+            RETURNING id;
+        `) as Array<{ id: string }>;
+
+        if (!inserted) {
+            return [] as MessageRow[];
+        }
+
         return (await tx`
-            INSERT INTO app.messages (thread_id, sender_id, content, message_type)
-            VALUES (${threadId}, ${senderId}, ${content}, ${messageType})
-            RETURNING id, thread_id, sender_id, content, is_edited, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
+            SELECT
+                m.id,
+                m.thread_id,
+                m.sender_id,
+                m.content,
+                m.is_edited,
+                m.message_type,
+                m.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN m.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN m.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            LEFT JOIN app.messages AS reply
+                ON reply.id = m.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${senderId}::uuid
+            WHERE m.id = ${inserted.id}::uuid
+            LIMIT 1;
         `) as MessageRow[];
     })) as MessageRow[];
 
-    return mapMessageRow(insertedMessage!);
+    if (!insertedMessage) {
+        throw new Error('Failed to insert message.');
+    }
+
+    return mapMessageRow(insertedMessage);
 }
 
 export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedItem> {

@@ -1156,8 +1156,18 @@ export const httpRoutes: HttpRoutes = {
                     caught(async () => {
                         const payload = session as JwtPayload;
                         const body = createMessageReportSchema.parse(await req.json());
+                        const parsedMessageId = z.uuid().safeParse(req.params.messageId as string);
+
+                        if (!parsedMessageId.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        if (body.targetId && body.targetId !== parsedMessageId.data) {
+                            return withCors(BAD_REQUEST);
+                        }
+
                         const message = await db.selectMessage(
-                            req.params.messageId as string,
+                            parsedMessageId.data,
                             payload.id
                         );
 
@@ -1751,6 +1761,17 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(NOT_FOUND);
                         }
 
+                        if (body.replyToId) {
+                            const replyTarget = await db.selectThreadMessageById(
+                                threadId,
+                                body.replyToId
+                            );
+
+                            if (!replyTarget) {
+                                return withCors(BAD_REQUEST);
+                            }
+                        }
+
                         if (!chat.isGroup) {
                             const blockedCounterpartyIds = await db.selectBlockedCounterpartyIds(
                                 payload.id
@@ -1767,7 +1788,13 @@ export const httpRoutes: HttpRoutes = {
                             }
                         }
 
-                        const message = await db.insertMessage(threadId, payload.id, body.content);
+                        const message = await db.insertMessage(
+                            threadId,
+                            payload.id,
+                            body.content,
+                            'text',
+                            body.replyToId ?? null
+                        );
 
                         const thread = await db.selectChat(threadId, payload.id);
                         const threadSummary = (

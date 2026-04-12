@@ -9,6 +9,14 @@ export type ChatSocketMessage = {
     content: string;
     isEdited?: boolean;
     messageType?: 'text' | 'notice';
+    replyToId?: string | null;
+    replyTo?: {
+        id: string;
+        senderId: string;
+        senderName: string;
+        snippet: string;
+        isUnavailable: boolean;
+    } | null;
     timestamp: number;
 };
 
@@ -68,6 +76,14 @@ type BackendChatMessage = {
     content: string;
     isEdited?: boolean;
     messageType?: string;
+    replyToId?: string | null;
+    replyTo?: {
+        id: string;
+        senderId: string;
+        senderName: string;
+        snippet: string;
+        isUnavailable: boolean;
+    } | null;
     timestamp: number | string;
 };
 
@@ -111,6 +127,16 @@ function updateStatus(newStatus: typeof connectionStatus) {
 }
 
 function normalizeMessage(message: BackendChatMessage, senderName: string): ChatMessage {
+    const replyTo = message.replyTo
+        ? {
+              id: message.replyTo.id,
+              senderId: message.replyTo.senderId,
+              senderName: message.replyTo.senderName,
+              snippet: message.replyTo.snippet,
+              isUnavailable: Boolean(message.replyTo.isUnavailable),
+          }
+        : null;
+
     return {
         id: message.id,
         senderId: message.senderId,
@@ -118,6 +144,8 @@ function normalizeMessage(message: BackendChatMessage, senderName: string): Chat
         content: message.content,
         isEdited: Boolean(message.isEdited),
         type: (message.messageType as 'text' | 'notice') ?? 'text',
+        replyToId: message.replyToId ?? null,
+        replyTo,
         timestamp: Number(message.timestamp),
     };
 }
@@ -441,7 +469,11 @@ export async function fetchChatThread(threadId: string): Promise<ChatThread> {
     return normalizeChat(summary, normalizeThreadMessages(summary, messages));
 }
 
-export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
+export async function sendMessage(
+    threadId: string,
+    content: string,
+    replyToId?: string
+): Promise<ChatMessage> {
     const response = await request<BackendChatMessage | BackendSendMessageResponse>(
         `/chats/${threadId}/messages`,
         {
@@ -449,7 +481,7 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ content, replyToId }),
         }
     );
 
@@ -460,14 +492,13 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
             : readStoredAuthSession()?.user.displayName ||
               `Neighbor ${message.senderId.slice(0, 6)}`;
 
-    const senderId = readStoredAuthSession()?.user.id ?? message.senderId;
+    const normalized = normalizeMessage(message, senderName);
+    const sessionUserId = readStoredAuthSession()?.user.id;
+
     return {
-        id: message.id,
-        senderId,
+        ...normalized,
+        senderId: sessionUserId ?? normalized.senderId,
         senderName,
-        content: message.content,
-        type: 'text',
-        timestamp: Number(message.timestamp),
     };
 }
 
@@ -617,6 +648,16 @@ export async function editChatMessage(messageId: string, content: string): Promi
         content: payload.message.content,
         isEdited: Boolean(payload.message.isEdited),
         type: (payload.message.messageType as 'text' | 'notice') ?? 'text',
+        replyToId: payload.message.replyToId ?? null,
+        replyTo: payload.message.replyTo
+            ? {
+                  id: payload.message.replyTo.id,
+                  senderId: payload.message.replyTo.senderId,
+                  senderName: payload.message.replyTo.senderName,
+                  snippet: payload.message.replyTo.snippet,
+                  isUnavailable: Boolean(payload.message.replyTo.isUnavailable),
+              }
+            : null,
         timestamp: Number(payload.message.timestamp),
     };
 }

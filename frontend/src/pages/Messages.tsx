@@ -7,6 +7,7 @@ import {
     Info,
     Pencil,
     Plus,
+    Reply,
     Search,
     Send,
     ShieldCheck,
@@ -80,7 +81,14 @@ function upsertMessageById(
             existing.content === incoming.content &&
             existing.isEdited === incoming.isEdited &&
             existing.type === incoming.type &&
-            existing.timestamp === incoming.timestamp;
+            existing.timestamp === incoming.timestamp &&
+            (existing.replyToId ?? null) === (incoming.replyToId ?? null) &&
+            (existing.replyTo?.id ?? null) === (incoming.replyTo?.id ?? null) &&
+            (existing.replyTo?.senderId ?? null) === (incoming.replyTo?.senderId ?? null) &&
+            (existing.replyTo?.senderName ?? null) === (incoming.replyTo?.senderName ?? null) &&
+            (existing.replyTo?.snippet ?? null) === (incoming.replyTo?.snippet ?? null) &&
+            (existing.replyTo?.isUnavailable ?? null) ===
+                (incoming.replyTo?.isUnavailable ?? null);
 
         if (unchanged) {
             return { messages, changed: false };
@@ -787,6 +795,8 @@ function ChatView({
     >(() => 'connected');
     const [sendError, setSendError] = useState<string | null>(null);
     const [copyNotice, setCopyNotice] = useState<string | null>(null);
+    const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
     useEffect(() => {
         return onChatConnectionStatusChange(setConnectionStatus);
     }, []);
@@ -796,7 +806,9 @@ function ChatView({
     }, [wideChatView]);
     const sendingRef = useRef(false);
     const copyNoticeTimerRef = useRef<number | null>(null);
+    const replyHighlightTimerRef = useRef<number | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const messageElementMapRef = useRef<Map<string, HTMLDivElement>>(new Map());
     const threadRef = useRef(thread);
     const currentUser = readStoredAuthSession()?.user;
     const currentUserId = currentUser?.id ?? 'me';
@@ -830,12 +842,19 @@ function ChatView({
         setEditDraft('');
         setSavingEditMessageId(null);
         setEditError(null);
+        setReplyingTo(null);
+        setHighlightedMessageId(null);
+        messageElementMapRef.current.clear();
     }, [thread.id]);
 
     useEffect(() => {
         return () => {
             if (copyNoticeTimerRef.current !== null) {
                 window.clearTimeout(copyNoticeTimerRef.current);
+            }
+
+            if (replyHighlightTimerRef.current !== null) {
+                window.clearTimeout(replyHighlightTimerRef.current);
             }
         };
     }, []);
@@ -956,6 +975,13 @@ function ChatView({
         );
 
         setMessages(normalized);
+        setReplyingTo((previous) => {
+            if (!previous) {
+                return null;
+            }
+
+            return normalized.find((message) => message.id === previous.id) ?? null;
+        });
     }, [thread.id, thread.messages, participantNameById]);
 
     useEffect(() => {
@@ -968,6 +994,14 @@ function ChatView({
                 content: string;
                 isEdited?: boolean;
                 messageType?: string;
+                replyToId?: string | null;
+                replyTo?: {
+                    id: string;
+                    senderId: string;
+                    senderName: string;
+                    snippet: string;
+                    isUnavailable: boolean;
+                } | null;
                 timestamp: number;
             };
             messageId?: string;
@@ -976,6 +1010,13 @@ function ChatView({
             threadId?: string;
         }) => {
             if (event.event === 'message.deleted' && typeof event.messageId === 'string') {
+                setReplyingTo((previous) =>
+                    previous?.id === event.messageId ? null : previous
+                );
+                setHighlightedMessageId((previous) =>
+                    previous === event.messageId ? null : previous
+                );
+
                 setMessages((prev) => {
                     const next = removeMessageById(prev, event.messageId!);
                     if (next.length === prev.length) {
@@ -1036,6 +1077,8 @@ function ChatView({
                 content: event.message.content,
                 isEdited: Boolean(event.message.isEdited),
                 type: (event.message.messageType as 'text' | 'notice') ?? 'text',
+                replyToId: event.message.replyToId ?? null,
+                replyTo: event.message.replyTo ?? null,
                 timestamp: Number(event.message.timestamp),
             };
 
@@ -1082,7 +1125,7 @@ function ChatView({
         setSending(true);
         setSendError(null);
         try {
-            const msg = await sendMessage(thread.id, content);
+            const msg = await sendMessage(thread.id, content, replyingTo?.id);
             setMessages((prev) => {
                 const mappedMessage: ChatMessage = {
                     ...msg,
@@ -1105,6 +1148,7 @@ function ChatView({
                 return merged.messages;
             });
             setInput('');
+            setReplyingTo(null);
         } catch (error) {
             setSendError(error instanceof Error ? error.message : 'Could not send message.');
             console.error(error);
@@ -1124,6 +1168,8 @@ function ChatView({
         setDeletingMessageId(message.id);
         try {
             await deleteChatMessage(thread.id, message.id, scope);
+            setReplyingTo((previous) => (previous?.id === message.id ? null : previous));
+            setHighlightedMessageId((previous) => (previous === message.id ? null : previous));
 
             setMessages((prev) => {
                 const next = removeMessageById(prev, message.id);
@@ -1262,6 +1308,52 @@ function ChatView({
         setContextMenuPosition({ x, y });
     };
 
+    const handleStartReply = (message: ChatMessage) => {
+        if (savingEditMessageId !== null) {
+            return;
+        }
+
+        setReplyingTo(message);
+        setContextMenuMessageId(null);
+        setContextMenuPosition(null);
+    };
+
+    const setMessageElementRef = (messageId: string, element: HTMLDivElement | null) => {
+        if (element) {
+            messageElementMapRef.current.set(messageId, element);
+            return;
+        }
+
+        messageElementMapRef.current.delete(messageId);
+    };
+
+    const highlightMessageById = (messageId: string) => {
+        const target = messageElementMapRef.current.get(messageId);
+        if (!target) {
+            return;
+        }
+
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedMessageId(messageId);
+
+        if (replyHighlightTimerRef.current !== null) {
+            window.clearTimeout(replyHighlightTimerRef.current);
+        }
+
+        replyHighlightTimerRef.current = window.setTimeout(() => {
+            setHighlightedMessageId((current) => (current === messageId ? null : current));
+            replyHighlightTimerRef.current = null;
+        }, 1400);
+    };
+
+    const handleReplySnippetClick = (message: ChatMessage) => {
+        if (!message.replyToId) {
+            return;
+        }
+
+        highlightMessageById(message.replyToId);
+    };
+
     const getAvatarUrl = (userId: string) => {
         return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(userId)}&scale=80`;
     };
@@ -1375,18 +1467,33 @@ function ChatView({
                                 const isMe = msg.senderId === currentUserId;
                                 const isContextMenuOpen = contextMenuMessageId === msg.id;
                                 const isEditingMessage = editingMessageId === msg.id;
+                                const isHighlightedMessage = highlightedMessageId === msg.id;
 
                                 if (msg.type === 'notice') {
                                     return (
                                         <div
                                             key={msg.id}
                                             className="animate-fade-in"
-                                            style="display:flex;justify-content:center;margin:16px 0 8px;"
+                                            ref={(element) => setMessageElementRef(msg.id, element)}
+                                            style={`display:flex;justify-content:center;align-items:center;gap:8px;margin:16px 0 8px;border-radius:10px;padding:3px 6px;${isHighlightedMessage ? 'box-shadow:0 0 0 1.5px var(--accent);background:var(--accent-subtle);' : ''}`}
                                         >
                                             <div style="background:var(--type-update-bg);color:var(--type-update-text);font-size:11px;font-weight:600;padding:5px 14px;border-radius:20px;border:1px solid var(--type-update-border);box-shadow:0 2px 6px rgba(0,0,0,0.02);display:flex;align-items:center;gap:6px;">
                                                 <Info size={12} style="opacity:0.8;" />
                                                 {msg.content}
                                             </div>
+                                            <HoverButton
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    handleStartReply(msg);
+                                                }}
+                                                aria-label={`Reply to message from ${msg.senderName}`}
+                                                title="Reply"
+                                                class="message-reply-trigger"
+                                                style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
+                                            >
+                                                <Reply size={12} />
+                                            </HoverButton>
                                         </div>
                                     );
                                 }
@@ -1395,7 +1502,8 @@ function ChatView({
                                     <div
                                         key={msg.id}
                                         className="message-row"
-                                        style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;`}
+                                        ref={(element) => setMessageElementRef(msg.id, element)}
+                                        style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;border-radius:12px;padding:2px 4px;transition:box-shadow 0.2s ease,background 0.2s ease;${isHighlightedMessage ? 'box-shadow:0 0 0 1.5px var(--accent);background:var(--accent-subtle);' : ''}`}
                                     >
                                         {!isMe && (
                                             <div style="width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid var(--border);background:var(--bg-subtle);">
@@ -1532,10 +1640,58 @@ function ChatView({
                                                     )}
                                                 </div>
                                             ) : (
-                                                <p style="margin:0;word-break:break-word;">
-                                                    {msg.content}
-                                                </p>
+                                                <>
+                                                    {(msg.replyToId || msg.replyTo) && (
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                handleReplySnippetClick(msg);
+                                                            }}
+                                                            onContextMenu={(event) => {
+                                                                event.stopPropagation();
+                                                            }}
+                                                            disabled={!msg.replyToId}
+                                                            aria-label="Open replied message"
+                                                            style={`margin:0 0 6px;padding:7px 9px;border-radius:8px;border-left:2px solid ${isMe ? 'rgba(255,255,255,0.65)' : 'var(--accent)'};background:${isMe ? 'rgba(255,255,255,0.14)' : 'var(--bg-subtle)'};opacity:0.9;display:flex;flex-direction:column;gap:2px;text-align:left;cursor:${msg.replyToId ? 'pointer' : 'default'};`}
+                                                        >
+                                                            <span
+                                                                style={`font-size:10px;font-weight:700;${isMe ? 'color:rgba(255,255,255,0.88);' : 'color:var(--text-secondary);'}`}
+                                                            >
+                                                                Replying to{' '}
+                                                                {msg.replyTo?.senderName ||
+                                                                    'Unknown user'}
+                                                            </span>
+                                                            <span
+                                                                style={`font-size:11px;line-height:1.35;word-break:break-word;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
+                                                            >
+                                                                {msg.replyTo?.isUnavailable
+                                                                    ? 'Original message unavailable'
+                                                                    : msg.replyTo?.snippet ||
+                                                                      'Original message unavailable'}
+                                                            </span>
+                                                        </HoverButton>
+                                                    )}
+                                                    <p style="margin:0;word-break:break-word;">
+                                                        {msg.content}
+                                                    </p>
+                                                </>
                                             )}
+                                        </HoverButton>
+
+                                        <HoverButton
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handleStartReply(msg);
+                                            }}
+                                            aria-label={`Reply to message from ${msg.senderName}`}
+                                            title="Reply"
+                                            class="message-reply-trigger"
+                                            disabled={savingEditMessageId !== null}
+                                            style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
+                                        >
+                                            <Reply size={12} />
                                         </HoverButton>
 
                                         {!isMe && (
@@ -1594,6 +1750,26 @@ function ChatView({
                                                     >
                                                         <Copy size={14} />
                                                         Copy text
+                                                    </HoverButton>
+                                                    <HoverButton
+                                                        type="button"
+                                                        onClick={() => handleStartReply(msg)}
+                                                        role="menuitem"
+                                                        key="reply-message"
+                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                        onMouseEnter={(e) => {
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'var(--bg-muted)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'none';
+                                                        }}
+                                                    >
+                                                        <Reply size={14} />
+                                                        Reply
                                                     </HoverButton>
                                                     {isMe && (
                                                         <HoverButton
@@ -1720,69 +1896,96 @@ function ChatView({
                         style="position:absolute;bottom:0;left:0;right:0;padding:8px 12px;z-index:20;"
                     >
                         <div
-                            style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:0 auto;display:flex;align-items:center;gap:8px;`}
+                            style={`max-width:${wideChatView ? '100%' : '680px'};width:100%;margin:0 auto;display:flex;flex-direction:column;gap:8px;`}
                         >
-                            <input
-                                value={input}
-                                onInput={(e) => {
-                                    setInput((e.target as HTMLInputElement).value);
-                                    if (sendError) {
-                                        setSendError(null);
+                            {replyingTo && (
+                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);box-shadow:var(--shadow-sm);">
+                                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                        <span style="font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;">
+                                            Replying to {replyingTo.senderName}
+                                        </span>
+                                        <span style="font-size:12px;color:var(--text-tertiary);line-height:1.35;word-break:break-word;">
+                                            {replyingTo.content.length > 180
+                                                ? `${replyingTo.content.slice(0, 180)}...`
+                                                : replyingTo.content}
+                                        </span>
+                                    </div>
+                                    <HoverButton
+                                        type="button"
+                                        onClick={() => setReplyingTo(null)}
+                                        class="btn-icon"
+                                        aria-label="Cancel reply"
+                                        title="Cancel reply"
+                                        style="width:24px;height:24px;flex-shrink:0;color:var(--text-tertiary);"
+                                    >
+                                        <X size={14} />
+                                    </HoverButton>
+                                </div>
+                            )}
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input
+                                    value={input}
+                                    onInput={(e) => {
+                                        setInput((e.target as HTMLInputElement).value);
+                                        if (sendError) {
+                                            setSendError(null);
+                                        }
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (
+                                            e.key === 'Enter' &&
+                                            !e.repeat &&
+                                            !isBlockedConversation &&
+                                            connectionStatus === 'connected' &&
+                                            threadSubscribed
+                                        )
+                                            handleSend();
+                                    }}
+                                    disabled={
+                                        isBlockedConversation ||
+                                        connectionStatus !== 'connected' ||
+                                        !threadSubscribed
                                     }
-                                }}
-                                onKeyDown={(e) => {
-                                    if (
-                                        e.key === 'Enter' &&
-                                        !e.repeat &&
-                                        !isBlockedConversation &&
-                                        connectionStatus === 'connected' &&
-                                        threadSubscribed
-                                    )
-                                        handleSend();
-                                }}
-                                disabled={
-                                    isBlockedConversation ||
-                                    connectionStatus !== 'connected' ||
-                                    !threadSubscribed
-                                }
-                                placeholder={
-                                    isBlockedConversation
-                                        ? 'You have blocked this user'
-                                        : connectionStatus !== 'connected' || !threadSubscribed
-                                          ? 'Connecting…'
-                                          : 'Message…'
-                                }
-                                style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
-                                onFocus={(e) => {
-                                    if (isBlockedConversation) return;
-                                    (e.target as HTMLElement).style.borderColor =
-                                        'var(--border-focus)';
-                                    (e.target as HTMLElement).style.boxShadow =
-                                        '0 0 0 3px var(--accent-muted)';
-                                }}
-                                onBlur={(e) => {
-                                    if (isBlockedConversation) return;
-                                    (e.target as HTMLElement).style.borderColor = 'var(--border)';
-                                    (e.target as HTMLElement).style.boxShadow = 'none';
-                                }}
-                            />
-                            <HoverButton
-                                type="button"
-                                id="send-message-btn"
-                                onClick={handleSend}
-                                disabled={
-                                    !input.trim() ||
-                                    sending ||
-                                    isBlockedConversation ||
-                                    connectionStatus !== 'connected' ||
-                                    !threadSubscribed
-                                }
-                                class="btn-primary"
-                                style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
-                                aria-label="Send"
-                            >
-                                <Send size={15} />
-                            </HoverButton>
+                                    placeholder={
+                                        isBlockedConversation
+                                            ? 'You have blocked this user'
+                                            : connectionStatus !== 'connected' || !threadSubscribed
+                                              ? 'Connecting…'
+                                              : 'Message…'
+                                    }
+                                    style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
+                                    onFocus={(e) => {
+                                        if (isBlockedConversation) return;
+                                        (e.target as HTMLElement).style.borderColor =
+                                            'var(--border-focus)';
+                                        (e.target as HTMLElement).style.boxShadow =
+                                            '0 0 0 3px var(--accent-muted)';
+                                    }}
+                                    onBlur={(e) => {
+                                        if (isBlockedConversation) return;
+                                        (e.target as HTMLElement).style.borderColor =
+                                            'var(--border)';
+                                        (e.target as HTMLElement).style.boxShadow = 'none';
+                                    }}
+                                />
+                                <HoverButton
+                                    type="button"
+                                    id="send-message-btn"
+                                    onClick={handleSend}
+                                    disabled={
+                                        !input.trim() ||
+                                        sending ||
+                                        isBlockedConversation ||
+                                        connectionStatus !== 'connected' ||
+                                        !threadSubscribed
+                                    }
+                                    class="btn-primary"
+                                    style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
+                                    aria-label="Send"
+                                >
+                                    <Send size={15} />
+                                </HoverButton>
+                            </div>
                         </div>
                         {sendError && (
                             <div
