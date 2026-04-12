@@ -61,7 +61,7 @@ export function VerifyEmail() {
                     setState('error');
                     setMessage(
                         payload?.error ||
-                            'Verification link is invalid or expired. Request a fresh email and try again.'
+                        'Verification link is invalid or expired. Request a fresh email and try again.'
                     );
                     return;
                 }
@@ -140,12 +140,12 @@ export function VerifyEmail() {
                             </div>
                         </div>
 
-                        <div class="mt-4 stack-v gap-md sm:flex-row sm:gap-3">
+                        <div class="mt-5 grid gap-3 sm:grid-cols-2">
                             <HoverButton
                                 type="button"
                                 class="btn-primary"
                                 onClick={() => setLocation(nextPath)}
-                                style="height:44px;flex:1;"
+                                style="height:50px;width:100%;font-size:14px;font-weight:700;border-radius:12px;"
                             >
                                 Proceed to Dashboard
                             </HoverButton>
@@ -157,7 +157,7 @@ export function VerifyEmail() {
                                         window.location.reload();
                                     }
                                 }}
-                                style="height:44px;flex:1;"
+                                style="height:50px;width:100%;font-size:14px;font-weight:600;border-radius:12px;"
                             >
                                 Retry Verification
                             </HoverButton>
