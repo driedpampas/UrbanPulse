@@ -25,7 +25,7 @@ export interface AuthMailerMsg {
     timestamp: number;
 }
 
-const DEFAULT_FROM_EMAIL = 'noreply@syu.nl.eu.org';
+const DEFAULT_FROM_EMAIL = 'urbanpulse-noreply@syu.nl.eu.org';
 const DEFAULT_FROM_NAME = 'UrbanPulse Security';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
