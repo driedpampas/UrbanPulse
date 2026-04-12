@@ -357,12 +357,12 @@ type ChatSummaryRow = {
     is_group: boolean;
     timestamp: number | string | Date;
     participants:
-        | Array<{
-              userId: string;
-              displayName: string | null;
-              roles: string[];
-          }>
-        | unknown;
+    | Array<{
+        userId: string;
+        displayName: string | null;
+        roles: string[];
+    }>
+    | unknown;
     owner_id: string | null;
 };
 export interface Report {
@@ -2026,10 +2026,12 @@ export async function storePasswordResetToken(
     token: string,
     expiresAt: Date
 ): Promise<boolean> {
+    const expiresAtIso = expiresAt.toISOString();
+
     const [updated] = await sql`
         UPDATE app.users
         SET password_reset_token = ${token},
-            password_reset_expires = ${expiresAt}
+            password_reset_expires = ${expiresAtIso}
         WHERE id = ${id}
         RETURNING id
     `;
@@ -2084,6 +2086,8 @@ export async function consumePasswordResetToken(
     hashedPassword: string,
     now: Date
 ): Promise<boolean> {
+    const nowIso = now.toISOString();
+
     const [updated] = await sql`
         UPDATE app.users
         SET password_hash = ${hashedPassword},
@@ -2091,7 +2095,7 @@ export async function consumePasswordResetToken(
             password_reset_expires = NULL
         WHERE password_reset_token = ${token}
           AND password_reset_expires IS NOT NULL
-          AND password_reset_expires > ${now}
+          AND password_reset_expires > ${nowIso}
         RETURNING id
     `;
 
