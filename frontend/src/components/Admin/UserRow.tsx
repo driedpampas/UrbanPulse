@@ -68,7 +68,10 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;align-items:center;">
                 {showActions ? (
-                    <div style="display:flex;gap:4px;align-items:center;background:var(--bg-muted);padding:4px;border-radius:10px;border:1px solid var(--border);" class="animate-fade-in">
+                    <div
+                        style="display:flex;gap:4px;align-items:center;background:var(--bg-muted);padding:4px;border-radius:10px;border:1px solid var(--border);"
+                        class="animate-fade-in"
+                    >
                         {role !== 'admin' && (
                             <HoverButton
                                 type="button"
@@ -87,8 +90,8 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                                 disabled={busy}
                                 onClick={() => void setRole('mod')}
                                 style="width:32px;height:32px;border-radius:8px;border:none;background:var(--warning-subtle);color:var(--warning);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                                aria-label={isAdmin ? "Demote to Mod" : "Make Mod"}
-                                title={isAdmin ? "Demote to Mod" : "Make Mod"}
+                                aria-label={isAdmin ? 'Demote to Mod' : 'Make Mod'}
+                                title={isAdmin ? 'Demote to Mod' : 'Make Mod'}
                             >
                                 {isAdmin ? <ShieldX size={14} /> : <ShieldCheck size={14} />}
                             </HoverButton>
@@ -142,8 +145,8 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                     disabled={busy}
                     onClick={() => void deleteUser()}
                     style="width:34px;height:34px;border-radius:10px;border:none;background:var(--bg-muted);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Delete user"
-                    title="Delete user"
+                    aria-label="Schedule deletion"
+                    title="Schedule deletion"
                 >
                     <Trash2 size={14} />
                 </HoverButton>

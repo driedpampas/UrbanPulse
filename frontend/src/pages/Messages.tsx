@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
+import { ReportModal } from '../components/Modals/ReportModal';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -745,6 +746,7 @@ function ChatView({
         destructive?: boolean;
         onConfirm: () => Promise<void>;
     }>(null);
+    const [reportingMessage, setReportingMessage] = useState<ChatMessage | null>(null);
     const [memberActionConfirm, setMemberActionConfirm] = useState<null | {
         title: string;
         message: string;
@@ -1351,20 +1353,7 @@ function ChatView({
                                             </p>
                                         </HoverButton>
 
-                                        <div
-                                            className="delete-trigger-container"
-                                            style={`display:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'flex' : 'none'};align-items:center;${isContextMenuOpen ? 'visibility:hidden;' : ''}`}
-                                        >
-                                            <HoverButton
-                                                type="button"
-                                                className="delete-btn-hover"
-                                                onClick={(e) => handleContextMenu(e as any, msg.id)}
-                                                style={`width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--surface-raised);border:1px solid var(--border);cursor:pointer;color:var(--text-tertiary);transition:all 0.2s;flex-shrink:0;`}
-                                                aria-label="More options"
-                                            >
-                                                <Trash2 size={14} />
-                                            </HoverButton>
-                                        </div>
+
 
                                         {isContextMenuOpen && contextMenuPosition && (
                                             <>
@@ -1431,6 +1420,26 @@ function ChatView({
                                                     >
                                                         <Trash2 size={14} />
                                                         Delete for me
+                                                    </HoverButton>
+                                                    <HoverButton
+                                                        type="button"
+                                                        onClick={() => setReportingMessage(msg)}
+                                                        role="menuitem"
+                                                        key="report-message"
+                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                        onMouseEnter={(e) => {
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'var(--bg-muted)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            (
+                                                                e.currentTarget as HTMLElement
+                                                            ).style.background = 'none';
+                                                        }}
+                                                    >
+                                                        <Flag size={14} />
+                                                        Report message
                                                     </HoverButton>
                                                     {(isMe ||
                                                         (thread.isGroup &&
@@ -1659,10 +1668,10 @@ function ChatView({
                                             type="button"
                                             class="btn-secondary"
                                             onClick={() => openProfile(directCounterpartId)}
-                                            style="height:34px;padding:0 12px;font-size:12px;gap:6px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:10px;color:var(--text);"
+                                            style="height:32px;padding:0 14px;font-size:12px;gap:6px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:10px;color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:600;"
                                         >
                                             View profile
-                                            <ChevronRight size={13} />
+                                            <ChevronRight size={12} />
                                         </HoverButton>
                                     )}
                                 </div>
@@ -2050,6 +2059,14 @@ function ChatView({
                     }
                 }}
             />
+            {reportingMessage && (
+                <ReportModal
+                    targetId={reportingMessage.id}
+                    targetType="message"
+                    contentSnippet={reportingMessage.content}
+                    onClose={() => setReportingMessage(null)}
+                />
+            )}
         </div>
     );
 }
