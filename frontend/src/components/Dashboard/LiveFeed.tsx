@@ -40,6 +40,7 @@ interface TypeDef {
 
 const TYPE_MAP: Record<string, TypeDef> = {
     emergency: { icon: AlertTriangle, label: 'Emergency', cssPrefix: 'emergency' },
+    need: { icon: AlertTriangle, label: 'Need', cssPrefix: 'update' },
     skill: { icon: Wrench, label: 'Skill', cssPrefix: 'skill' },
     item: { icon: Package, label: 'Item', cssPrefix: 'item' },
     pet: { icon: PawPrint, label: 'Pet', cssPrefix: 'pet' },
@@ -313,6 +314,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const handleWS = useCallback(
         (event: PulseSocketEvent) => {
             if (event.event === 'pulse.created') {
+                if (event.pulse.isSolved) {
+                    return;
+                }
+
                 // If it's a new pulse, we might want to check if it's within radius on frontend
                 // for immediate feedback, OR we can just trust the socket gives us everything
                 // but the backend publishes to a global topic currently.
@@ -353,7 +358,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         };
     }, [handleWS]);
 
-    const visible = pulses;
+    const visible = pulses.filter((pulse) => !pulse.isSolved);
 
     const handleDelete = async (id: string) => {
         try {
@@ -491,7 +496,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     return (
         <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
             {visible.map((pulse, i) => {
-                const def = TYPE_MAP[pulse.type] ?? TYPE_MAP.update;
+                const isEmergencyPulse = Boolean(pulse.isEmergency) || pulse.type === 'emergency';
+                const def = isEmergencyPulse
+                    ? TYPE_MAP.emergency
+                    : (TYPE_MAP[pulse.type] ?? TYPE_MAP.update);
                 const Icon = def.icon;
                 const isNew = pulse.id === newId;
                 const isVerified = pulse.verified || pulse.confirmations >= 3;
@@ -501,6 +509,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     session &&
                         session.user.id !== pulse.userId &&
                         !acceptedPulseIds.has(pulse.id) &&
+                        !pulse.isSolved &&
                         pulseCanBeAcceptedByUser(pulse, myResourceTokens)
                 );
                 const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
@@ -509,7 +518,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     <article
                         key={pulse.id}
                         class={`card animate-slide-up${isNew ? ' animate-pulse-ring' : ''}`}
-                        style={`animation-delay:${i * 40}ms;padding:14px 16px;${pulse.type === 'emergency' ? 'border-left:3px solid var(--type-emergency-text);' : ''}`}
+                        style={`animation-delay:${i * 40}ms;padding:14px 16px;${isEmergencyPulse ? 'border-left:3px solid var(--type-emergency-text);' : ''}`}
                     >
                         <div style="display:flex;gap:11px;align-items:flex-start;">
                             {/* Avatar */}

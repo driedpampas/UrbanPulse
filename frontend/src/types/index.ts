@@ -80,6 +80,7 @@ export interface AcceptedInteraction {
         type: Pulse['type'];
         timestamp: number;
         urgencyLevel: number;
+        isSolved?: boolean;
     };
     author: {
         id: string;

@@ -4,6 +4,7 @@ import {
     fetchAcceptedPulseInteractions,
     fetchMyPostedPulses,
     fetchPulseInteractions,
+    markPulseSolved,
 } from '../lib/apiClients';
 import type { AcceptedInteraction, AuthorPulseRequest, PulseInteraction } from '../types';
 
@@ -18,6 +19,7 @@ export function useRequestsData() {
     const [error, setError] = useState<string | null>(null);
     const [loadingInteractionsFor, setLoadingInteractionsFor] = useState<string | null>(null);
     const [confirmingInteractionId, setConfirmingInteractionId] = useState<string | null>(null);
+    const [solvingPulseId, setSolvingPulseId] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -111,6 +113,50 @@ export function useRequestsData() {
         [confirmingInteractionId]
     );
 
+    const handleMarkPulseSolved = useCallback(
+        async (pulseId: string) => {
+            if (solvingPulseId) {
+                return;
+            }
+
+            setSolvingPulseId(pulseId);
+            try {
+                const updatedPulse = await markPulseSolved(pulseId);
+
+                setMyPulses((current) =>
+                    current.map((pulse) =>
+                        pulse.id === pulseId
+                            ? {
+                                  ...pulse,
+                                  isSolved: updatedPulse.isSolved,
+                                  isEmergency: updatedPulse.isEmergency,
+                              }
+                            : pulse
+                    )
+                );
+
+                setAcceptedByMe((current) =>
+                    current.map((entry) =>
+                        entry.pulse.id === pulseId
+                            ? {
+                                  ...entry,
+                                  pulse: {
+                                      ...entry.pulse,
+                                      isSolved: true,
+                                  },
+                              }
+                            : entry
+                    )
+                );
+            } catch (apiError) {
+                alert(apiError instanceof Error ? apiError.message : 'Could not mark solved.');
+            } finally {
+                setSolvingPulseId(null);
+            }
+        },
+        [solvingPulseId]
+    );
+
     return {
         myPulses,
         acceptedByMe,
@@ -120,7 +166,9 @@ export function useRequestsData() {
         error,
         loadingInteractionsFor,
         confirmingInteractionId,
+        solvingPulseId,
         togglePulseDetails,
         handleConfirmHelper,
+        handleMarkPulseSolved,
     };
 }

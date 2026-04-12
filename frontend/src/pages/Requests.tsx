@@ -13,8 +13,10 @@ export function Requests() {
         error,
         loadingInteractionsFor,
         confirmingInteractionId,
+        solvingPulseId,
         togglePulseDetails,
         handleConfirmHelper,
+        handleMarkPulseSolved,
     } = useRequestsData();
 
     return (
@@ -43,8 +45,10 @@ export function Requests() {
                             interactionsByPulse={interactionsByPulse}
                             loadingInteractionsFor={loadingInteractionsFor}
                             confirmingInteractionId={confirmingInteractionId}
+                            solvingPulseId={solvingPulseId}
                             onTogglePulseDetails={togglePulseDetails}
                             onConfirmHelper={handleConfirmHelper}
+                            onMarkPulseSolved={handleMarkPulseSolved}
                         />
 
                         <AcceptedRequestsSection acceptedByMe={acceptedByMe} />

@@ -77,6 +77,7 @@ type BackendAcceptedInteraction = {
         type: Pulse['type'];
         timestamp: number | string;
         urgencyLevel: number | string;
+        isSolved?: boolean;
     };
     author: {
         id: string;
@@ -210,6 +211,7 @@ function mapBackendAcceptedInteraction(
             type: normalizePulseType(acceptedInteraction.pulse.type),
             timestamp: Number(acceptedInteraction.pulse.timestamp),
             urgencyLevel: Number(acceptedInteraction.pulse.urgencyLevel),
+            isSolved: Boolean(acceptedInteraction.pulse.isSolved),
         },
         author: acceptedInteraction.author,
     };
@@ -582,6 +584,14 @@ export async function confirmPulseInteraction(
     );
 
     return mapBackendPulseInteraction(data.interaction);
+}
+
+export async function markPulseSolved(pulseId: string): Promise<Pulse> {
+    const data = await request<{ pulse: BackendPulse }>(`/pulses/${pulseId}/solve`, {
+        method: 'POST',
+    });
+
+    return mapBackendPulse(data.pulse);
 }
 
 export async function fetchAcceptedPulseInteractions(

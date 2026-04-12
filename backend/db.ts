@@ -99,6 +99,7 @@ export interface AcceptedInteraction {
         type: PulseType;
         timestamp: number;
         urgencyLevel: number;
+        isSolved: boolean;
     };
     author: {
         id: string;
@@ -269,6 +270,7 @@ type AcceptedInteractionRow = PulseInteractionRow & {
     pulse_type: string;
     pulse_timestamp: number | string | Date;
     pulse_urgency_level: number | string | null;
+    pulse_is_solved: boolean | null;
     author_name?: string | null;
 };
 
@@ -454,6 +456,7 @@ function mapAcceptedInteractionRow(row: AcceptedInteractionRow): AcceptedInterac
             type: PULSE_TYPE_VALUES.includes(normalizedType) ? normalizedType : 'update',
             timestamp: Number(row.pulse_timestamp),
             urgencyLevel: Number(row.pulse_urgency_level ?? 1),
+            isSolved: Boolean(row.pulse_is_solved),
         },
         author: {
             id: row.author_id,
@@ -2958,6 +2961,7 @@ export async function selectAcceptedInteractionsForHelper(
             LOWER(p.pulse_type) AS pulse_type,
             ROUND(EXTRACT(EPOCH FROM p.created_at) * 1000)::bigint AS pulse_timestamp,
             COALESCE(p.urgency_level, 1) AS pulse_urgency_level,
+            COALESCE(p.is_solved, false) AS pulse_is_solved,
             COALESCE(NULLIF(author.display_name, ''), pi.author_id::text) AS author_name
         FROM app.pulse_interactions AS pi
         JOIN app.pulses AS p ON p.id = pi.pulse_id

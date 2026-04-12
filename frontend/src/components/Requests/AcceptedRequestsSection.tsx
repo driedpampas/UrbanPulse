@@ -36,6 +36,11 @@ function AcceptedRequestsSectionComponent({ acceptedByMe }: Props) {
                         <span style="font-size:11px;color:var(--text-tertiary);">
                             Accepted {timeAgo(entry.interaction.acceptedAt)}
                         </span>
+                        {entry.pulse.isSolved && (
+                            <span style="font-size:11px;font-weight:700;color:var(--success);">
+                                Pulse solved
+                            </span>
+                        )}
                         {entry.interaction.status === 'successful' ? (
                             <span style="font-size:11px;font-weight:700;color:var(--success);margin-left:auto;">
                                 Successful (+{entry.interaction.trustAwarded} trust)

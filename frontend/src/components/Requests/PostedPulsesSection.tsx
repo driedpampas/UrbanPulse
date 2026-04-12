@@ -10,8 +10,10 @@ type Props = {
     interactionsByPulse: Record<string, PulseInteraction[]>;
     loadingInteractionsFor: string | null;
     confirmingInteractionId: string | null;
+    solvingPulseId: string | null;
     onTogglePulseDetails: (pulseId: string) => Promise<void>;
     onConfirmHelper: (pulseId: string, interactionId: string) => Promise<void>;
+    onMarkPulseSolved: (pulseId: string) => Promise<void>;
 };
 
 function PostedPulsesSectionComponent({
@@ -20,8 +22,10 @@ function PostedPulsesSectionComponent({
     interactionsByPulse,
     loadingInteractionsFor,
     confirmingInteractionId,
+    solvingPulseId,
     onTogglePulseDetails,
     onConfirmHelper,
+    onMarkPulseSolved,
 }: Props) {
     return (
         <section class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
@@ -62,6 +66,22 @@ function PostedPulsesSectionComponent({
                                 <Clock size={10} />
                                 {timeAgo(pulse.timestamp)}
                             </span>
+                            {pulse.isSolved && (
+                                <span style="font-size:11px;font-weight:700;color:var(--success);">
+                                    Solved
+                                </span>
+                            )}
+                            {!pulse.isSolved && (
+                                <HoverButton
+                                    type="button"
+                                    onClick={() => void onMarkPulseSolved(pulse.id)}
+                                    disabled={solvingPulseId === pulse.id}
+                                    class="btn-ghost"
+                                    style="height:26px;padding:0 8px;font-size:11px;"
+                                >
+                                    {solvingPulseId === pulse.id ? 'Solving...' : 'Mark solved'}
+                                </HoverButton>
+                            )}
                             <HoverButton
                                 type="button"
                                 onClick={() => void onTogglePulseDetails(pulse.id)}
@@ -109,7 +129,8 @@ function PostedPulsesSectionComponent({
                                                     void onConfirmHelper(pulse.id, interaction.id)
                                                 }
                                                 disabled={
-                                                    confirmingInteractionId === interaction.id
+                                                    confirmingInteractionId === interaction.id ||
+                                                    Boolean(pulse.isSolved)
                                                 }
                                                 class="btn-primary"
                                                 style="height:28px;padding:0 10px;font-size:11px;white-space:nowrap;"
