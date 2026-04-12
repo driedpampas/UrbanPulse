@@ -146,6 +146,7 @@ export interface Chat {
     }[];
     participantRoles: Record<string, ChatParticipantRole[]>;
     ownerId: string | null;
+    name: string | null;
     isGroup: boolean;
     timestamp: number;
 }
@@ -158,6 +159,7 @@ export interface ChatSummary {
         roles: ChatParticipantRole[];
     }[];
     ownerId: string | null;
+    name: string | null;
     isGroup: boolean;
     timestamp: number;
 }
@@ -347,6 +349,7 @@ type ChatThreadRow = {
     is_group: boolean;
     timestamp: number | string | Date;
     owner_id?: string | null;
+    name?: string | null;
 };
 
 type ChatRoleRow = {
@@ -377,6 +380,7 @@ type ChatSummaryRow = {
     id: string;
     is_group: boolean;
     timestamp: number | string | Date;
+    name: string | null;
     participants:
         | Array<{
               userId: string;
@@ -791,6 +795,19 @@ async function ensureSchema() {
             await tx`
                 ALTER TABLE app.chat_threads
                 ADD COLUMN owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
+            `;
+        }
+
+        // Check chat_threads.name
+        const threadNameCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'chat_threads' AND column_name = 'name'
+            LIMIT 1
+        `;
+        if (threadNameCol.length === 0) {
+            await tx`
+                ALTER TABLE app.chat_threads
+                ADD COLUMN name text
             `;
         }
 
@@ -1547,6 +1564,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
             SELECT
                 ct.id,
                 ct.is_group,
+                NULLIF(BTRIM(ct.name), '') AS name,
                 ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
                 COALESCE(ct.owner_id::text, NULL) AS owner_id,
                 ARRAY_AGG(
@@ -1570,7 +1588,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
                 FROM app.chat_participants
                 WHERE user_id = ${userId}
             )
-            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            GROUP BY ct.id, ct.is_group, ct.name, ct.created_at, ct.owner_id
             ORDER BY "timestamp" DESC, ct.id DESC
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
@@ -1578,6 +1596,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
     return chats.map((chat) => ({
         id: chat.id,
         isGroup: chat.is_group,
+        name: chat.name,
         timestamp: Number(chat.timestamp),
         ownerId: chat.owner_id,
         participants: (
@@ -1605,6 +1624,7 @@ export async function selectChatSummary(
             SELECT
                 ct.id,
                 ct.is_group,
+                NULLIF(BTRIM(ct.name), '') AS name,
                 ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
                 COALESCE(ct.owner_id::text, NULL) AS owner_id,
                 ARRAY_AGG(
@@ -1629,7 +1649,7 @@ export async function selectChatSummary(
                 FROM app.chat_participants
                 WHERE user_id = ${userId}
             )
-            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            GROUP BY ct.id, ct.is_group, ct.name, ct.created_at, ct.owner_id
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
 
@@ -1638,6 +1658,7 @@ export async function selectChatSummary(
     return {
         id: chat.id,
         isGroup: chat.is_group,
+        name: chat.name,
         timestamp: Number(chat.timestamp),
         ownerId: chat.owner_id,
         participants: (
@@ -1662,6 +1683,7 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
             SELECT
                 ct.id,
                 ct.is_group,
+                NULLIF(BTRIM(ct.name), '') AS name,
                 ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
                 COALESCE(ct.owner_id::text, NULL) AS owner_id,
                 ARRAY_AGG(
@@ -1681,7 +1703,7 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
                 WHERE cpr.thread_id = ct.id AND cpr.user_id = cp.user_id
             ) AS roles ON true
             WHERE ct.id = ${chatId}::uuid
-            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            GROUP BY ct.id, ct.is_group, ct.name, ct.created_at, ct.owner_id
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
 
@@ -1690,6 +1712,7 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
     return {
         id: chat.id,
         isGroup: chat.is_group,
+        name: chat.name,
         timestamp: Number(chat.timestamp),
         ownerId: chat.owner_id,
         participants: (
@@ -1857,6 +1880,7 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
 
         return (await tx`
             SELECT cp.thread_id, cp.user_id, ct.is_group,
+            NULLIF(BTRIM(ct.name), '') AS name,
             ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
             ct.owner_id
             FROM app.chat_threads AS ct
@@ -1893,6 +1917,7 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
         participants,
         isGroup: chatRows[0]!.is_group,
         ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
+        name: chatRows[0]!.name?.trim() ? String(chatRows[0]!.name) : null,
         participantRoles,
         timestamp: Number(chatRows[0]!.timestamp),
     };
@@ -1904,6 +1929,7 @@ export async function selectChatById(chatId: string): Promise<Chat | null> {
 
         return (await tx`
             SELECT cp.thread_id, cp.user_id, ct.is_group,
+            NULLIF(BTRIM(ct.name), '') AS name,
             ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
             ct.owner_id
             FROM app.chat_threads AS ct
@@ -1940,6 +1966,7 @@ export async function selectChatById(chatId: string): Promise<Chat | null> {
         participants,
         isGroup: chatRows[0]!.is_group,
         ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
+        name: chatRows[0]!.name?.trim() ? String(chatRows[0]!.name) : null,
         participantRoles,
         timestamp: Number(chatRows[0]!.timestamp),
     };
@@ -1986,10 +2013,13 @@ export async function findDirectChatId(userAId: string, userBId: string): Promis
 export async function insertChat(
     participantIds: string[],
     isGroup: boolean,
-    currentUser: string
+    currentUser: string,
+    name?: string
 ): Promise<Chat> {
     const threadId = crypto.randomUUID();
     const csvParticipantIds = participantIds.join(',');
+    const normalizedName =
+        isGroup && typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
 
     await sql.begin(async (tx) => {
         await ensureSchema();
@@ -1998,8 +2028,8 @@ export async function insertChat(
         `;
 
         await tx`
-            INSERT INTO app.chat_threads (id, is_group, owner_id)
-            VALUES (${threadId}::uuid, ${isGroup}, ${currentUser}::uuid);
+            INSERT INTO app.chat_threads (id, is_group, owner_id, name)
+            VALUES (${threadId}::uuid, ${isGroup}, ${currentUser}::uuid, ${normalizedName});
         `;
 
         await tx`
@@ -2029,6 +2059,26 @@ export async function insertChat(
     }
 
     return (await selectChat(threadId, currentUser))!;
+}
+
+export async function updateChatName(threadId: string, ownerId: string, newName: string) {
+    await ensureSchema();
+
+    const [updated] = (await sql`
+        UPDATE app.chat_threads
+        SET name = ${newName}
+        WHERE id = ${threadId}::uuid
+          AND is_group = true
+          AND (owner_id = ${ownerId}::uuid OR owner_id IS NULL)
+        RETURNING id::text AS id, NULLIF(BTRIM(name), '') AS name;
+    `) as Array<{ id: string; name: string | null }>;
+
+    return updated
+        ? {
+              threadId: updated.id,
+              name: updated.name ?? '',
+          }
+        : null;
 }
 
 export async function addChatParticipants(

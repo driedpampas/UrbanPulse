@@ -3,6 +3,7 @@ import {
     ChevronRight,
     Clock,
     Copy,
+    Edit2,
     Flag,
     Info,
     Pencil,
@@ -44,6 +45,7 @@ import {
     startDirectConversation,
     subscribeChatThread,
     unsubscribeChatThread,
+    updateChatName,
     waitForChatThreadSubscription,
 } from '../lib/chatApi';
 import {
@@ -200,6 +202,45 @@ export function Messages() {
         [activeThread?.id]
     );
 
+    const applyThreadNameUpdate = useCallback((threadId: string, name: string) => {
+        const normalizedName = name.trim();
+        if (!normalizedName) {
+            return;
+        }
+
+        setThreads((prev) => {
+            let changed = false;
+            const next = prev.map((thread) => {
+                if (thread.id !== threadId) {
+                    return thread;
+                }
+
+                if (thread.name === normalizedName) {
+                    return thread;
+                }
+
+                changed = true;
+                return {
+                    ...thread,
+                    name: normalizedName,
+                };
+            });
+
+            return changed ? next : prev;
+        });
+
+        setActiveThread((prev) => {
+            if (!prev || prev.id !== threadId || prev.name === normalizedName) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                name: normalizedName,
+            };
+        });
+    }, []);
+
     useEffect(() => {
         fetchChats().then((data) => {
             setThreads(data);
@@ -271,7 +312,17 @@ export function Messages() {
 
     useEffect(() => {
         const handleRefresh = (event: ChatSocketEvent) => {
-            if (event.event !== 'chat.updated' && event.event !== 'chat.members.updated') {
+            if (event.event === 'chat.updated') {
+                if (typeof event.name === 'string') {
+                    applyThreadNameUpdate(event.threadId, event.name);
+                    return;
+                }
+
+                void refreshThread(event.threadId).catch(() => {});
+                return;
+            }
+
+            if (event.event !== 'chat.members.updated') {
                 return;
             }
 
@@ -280,7 +331,7 @@ export function Messages() {
 
         connectChatWebSocket(handleRefresh);
         return () => disconnectChatWebSocket(handleRefresh);
-    }, [refreshThread]);
+    }, [applyThreadNameUpdate, refreshThread]);
 
     useEffect(() => {
         const handleThreadListSync = (event: ChatSocketEvent) => {
@@ -786,6 +837,10 @@ function ChatView({
     const [showSidebar, setShowSidebar] = useState(false);
     const [sidebarTab, setSidebarTab] = useState<'info' | 'participants'>('info');
     const [selectedColor, setSelectedColor] = useState<string>('#6366f1');
+    const [isRenamingChatName, setIsRenamingChatName] = useState(false);
+    const [chatNameDraft, setChatNameDraft] = useState(thread.name ?? '');
+    const [chatNameError, setChatNameError] = useState<string | null>(null);
+    const [savingChatName, setSavingChatName] = useState(false);
     const [wideChatView, setWideChatView] = useState(() => {
         if (typeof window === 'undefined') return false;
         return localStorage.getItem('wide-chat-view') === 'true';
@@ -844,8 +899,19 @@ function ChatView({
         setEditError(null);
         setReplyingTo(null);
         setHighlightedMessageId(null);
+        setIsRenamingChatName(false);
+        setChatNameDraft(thread.name ?? '');
+        setChatNameError(null);
+        setSavingChatName(false);
         messageElementMapRef.current.clear();
     }, [thread.id]);
+
+    useEffect(() => {
+        if (!isRenamingChatName) {
+            setChatNameDraft(thread.name ?? '');
+            setChatNameError(null);
+        }
+    }, [thread.name, isRenamingChatName]);
 
     useEffect(() => {
         return () => {
@@ -1008,6 +1074,7 @@ function ChatView({
             senderName?: string;
             threadName?: string;
             threadId?: string;
+            name?: string;
         }) => {
             if (event.event === 'message.deleted' && typeof event.messageId === 'string') {
                 setReplyingTo((previous) =>
@@ -1041,6 +1108,18 @@ function ChatView({
             }
 
             if (event.event === 'chat.updated' && event.threadId === thread.id) {
+                if (typeof event.name === 'string' && event.name.trim().length > 0) {
+                    const normalizedName = event.name.trim();
+                    onThreadUpdate({
+                        ...threadRef.current,
+                        name: normalizedName,
+                    });
+                    setIsRenamingChatName(false);
+                    setChatNameError(null);
+                    setSavingChatName(false);
+                    return;
+                }
+
                 void onThreadRefresh(thread.id).catch(() => {});
                 return;
             }
@@ -1365,8 +1444,71 @@ function ChatView({
     const otherNames = thread.participantNames.filter(
         (_name, idx) => thread.participants[idx] !== currentUserId
     );
-    const chatTitle = thread.name || otherNames.filter(Boolean).join(', ') || 'Chat';
     const isGroup = thread.isGroup;
+    const canRenameGroupName = isGroup && thread.ownerId === currentUserId;
+    const fallbackChatTitle = otherNames.filter(Boolean).join(', ') || 'Chat';
+    const chatTitle = thread.name || fallbackChatTitle;
+
+    const startRenamingChatName = () => {
+        if (!canRenameGroupName || savingChatName) {
+            return;
+        }
+
+        setChatNameDraft(thread.name ?? fallbackChatTitle);
+        setChatNameError(null);
+        setIsRenamingChatName(true);
+    };
+
+    const cancelRenamingChatName = () => {
+        if (savingChatName) {
+            return;
+        }
+
+        setIsRenamingChatName(false);
+        setChatNameDraft(thread.name ?? '');
+        setChatNameError(null);
+    };
+
+    const handleSaveChatName = async () => {
+        if (!canRenameGroupName || savingChatName) {
+            return;
+        }
+
+        const nextName = chatNameDraft.trim();
+        if (!nextName || nextName.length > 50) {
+            setChatNameError('Group name must be between 1 and 50 characters.');
+            return;
+        }
+
+        const currentName = (threadRef.current.name ?? '').trim();
+        if (currentName === nextName) {
+            setIsRenamingChatName(false);
+            setChatNameError(null);
+            return;
+        }
+
+        setSavingChatName(true);
+        setChatNameError(null);
+        try {
+            const updated = await updateChatName(thread.id, nextName);
+            const resolvedName = updated.name.trim() || nextName;
+
+            onThreadUpdate({
+                ...threadRef.current,
+                name: resolvedName,
+            });
+
+            setChatNameDraft(resolvedName);
+            setIsRenamingChatName(false);
+        } catch (error) {
+            setChatNameError(
+                error instanceof Error ? error.message : 'Could not update group chat name.'
+            );
+        } finally {
+            setSavingChatName(false);
+        }
+    };
+
     const directCounterpartProfile = directCounterpartId
         ? participantProfiles[directCounterpartId]
         : null;
@@ -1421,9 +1563,76 @@ function ChatView({
                     )}
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;">
-                        {chatTitle}
-                    </p>
+                    {isRenamingChatName ? (
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                            <input
+                                type="text"
+                                className="input-field max-w-[200px]"
+                                value={chatNameDraft}
+                                autoFocus
+                                maxLength={50}
+                                onInput={(event) => {
+                                    setChatNameDraft((event.target as HTMLInputElement).value);
+                                    if (chatNameError) {
+                                        setChatNameError(null);
+                                    }
+                                }}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter') {
+                                        event.preventDefault();
+                                        void handleSaveChatName();
+                                        return;
+                                    }
+
+                                    if (event.key === 'Escape') {
+                                        event.preventDefault();
+                                        cancelRenamingChatName();
+                                    }
+                                }}
+                                style="height:32px;max-width:200px;background:var(--surface-overlay);color:var(--text);border-color:var(--border-focus);"
+                            />
+                            <HoverButton
+                                type="button"
+                                class="btn-primary"
+                                onClick={() => void handleSaveChatName()}
+                                disabled={savingChatName}
+                                style="height:30px;padding:0 10px;font-size:12px;"
+                            >
+                                {savingChatName ? 'Saving…' : 'Save'}
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                class="btn-ghost"
+                                onClick={cancelRenamingChatName}
+                                disabled={savingChatName}
+                                style="height:30px;padding:0 10px;font-size:12px;"
+                            >
+                                Cancel
+                            </HoverButton>
+                        </div>
+                    ) : (
+                        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                            <p style="font-size:14px;font-weight:700;color:var(--text);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.01em;">
+                                {chatTitle}
+                            </p>
+                            {canRenameGroupName && (
+                                <HoverButton
+                                    type="button"
+                                    class="btn-icon"
+                                    onClick={startRenamingChatName}
+                                    aria-label="Rename group chat"
+                                    style="color:var(--text-secondary);width:24px;height:24px;"
+                                >
+                                    <Edit2 size={13} />
+                                </HoverButton>
+                            )}
+                        </div>
+                    )}
+                    {chatNameError && (
+                        <p style="font-size:11px;color:var(--danger);margin:3px 0 0;">
+                            {chatNameError}
+                        </p>
+                    )}
                     {isGroup && (
                         <p style="font-size:11px;color:var(--text-tertiary);margin:0;">
                             {thread.participants.length} members

@@ -87,9 +87,16 @@ export const resourceCatalogQuerySchema = z.strictObject({
     limit: z.coerce.number().optional(),
 });
 
+const chatNameSchema = z.string().trim().min(1).max(50);
+
 export const createChatSchema = z.strictObject({
     isGroup: z.boolean(),
     participantIds: z.array(z.uuid()).min(1).max(50),
+    name: chatNameSchema.optional(),
+});
+
+export const updateChatNameSchema = z.strictObject({
+    name: chatNameSchema,
 });
 
 const quotedReplySchema = z.strictObject({
@@ -322,6 +329,7 @@ export type InteractionFeedbackBody = z.infer<typeof interactionFeedbackSchema>;
 export type PulseListQuery = z.infer<typeof pulseListQuerySchema>;
 export type ResourceCatalogQuery = z.infer<typeof resourceCatalogQuerySchema>;
 export type CreateChatBody = z.infer<typeof createChatSchema>;
+export type UpdateChatNameBody = z.infer<typeof updateChatNameSchema>;
 export type CreateMessageBody = z.infer<typeof createMessageSchema>;
 export type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
 export type UpdateMessageBody = z.infer<typeof updateMessageSchema>;

@@ -27,7 +27,7 @@ export type ChatSocketEvent =
     | { event: 'chat.subscribed'; threadId: string }
     | { event: 'chat.unsubscribed'; threadId: string }
     | { event: 'chat.error'; threadId: string; reason: string }
-    | { event: 'chat.updated'; threadId: string }
+    | { event: 'chat.updated'; threadId: string; name?: string }
     | { event: 'chat.members.updated'; threadId: string }
     | {
           event: 'notification.message';
@@ -59,6 +59,7 @@ export interface CreateGroupChatInput {
 
 type BackendChatSummary = {
     id: string;
+    name?: string | null;
     participants: Array<{
         userId: string;
         displayName: string | null;
@@ -202,7 +203,12 @@ function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): Ch
         participantRoles,
         ownerId: summary.ownerId ?? null,
         isGroup: summary.isGroup,
-        name: summary.isGroup ? participantNames.join(', ') : undefined,
+        name:
+            summary.isGroup && typeof summary.name === 'string' && summary.name.trim().length > 0
+                ? summary.name.trim()
+                : summary.isGroup
+                  ? participantNames.join(', ')
+                  : undefined,
         lastMessage,
         messages,
     };
@@ -285,6 +291,7 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
         const parsed = JSON.parse(rawMessage) as {
             event?: string;
             threadId?: string;
+            name?: string;
             reason?: string;
             message?: ChatSocketMessage;
             senderName?: string;
@@ -354,6 +361,7 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
             return {
                 event: 'chat.updated',
                 threadId: parsed.threadId,
+                name: typeof parsed.name === 'string' ? parsed.name : undefined,
             };
         }
 
@@ -608,6 +616,16 @@ export async function promoteGroupChatParticipant(threadId: string, participantI
 export async function deleteGroupChat(threadId: string) {
     await request<void>(`/chats/${threadId}`, {
         method: 'DELETE',
+    });
+}
+
+export async function updateChatName(threadId: string, name: string) {
+    return await request<{ threadId: string; name: string }>(`/chats/${threadId}/name`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
     });
 }
 

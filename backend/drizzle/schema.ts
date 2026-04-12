@@ -107,6 +107,7 @@ export const pulses = app.table(
 
 export const chatThreads = app.table('chat_threads', {
     id: uuid('id').defaultRandom().primaryKey(),
+    name: text('name'),
     isGroup: boolean('is_group').notNull().default(false),
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
