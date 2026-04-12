@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { acceptPulseRequest, connectWebSocket, disconnectWebSocket } from '../../lib/pulseApi';
 import type { Pulse } from '../../lib/types';
 import { HoverButton } from '../ui/HoverButton';
+import { UserAvatar } from '../ui/UserAvatar';
 
 const HERO_NOTIFICATION_PROMPT_DISMISSED_KEY = 'hero-notification-prompt-dismissed';
 
@@ -188,10 +189,11 @@ export function HeroAlert() {
 
                 <div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3 mb-3">
                     <div class="stack-h gap-md mb-2">
-                        <img
-                            src={activeAlert.userAvatar}
-                            class="w-7 h-7 rounded-full border-2 border-[var(--accent-muted)]"
-                            alt={`${activeAlert.userName}'s avatar`}
+                        <UserAvatar
+                            userId={activeAlert.userId}
+                            fallbackSrc={activeAlert.userAvatar}
+                            className="w-7 h-7 rounded-full border-2 border-[var(--accent-muted)]"
+                            alt={`${activeAlert.userName}'s profile picture`}
                         />
                         <span class="text-[13px] font-bold text-[var(--text)]">
                             {activeAlert.userName}

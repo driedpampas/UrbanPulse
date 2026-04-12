@@ -205,6 +205,10 @@ interface User {
     timezone?: string | null;
     trustScore?: number | null;
     bio?: string | null;
+    profilePictureFilename?: string | null;
+    profilePictureMimeType?: string | null;
+    profilePictureSizeBytes?: number | null;
+    profilePictureUpdatedAt?: Date | null;
     verified?: boolean;
     createdAt?: Date;
     deletionRequestedAt?: number | null;
@@ -319,6 +323,10 @@ type UserRow = {
     quiet_days?: number[] | null;
     timezone?: string | null;
     bio?: string | null;
+    profile_picture_filename?: string | null;
+    profile_picture_mime_type?: string | null;
+    profile_picture_size_bytes?: number | null;
+    profile_picture_updated_at?: Date | string | number | null;
     deletion_requested_at?: Date | string | number | null;
 };
 
@@ -1107,6 +1115,23 @@ async function ensureSchema() {
         await tx`
             ALTER TABLE app.users
             ALTER COLUMN timezone SET NOT NULL
+        `;
+
+        await tx`
+            ALTER TABLE app.users
+            ADD COLUMN IF NOT EXISTS profile_picture_filename text
+        `;
+        await tx`
+            ALTER TABLE app.users
+            ADD COLUMN IF NOT EXISTS profile_picture_mime_type text
+        `;
+        await tx`
+            ALTER TABLE app.users
+            ADD COLUMN IF NOT EXISTS profile_picture_size_bytes integer
+        `;
+        await tx`
+            ALTER TABLE app.users
+            ADD COLUMN IF NOT EXISTS profile_picture_updated_at timestamptz
         `;
 
         const usersRoleConstraint = (await tx`
@@ -2828,7 +2853,11 @@ export async function selectFullUser(id: string): Promise<User | null> {
       COALESCE(to_jsonb(quiet_days), '[]'::jsonb) AS quiet_days,
     COALESCE(NULLIF(timezone, ''), 'UTC') AS timezone,
       deletion_requested_at,
-      bio 
+            bio,
+            profile_picture_filename,
+            profile_picture_mime_type,
+            profile_picture_size_bytes,
+            profile_picture_updated_at
     FROM app.users 
     WHERE 
         id = ${id}
@@ -2854,6 +2883,12 @@ export async function selectFullUser(id: string): Promise<User | null> {
         quietDays: rawUser.quiet_days,
         timezone: rawUser.timezone ?? 'UTC',
         bio: rawUser.bio,
+        profilePictureFilename: rawUser.profile_picture_filename,
+        profilePictureMimeType: rawUser.profile_picture_mime_type,
+        profilePictureSizeBytes: rawUser.profile_picture_size_bytes,
+        profilePictureUpdatedAt: rawUser.profile_picture_updated_at
+            ? new Date(rawUser.profile_picture_updated_at)
+            : null,
         deletionRequestedAt: rawUser.deletion_requested_at
             ? Number(rawUser.deletion_requested_at)
             : null,
@@ -2878,6 +2913,75 @@ export async function selectUserRole(id: string): Promise<string | null> {
     SELECT role FROM app.users WHERE id = ${id}
     `) as Array<{ role: string }>;
     return row?.role ?? null;
+}
+
+export async function selectUserProfilePicture(userId: string): Promise<{
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+} | null> {
+    await ensureSchema();
+
+    const [row] = (await sql`
+        SELECT
+            profile_picture_filename,
+            profile_picture_mime_type,
+            profile_picture_size_bytes
+        FROM app.users
+        WHERE id = ${userId}
+        LIMIT 1
+    `) as Array<{
+        profile_picture_filename: string | null;
+        profile_picture_mime_type: string | null;
+        profile_picture_size_bytes: number | null;
+    }>;
+
+    if (!row?.profile_picture_filename || !row.profile_picture_mime_type) {
+        return null;
+    }
+
+    return {
+        filename: row.profile_picture_filename,
+        mimeType: row.profile_picture_mime_type,
+        sizeBytes: row.profile_picture_size_bytes ?? 0,
+    };
+}
+
+export async function setUserProfilePicture(
+    userId: string,
+    filename: string,
+    mimeType: string,
+    sizeBytes: number
+): Promise<boolean> {
+    await ensureSchema();
+
+    const [row] = await sql`
+        UPDATE app.users
+        SET profile_picture_filename = ${filename},
+            profile_picture_mime_type = ${mimeType},
+            profile_picture_size_bytes = ${sizeBytes},
+            profile_picture_updated_at = now()
+        WHERE id = ${userId}
+        RETURNING id
+    `;
+
+    return Boolean(row);
+}
+
+export async function clearUserProfilePicture(userId: string): Promise<boolean> {
+    await ensureSchema();
+
+    const [row] = await sql`
+        UPDATE app.users
+        SET profile_picture_filename = NULL,
+            profile_picture_mime_type = NULL,
+            profile_picture_size_bytes = NULL,
+            profile_picture_updated_at = NULL
+        WHERE id = ${userId}
+        RETURNING id
+    `;
+
+    return Boolean(row);
 }
 
 export async function selectAdminOverview() {
@@ -3024,6 +3128,10 @@ export async function searchUsers(
         COALESCE((SELECT jsonb_agg(day::text) FROM unnest(quiet_days) AS day), '[]'::jsonb) AS quiet_days,
         COALESCE(NULLIF(timezone, ''), 'UTC') AS timezone,
         bio,
+        profile_picture_filename,
+        profile_picture_mime_type,
+        profile_picture_size_bytes,
+        profile_picture_updated_at,
         deletion_requested_at 
     FROM app.users 
     WHERE
@@ -3088,6 +3196,12 @@ export async function searchUsers(
             quietDays: rawUser.quiet_days,
             timezone: rawUser.timezone ?? 'UTC',
             bio: rawUser.bio,
+            profilePictureFilename: rawUser.profile_picture_filename,
+            profilePictureMimeType: rawUser.profile_picture_mime_type,
+            profilePictureSizeBytes: rawUser.profile_picture_size_bytes,
+            profilePictureUpdatedAt: rawUser.profile_picture_updated_at
+                ? new Date(rawUser.profile_picture_updated_at)
+                : null,
             deletionRequestedAt: rawUser.deletion_requested_at
                 ? Number(rawUser.deletion_requested_at)
                 : null,
@@ -3326,6 +3440,10 @@ export async function selectPendingUserDeletions(
             COALESCE((SELECT jsonb_agg(day::text) FROM unnest(quiet_days) AS day), '[]'::jsonb) AS quiet_days,
             COALESCE(NULLIF(timezone, ''), 'UTC') AS timezone,
             bio,
+            profile_picture_filename,
+            profile_picture_mime_type,
+            profile_picture_size_bytes,
+            profile_picture_updated_at,
             deletion_requested_at
         FROM app.users
         WHERE deletion_requested_at IS NOT NULL
@@ -3355,6 +3473,12 @@ export async function selectPendingUserDeletions(
                 quietDays: rawUser.quiet_days,
                 timezone: rawUser.timezone ?? 'UTC',
                 bio: rawUser.bio,
+                profilePictureFilename: rawUser.profile_picture_filename,
+                profilePictureMimeType: rawUser.profile_picture_mime_type,
+                profilePictureSizeBytes: rawUser.profile_picture_size_bytes,
+                profilePictureUpdatedAt: rawUser.profile_picture_updated_at
+                    ? new Date(rawUser.profile_picture_updated_at)
+                    : null,
                 deletionRequestedAt: requestedAt,
             } as User,
             requestedAt,

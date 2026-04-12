@@ -1,5 +1,8 @@
 import type * as bun from 'bun';
 import type { JwtPayload } from 'jsonwebtoken';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import * as auth from '../auth';
 import type { PulseType, Timerange } from '../db';
@@ -59,6 +62,9 @@ import {
     passwordConfirmSchema,
     passwordRequestSchema,
     pulseListQuerySchema,
+    PROFILE_PICTURE_ALLOWED_MIME_TYPES,
+    PROFILE_PICTURE_MAX_BYTES,
+    profilePictureRouteParamsSchema,
     pulseMatchSchema,
     registerUserSchema,
     resourceCatalogQuerySchema,
@@ -84,6 +90,82 @@ const DEFAULT_PULSE_URGENCY: Record<PulseType, number> = {
     need: 4,
     pet: 2,
 };
+
+const BACKEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const PROFILE_PICTURE_DIR = path.join(BACKEND_ROOT, 'storage', 'profile-pictures');
+
+type DetectedImageMime = (typeof PROFILE_PICTURE_ALLOWED_MIME_TYPES)[number];
+
+function detectImageMimeType(buffer: Uint8Array): DetectedImageMime | null {
+    if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+        return 'image/jpeg';
+    }
+
+    if (
+        buffer.length >= 8 &&
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a
+    ) {
+        return 'image/png';
+    }
+
+    if (
+        buffer.length >= 12 &&
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+    ) {
+        return 'image/webp';
+    }
+
+    return null;
+}
+
+function fileExtensionForMimeType(mimeType: DetectedImageMime): string {
+    if (mimeType === 'image/jpeg') {
+        return 'jpg';
+    }
+    if (mimeType === 'image/png') {
+        return 'png';
+    }
+    return 'webp';
+}
+
+function buildProfilePictureFilename(userId: string, mimeType: DetectedImageMime): string {
+    return `${userId}.${fileExtensionForMimeType(mimeType)}`;
+}
+
+function resolveProfilePicturePath(filename: string): string {
+    const safeName = path.basename(filename);
+    const absolutePath = path.resolve(PROFILE_PICTURE_DIR, safeName);
+    if (!absolutePath.startsWith(`${PROFILE_PICTURE_DIR}${path.sep}`)) {
+        throw new Error('Invalid profile picture path');
+    }
+    return absolutePath;
+}
+
+async function removeProfilePictureFile(filename: string | null | undefined): Promise<void> {
+    if (!filename) {
+        return;
+    }
+
+    try {
+        await rm(resolveProfilePicturePath(filename), { force: true });
+    } catch (error) {
+        console.warn('Failed to remove profile picture file:', error);
+    }
+}
 
 type HttpRoutes = NonNullable<Parameters<typeof bun.serve>[0]['routes']>;
 
@@ -634,6 +716,164 @@ export const httpRoutes: HttpRoutes = {
                         const payload: JwtPayload = session as JwtPayload;
                         const cancelled = await db.cancelUserDeletion(payload.id);
                         return withCors(cancelled ? SUCCESS : NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/user/pfp': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const formData = await req.formData();
+                        const candidate =
+                            formData.get('pfp') ?? formData.get('file') ?? formData.get('image');
+
+                        if (!(candidate instanceof File)) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Attach an image file in field pfp, file, or image.' },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        if (candidate.size <= 0 || candidate.size > PROFILE_PICTURE_MAX_BYTES) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: `Profile picture must be between 1 byte and ${PROFILE_PICTURE_MAX_BYTES} bytes.`,
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const bytes = new Uint8Array(await candidate.arrayBuffer());
+                        const detectedMimeType = detectImageMimeType(bytes);
+                        if (!detectedMimeType) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Only JPEG, PNG, and WEBP images are supported.' },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        if (bytes.byteLength > PROFILE_PICTURE_MAX_BYTES) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: `Profile picture exceeds ${PROFILE_PICTURE_MAX_BYTES} bytes after processing.`,
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const previous = await db.selectUserProfilePicture(payload.id);
+
+                        await mkdir(PROFILE_PICTURE_DIR, { recursive: true });
+                        const filename = buildProfilePictureFilename(payload.id, detectedMimeType);
+                        const destination = resolveProfilePicturePath(filename);
+                        await writeFile(destination, bytes);
+
+                        const saved = await db.setUserProfilePicture(
+                            payload.id,
+                            filename,
+                            detectedMimeType,
+                            bytes.byteLength
+                        );
+
+                        if (!saved) {
+                            await removeProfilePictureFile(filename);
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (previous?.filename && previous.filename !== filename) {
+                            await removeProfilePictureFile(previous.filename);
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    mimeType: detectedMimeType,
+                                    sizeBytes: bytes.byteLength,
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+        DELETE: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const existing = await db.selectUserProfilePicture(payload.id);
+                        const cleared = await db.clearUserProfilePicture(payload.id);
+                        if (!cleared) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        await removeProfilePictureFile(existing?.filename);
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
+    '/api/user/pfp/:userId': {
+        GET: async (req) =>
+            validate(req, async () =>
+                authorize(req, async () =>
+                    caught(async () => {
+                        const parsedParams = profilePictureRouteParamsSchema.safeParse({
+                            userId: req.params.userId,
+                        });
+                        if (!parsedParams.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const picture = await db.selectUserProfilePicture(parsedParams.data.userId);
+                        if (!picture) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!PROFILE_PICTURE_ALLOWED_MIME_TYPES.includes(picture.mimeType as DetectedImageMime)) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const filePath = resolveProfilePicturePath(picture.filename);
+
+                        try {
+                            const data = await readFile(filePath);
+
+                            return withCors(
+                                new Response(data, {
+                                    status: 200,
+                                    headers: {
+                                        'Content-Type': picture.mimeType,
+                                        'Content-Length': String(data.byteLength),
+                                        'Cache-Control': 'private, max-age=3600',
+                                        'X-Content-Type-Options': 'nosniff',
+                                    },
+                                })
+                            );
+                        } catch {
+                            await db.clearUserProfilePicture(parsedParams.data.userId);
+                            return withCors(NOT_FOUND);
+                        }
                     })
                 )
             ),

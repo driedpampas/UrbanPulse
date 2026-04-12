@@ -105,3 +105,55 @@ export async function getCurrentBrowserLocation(): Promise<{ lat: number; lng: n
 
     throw new Error('Could not determine your current location');
 }
+
+export async function compressImageForAvatar(
+    file: File,
+    maxDimension = 512,
+    quality = 0.78
+): Promise<Blob> {
+    const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result;
+            if (typeof result !== 'string') {
+                reject(new Error('Failed to read image file'));
+                return;
+            }
+            resolve(result);
+        };
+        reader.onerror = () => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(file);
+    });
+
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Failed to decode image file'));
+        img.src = imageDataUrl;
+    });
+
+    const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+        throw new Error('Unable to initialize canvas renderer');
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const compressedBlob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/webp', quality);
+    });
+
+    if (!compressedBlob) {
+        throw new Error('Image compression failed');
+    }
+
+    return compressedBlob;
+}

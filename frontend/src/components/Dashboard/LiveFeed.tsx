@@ -39,6 +39,7 @@ import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from
 import { ReportModal } from '../Modals/ReportModal';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { HoverButton } from '../ui/HoverButton';
+import { UserAvatar } from '../ui/UserAvatar';
 
 interface TypeDef {
     icon: typeof AlertTriangle;
@@ -563,9 +564,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
-                (session.user.id === p.userId ||
-                    session.user.role === 'admin' ||
-                    session.user.role === 'mod')
+            (session.user.id === p.userId ||
+                session.user.role === 'admin' ||
+                session.user.role === 'mod')
         );
 
     /* ── States ── */
@@ -651,10 +652,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 const p = def.cssPrefix;
                 const canAcceptRequest = Boolean(
                     session &&
-                        session.user.id !== pulse.userId &&
-                        !acceptedPulseIds.has(pulse.id) &&
-                        !pulse.isSolved &&
-                        pulseCanBeAcceptedByUser(pulse, myResourceTokens)
+                    session.user.id !== pulse.userId &&
+                    !acceptedPulseIds.has(pulse.id) &&
+                    !pulse.isSolved &&
+                    pulseCanBeAcceptedByUser(pulse, myResourceTokens)
                 );
                 const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
                 const editCharactersLeft = PULSE_CONTENT_MAX - editContent.length;
@@ -688,9 +689,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                     (e.target as HTMLElement).style.background = 'transparent';
                                 }}
                             >
-                                <img
-                                    src={pulse.userAvatar}
-                                    alt=""
+                                <UserAvatar
+                                    userId={pulse.userId}
+                                    fallbackSrc={pulse.userAvatar}
+                                    alt={`${pulse.userName} profile picture`}
                                     style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);flex-shrink:0;object-fit:cover;background:var(--bg-muted);"
                                 />
                             </HoverButton>
@@ -708,8 +710,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             }
                                             style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;padding:0;cursor:pointer;text-align:left;"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
@@ -755,12 +757,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                     title="Delete"
                                                     aria-label="Delete pulse"
                                                     onMouseEnter={(e) =>
-                                                        ((e.target as HTMLElement).style.filter =
-                                                            'var(--hover-brightness)')
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'var(--hover-brightness)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                        ((e.target as HTMLElement).style.filter =
-                                                            'none')
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'none')
                                                     }
                                                 >
                                                     <Trash2 size={11} />
@@ -808,13 +810,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                 style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
                                             />
                                             <span
-                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${
-                                                    editCharactersLeft < 0
+                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${editCharactersLeft < 0
                                                         ? 'var(--danger)'
                                                         : editCharactersLeft < 40
-                                                          ? 'var(--warning)'
-                                                          : 'var(--text-tertiary)'
-                                                };`}
+                                                            ? 'var(--warning)'
+                                                            : 'var(--text-tertiary)'
+                                                    };`}
                                             >
                                                 {editCharactersLeft}
                                             </span>
@@ -849,7 +850,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
                                                 <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);">
                                                     {editCatalog.length === 0 &&
-                                                    !editCatalogLoading ? (
+                                                        !editCatalogLoading ? (
                                                         <p style="margin:0;padding:10px 12px;font-size:12px;color:var(--text-tertiary);">
                                                             {editCatalogError ||
                                                                 'No matching skills/items found.'}
@@ -1013,8 +1014,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             onClick={() => handleConfirm(pulse.id)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
@@ -1050,8 +1051,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
                                             title="Report content"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')

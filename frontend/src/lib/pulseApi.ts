@@ -118,7 +118,7 @@ class PulseApiError extends Error {
 }
 
 function getAvatarUrl(seed: string): string {
-    return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    return `/default-cat-avatar.svg?seed=${encodeURIComponent(seed)}`;
 }
 
 function getClientTimezone(): string | undefined {
@@ -290,11 +290,11 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
     try {
         const parsed = JSON.parse(rawMessage) as
             | {
-                  event?: string;
-                  pulse?: BackendPulse;
-                  pulseId?: string;
-                  matchedResources?: string[];
-              }
+                event?: string;
+                pulse?: BackendPulse;
+                pulseId?: string;
+                matchedResources?: string[];
+            }
             | BackendPulse;
 
         if (
