@@ -108,6 +108,7 @@ function ChatNotificationsBridge() {
     const [location] = useLocation();
     const [toasts, setToasts] = useState<Array<{ id: string; title: string; body: string }>>([]);
     const seenMessageIdsRef = useRef<Map<string, number>>(new Map());
+    const seenHeroAlertIdsRef = useRef<Map<string, number>>(new Map());
     const [isForeground, setIsForeground] = useState(() => {
         if (typeof document === 'undefined') {
             return true;
@@ -256,6 +257,22 @@ function ChatNotificationsBridge() {
         const handlePulseEvent = (event: PulseSocketEvent) => {
             if (event.event !== 'hero.alert') {
                 return;
+            }
+
+            const seenHeroAlerts = seenHeroAlertIdsRef.current;
+            const pulseId = event.pulse.id;
+            if (seenHeroAlerts.has(pulseId)) {
+                return;
+            }
+
+            const now = Date.now();
+            seenHeroAlerts.set(pulseId, now);
+            if (seenHeroAlerts.size > 400) {
+                for (const [id, ts] of seenHeroAlerts) {
+                    if (now - ts > 30 * 60 * 1000) {
+                        seenHeroAlerts.delete(id);
+                    }
+                }
             }
 
             if (isForeground) {
