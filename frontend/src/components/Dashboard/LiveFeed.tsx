@@ -2,6 +2,7 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
+    Edit2,
     Flag,
     MapPin,
     MessageSquare,
@@ -20,6 +21,7 @@ import {
     connectWebSocket,
     deletePulse,
     disconnectWebSocket,
+    editPulse,
     fetchAcceptedPulseInteractions,
     fetchPulses,
     mergePulses,
@@ -119,6 +121,24 @@ function pulseCanBeAcceptedByUser(pulse: Pulse, userTokens: Set<string>): boolea
     return false;
 }
 
+function parseRequiredSkillsInput(rawValue: string): string[] {
+    const values: string[] = [];
+    const seen = new Set<string>();
+
+    for (const item of rawValue.split(',')) {
+        const normalized = item.trim();
+        const key = normalized.toLowerCase();
+        if (!normalized || seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        values.push(normalized);
+    }
+
+    return values;
+}
+
 export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const { session } = useAuth();
     const [, setLocation] = useLocation();
@@ -137,6 +157,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [acceptedPulseIds, setAcceptedPulseIds] = useState<Set<string>>(new Set());
     const [acceptingPulseId, setAcceptingPulseId] = useState<string | null>(null);
     const [deleteConfirmPulseId, setDeleteConfirmPulseId] = useState<string | null>(null);
+    const [editingPulseId, setEditingPulseId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState('');
+    const [editUrgencyLevel, setEditUrgencyLevel] = useState('1');
+    const [editRequiredSkills, setEditRequiredSkills] = useState('');
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -346,6 +372,21 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             } else if (event.event === 'pulse.deleted') {
                 setPulses((c) => c.filter((p) => p.id !== event.pulseId));
                 setNewId((c) => (c === event.pulseId ? null : c));
+                setEditingPulseId((current) => (current === event.pulseId ? null : current));
+            } else if (event.event === 'pulse.updated') {
+                setPulses((current) => {
+                    let found = false;
+                    const next = current.map((pulse) => {
+                        if (pulse.id === event.pulse.id) {
+                            found = true;
+                            return event.pulse;
+                        }
+
+                        return pulse;
+                    });
+
+                    return found ? next : current;
+                });
             }
         },
         [feedCenter, radiusFilter]
@@ -416,6 +457,63 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             }
         } finally {
             setAcceptingPulseId(null);
+        }
+    };
+
+    const beginPulseEdit = (pulse: Pulse) => {
+        setEditingPulseId(pulse.id);
+        setEditContent(pulse.content);
+        setEditUrgencyLevel(String(pulse.urgencyLevel ?? 1));
+        setEditRequiredSkills((pulse.requiredSkills ?? []).join(', '));
+        setEditError(null);
+    };
+
+    const cancelPulseEdit = () => {
+        setEditingPulseId(null);
+        setSavingEdit(false);
+        setEditError(null);
+    };
+
+    const handleSavePulseEdit = async (pulse: Pulse) => {
+        if (!session || session.user.id !== pulse.userId) {
+            return;
+        }
+
+        const nextContent = editContent.trim();
+        if (!nextContent) {
+            setEditError('Pulse content cannot be empty.');
+            return;
+        }
+
+        const parsedUrgency = Number(editUrgencyLevel);
+        if (!Number.isInteger(parsedUrgency) || parsedUrgency < 1 || parsedUrgency > 5) {
+            setEditError('Urgency level must be a number between 1 and 5.');
+            return;
+        }
+
+        const updates: Partial<Pulse> = {
+            content: nextContent,
+            urgencyLevel: parsedUrgency,
+        };
+
+        if (pulse.type === 'need') {
+            updates.requiredSkills = parseRequiredSkillsInput(editRequiredSkills);
+        }
+
+        setSavingEdit(true);
+        setEditError(null);
+        try {
+            const updatedPulse = await editPulse(pulse.id, updates);
+            setPulses((current) =>
+                current.map((currentPulse) =>
+                    currentPulse.id === updatedPulse.id ? updatedPulse : currentPulse
+                )
+            );
+            setEditingPulseId(null);
+        } catch (error) {
+            setEditError(error instanceof Error ? error.message : 'Failed to update pulse.');
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -505,6 +603,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 const isNew = pulse.id === newId;
                 const isVerified = pulse.verified || pulse.confirmations >= 3;
                 const mayDelete = canDelete(pulse);
+                const mayEdit = Boolean(session && session.user.id === pulse.userId);
+                const isEditing = editingPulseId === pulse.id;
                 const p = def.cssPrefix;
                 const canAcceptRequest = Boolean(
                     session &&
@@ -586,30 +686,132 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             </span>
                                         )}
                                     </div>
-                                    {mayDelete && (
-                                        <HoverButton
-                                            type="button"
-                                            onClick={() => setDeleteConfirmPulseId(pulse.id)}
-                                            style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
-                                            title="Delete"
-                                            aria-label="Delete pulse"
-                                            onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
-                                            }
-                                            onMouseLeave={(e) =>
-                                                ((e.target as HTMLElement).style.filter = 'none')
-                                            }
-                                        >
-                                            <Trash2 size={11} />
-                                        </HoverButton>
+                                    {(mayEdit || mayDelete) && (
+                                        <div style="display:flex;align-items:center;gap:6px;">
+                                            {mayEdit && (
+                                                <HoverButton
+                                                    type="button"
+                                                    onClick={() => beginPulseEdit(pulse)}
+                                                    style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--accent-subtle);color:var(--accent);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
+                                                    title="Edit"
+                                                    aria-label="Edit pulse"
+                                                >
+                                                    <Edit2 size={11} />
+                                                </HoverButton>
+                                            )}
+                                            {mayDelete && (
+                                                <HoverButton
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmPulseId(pulse.id)}
+                                                    style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
+                                                    title="Delete"
+                                                    aria-label="Delete pulse"
+                                                    onMouseEnter={(e) =>
+                                                        ((e.target as HTMLElement).style.filter =
+                                                            'var(--hover-brightness)')
+                                                    }
+                                                    onMouseLeave={(e) =>
+                                                        ((e.target as HTMLElement).style.filter =
+                                                            'none')
+                                                    }
+                                                >
+                                                    <Trash2 size={11} />
+                                                </HoverButton>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 
                                 {/* Content */}
-                                <p style="font-size:13px;color:var(--text);margin:7px 0 0;line-height:1.55;">
-                                    {pulse.content}
-                                </p>
+                                {isEditing ? (
+                                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:7px;">
+                                        <textarea
+                                            class="input-field"
+                                            value={editContent}
+                                            onInput={(event) =>
+                                                setEditContent(
+                                                    (event.target as HTMLTextAreaElement).value
+                                                )
+                                            }
+                                            rows={3}
+                                            style="resize:vertical;min-height:84px;"
+                                        />
+                                        <div style="display:flex;flex-direction:column;gap:6px;">
+                                            <label
+                                                htmlFor={`pulse-edit-urgency-${pulse.id}`}
+                                                style="font-size:11px;color:var(--text-tertiary);font-weight:600;"
+                                            >
+                                                Urgency level (1-5)
+                                            </label>
+                                            <input
+                                                id={`pulse-edit-urgency-${pulse.id}`}
+                                                class="input-field"
+                                                type="number"
+                                                min={1}
+                                                max={5}
+                                                value={editUrgencyLevel}
+                                                onInput={(event) =>
+                                                    setEditUrgencyLevel(
+                                                        (event.target as HTMLInputElement).value
+                                                    )
+                                                }
+                                                style="max-width:120px;"
+                                            />
+                                        </div>
+                                        {pulse.type === 'need' && (
+                                            <div style="display:flex;flex-direction:column;gap:6px;">
+                                                <label
+                                                    htmlFor={`pulse-edit-skills-${pulse.id}`}
+                                                    style="font-size:11px;color:var(--text-tertiary);font-weight:600;"
+                                                >
+                                                    Required skills (comma-separated)
+                                                </label>
+                                                <input
+                                                    id={`pulse-edit-skills-${pulse.id}`}
+                                                    class="input-field"
+                                                    value={editRequiredSkills}
+                                                    onInput={(event) =>
+                                                        setEditRequiredSkills(
+                                                            (event.target as HTMLInputElement)
+                                                                .value
+                                                        )
+                                                    }
+                                                    placeholder="first aid, transport, translation"
+                                                />
+                                            </div>
+                                        )}
+                                        {editError && (
+                                            <p
+                                                style="margin:0;color:var(--danger);font-size:12px;font-weight:600;"
+                                                role="alert"
+                                            >
+                                                {editError}
+                                            </p>
+                                        )}
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            <button
+                                                type="button"
+                                                class="btn-primary"
+                                                onClick={() => handleSavePulseEdit(pulse)}
+                                                disabled={savingEdit}
+                                            >
+                                                {savingEdit ? 'Saving...' : 'Save'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn-ghost"
+                                                onClick={cancelPulseEdit}
+                                                disabled={savingEdit}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p style="font-size:13px;color:var(--text);margin:7px 0 0;line-height:1.55;">
+                                        {pulse.content}
+                                    </p>
+                                )}
 
                                 {/* Meta */}
                                 <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">

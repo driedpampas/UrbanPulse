@@ -46,6 +46,22 @@ export const createPulseSchema = z.strictObject({
     selectedResources: z.array(z.string()).optional(),
 });
 
+export const updatePulseSchema = z
+    .strictObject({
+        content: z.string().trim().min(1).max(5000).optional(),
+        urgencyLevel: z.number().int().min(1).max(5).optional(),
+        requiredSkills: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+    })
+    .refine(
+        (value) =>
+            value.content !== undefined ||
+            value.urgencyLevel !== undefined ||
+            value.requiredSkills !== undefined,
+        {
+            message: 'At least one pulse field must be updated.',
+        }
+    );
+
 export const pulseMatchSchema = z.strictObject({
     resources: z.array(z.string().trim().min(1)).min(1).max(30),
     timezone: z.string().trim().min(1).optional(),
@@ -300,6 +316,7 @@ export type UpdateUserBody = z.infer<typeof updateUserSchema>;
 export type UpdatePassBody = z.infer<typeof updatePassSchema>;
 export type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
 export type CreatePulseBody = z.infer<typeof createPulseSchema>;
+export type UpdatePulseBody = z.infer<typeof updatePulseSchema>;
 export type PulseMatchBody = z.infer<typeof pulseMatchSchema>;
 export type InteractionFeedbackBody = z.infer<typeof interactionFeedbackSchema>;
 export type PulseListQuery = z.infer<typeof pulseListQuerySchema>;

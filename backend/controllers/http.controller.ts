@@ -35,6 +35,7 @@ import type {
     UpdateLibraryItemBody,
     UpdateMessageBody,
     UpdatePassBody,
+    UpdatePulseBody,
     UpdateUserBody,
     VerifyEmailQuery,
 } from '../validators/http.validators';
@@ -68,6 +69,7 @@ import {
     updateLibraryItemSchema,
     updateMessageSchema,
     updatePassSchema,
+    updatePulseSchema,
     updateReportStatusSchema,
     updateUserSchema,
     verifyEmailQuerySchema,
@@ -1428,6 +1430,86 @@ export const httpRoutes: HttpRoutes = {
                         );
 
                         return withCors(new Response(null, { status: 204 }));
+                    })
+                )
+            ),
+    },
+    '/api/pulses/:id': {
+        PATCH: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const parsedPulseId = z.uuid().safeParse(req.params.id as string);
+
+                        if (!parsedPulseId.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const body: UpdatePulseBody = await req
+                            .json()
+                            .then((raw) => updatePulseSchema.parse(raw));
+                        const pulse = await db.selectPulseById(parsedPulseId.data);
+
+                        if (!pulse) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const isModerator = role === 'admin' || role === 'mod';
+                        const isAuthor = payload.id === pulse.userId;
+
+                        if (!isAuthor && !isModerator) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        if (body.requiredSkills !== undefined && pulse.type !== 'need') {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulses can update required skills.',
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const updates: {
+                            content?: string;
+                            urgencyLevel?: number;
+                            requiredSkills?: string[];
+                        } = {};
+
+                        if (body.content !== undefined) {
+                            updates.content = body.content.trim();
+                        }
+
+                        if (body.urgencyLevel !== undefined) {
+                            updates.urgencyLevel = body.urgencyLevel;
+                        }
+
+                        if (body.requiredSkills !== undefined) {
+                            updates.requiredSkills = body.requiredSkills
+                                .map((value) => value.trim())
+                                .filter((value) => value.length > 0);
+                        }
+
+                        const updatedPulse = await db.updatePulse(
+                            pulse.id,
+                            pulse.userId,
+                            updates
+                        );
+
+                        if (!updatedPulse) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        server.publish(
+                            PULSE_FEED_TOPIC,
+                            JSON.stringify({ event: 'pulse.updated', pulse: updatedPulse })
+                        );
+
+                        return withCors(Response.json(updatedPulse, { status: 200 }));
                     })
                 )
             ),

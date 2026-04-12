@@ -2430,6 +2430,40 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     return (await selectPulseById(insertedPulse.id))!;
 }
 
+export async function updatePulse(
+    pulseId: string,
+    authorId: string,
+    updates: {
+        content?: string;
+        urgencyLevel?: number;
+        requiredSkills?: string[];
+    }
+): Promise<PulseFeedItem | null> {
+    await ensureSchema();
+
+    const content = updates.content ?? null;
+    const urgencyLevel = updates.urgencyLevel ?? null;
+    const requiredSkills =
+        updates.requiredSkills !== undefined ? JSON.stringify(updates.requiredSkills) : null;
+
+    const [updated] = await sql`
+        UPDATE app.pulses
+        SET
+            content = COALESCE(${content}, content),
+            urgency_level = COALESCE(${urgencyLevel}, urgency_level),
+            required_skills = COALESCE(${requiredSkills}::jsonb, required_skills)
+        WHERE id = ${pulseId}::uuid
+          AND author_id = ${authorId}::uuid
+        RETURNING id::text AS id
+    `;
+
+    if (!updated) {
+        return null;
+    }
+
+    return await selectPulseById(updated.id);
+}
+
 export async function selectPulseMatchingResources(pulseId: string): Promise<string[]> {
     const [row] = (await sql`
         SELECT required_skills
