@@ -147,7 +147,7 @@ export function Profile() {
     const [showRoleOptions, setShowRoleOptions] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
-    const targetRole = user?.role?.toLowerCase() ?? 'resident';
+    const targetRole = user?.role?.toLowerCase() ?? 'user';
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -405,7 +405,7 @@ export function Profile() {
         });
     };
 
-    const requestRoleChange = (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
+    const requestRoleChange = (nextRole: 'admin' | 'mod' | 'user' | 'banned') => {
         setConfirmAction({
             title:
                 nextRole === 'banned'
@@ -429,14 +429,14 @@ export function Profile() {
                     : nextRole === 'banned'
                         ? 'Ban'
                         : 'Demote',
-            destructive: nextRole === 'banned' || nextRole === 'resident',
+            destructive: nextRole === 'banned' || nextRole === 'user',
             onConfirm: async () => {
                 await handleAdminRole(nextRole);
             },
         });
     };
 
-    const handleAdminRole = async (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
+    const handleAdminRole = async (nextRole: 'admin' | 'mod' | 'user' | 'banned') => {
         if (!selectedUserId || actionBusy) {
             return;
         }
@@ -657,10 +657,13 @@ export function Profile() {
                             <HoverButton
                                 id="manage-role-btn"
                                 type="button"
-                                class={showRoleOptions ? 'btn-primary' : 'btn-ghost'}
+                                class="btn-ghost"
                                 onClick={() => setShowRoleOptions(!showRoleOptions)}
                                 disabled={actionBusy}
-                                style="height:36px;flex:1 1 120px;color:var(--accent);border-color:var(--accent-muted);"
+                                style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${showRoleOptions
+                                        ? 'background:var(--accent);color:#fff;'
+                                        : 'color:var(--accent);'
+                                    }`}
                             >
                                 <ShieldCheck size={14} />
                                 {showRoleOptions ? 'Close Menu' : 'Manage User Role'}
@@ -709,11 +712,11 @@ export function Profile() {
                                             {targetRole === 'admin' ? 'Demote to Mod' : 'Make Mod'}
                                         </HoverButton>
                                     )}
-                                    {targetRole !== 'resident' && (
+                                    {targetRole !== 'user' && (
                                         <HoverButton
                                             type="button"
                                             class="btn-ghost"
-                                            onClick={() => requestRoleChange('resident')}
+                                            onClick={() => requestRoleChange('user')}
                                             style="height:32px;font-size:12px;color:var(--text-secondary);border-color:var(--border);"
                                         >
                                             <ShieldX size={13} />
@@ -832,8 +835,8 @@ export function Profile() {
                                         {displayLocationMap && mapError && (
                                             <div
                                                 style={`position:absolute;${mapLoaded
-                                                        ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
-                                                        : 'inset:0;justify-content:center;'
+                                                    ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
+                                                    : 'inset:0;justify-content:center;'
                                                     } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
                                                 class="animate-slide-up"
                                             >

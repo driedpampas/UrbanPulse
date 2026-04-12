@@ -229,7 +229,7 @@ export type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 export type CreateReportBody = z.infer<typeof createReportSchema>;
 export type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
 
-export const adminRoleSchema = z.enum(['admin', 'mod', 'resident', 'banned']);
+export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'resident', 'banned']);
 
 export const updateAdminUserRoleBodySchema = z.strictObject({
     role: adminRoleSchema,
@@ -263,15 +263,15 @@ export function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         radius: query.radius !== null && query.radius !== undefined ? String(query.radius) : null,
         location: query.location
             ? {
-                  lat:
-                      query.location.lat !== null && query.location.lat !== undefined
-                          ? String(query.location.lat)
-                          : null,
-                  lng:
-                      query.location.lng !== null && query.location.lng !== undefined
-                          ? String(query.location.lng)
-                          : null,
-              }
+                lat:
+                    query.location.lat !== null && query.location.lat !== undefined
+                        ? String(query.location.lat)
+                        : null,
+                lng:
+                    query.location.lng !== null && query.location.lng !== undefined
+                        ? String(query.location.lng)
+                        : null,
+            }
             : null,
         availableHours:
             query.availableHours && query.availableHours.length > 0 ? query.availableHours : null,

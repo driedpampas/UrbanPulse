@@ -139,7 +139,7 @@ export function useAdminDashboardData() {
     }, [userSearchActive, usersHasMore, usersLoadingMore, usersOffset]);
 
     const setUserRole = useCallback(
-        async (userId: string, role: 'admin' | 'mod' | 'resident' | 'banned') => {
+        async (userId: string, role: 'admin' | 'mod' | 'user' | 'banned') => {
             await updateAdminUserRole(userId, role);
 
             setUsers((current) =>

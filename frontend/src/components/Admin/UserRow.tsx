@@ -9,20 +9,18 @@ const surfaceCard =
 
 type Props = {
     user: User;
-    onSetRole: (
-        userId: string,
-        role: 'admin' | 'mod' | 'resident' | 'banned'
-    ) => void | Promise<void>;
+    onSetRole: (userId: string, role: 'admin' | 'mod' | 'user' | 'banned') => void | Promise<void>;
     onDelete: (userId: string) => void | Promise<void>;
 };
 
 function UserRowComponent({ user, onSetRole, onDelete }: Props) {
-    const role = user.role?.toLowerCase() ?? 'resident';
+    const role = user.role?.toLowerCase() ?? 'user';
+    const displayRole = role === 'user' ? 'resident' : role;
     const [busy, setBusy] = useState(false);
     const [showActions, setShowActions] = useState(false);
     const isAdmin = role === 'admin';
 
-    const setRole = async (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
+    const setRole = async (nextRole: 'admin' | 'mod' | 'user' | 'banned') => {
         setBusy(true);
         try {
             await onSetRole(user.id, nextRole);
@@ -62,7 +60,7 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                             {user.name}
                         </span>
                         <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;background:var(--accent-subtle);color:var(--accent);text-transform:uppercase;">
-                            {role}
+                            {displayRole}
                         </span>
                     </div>
                     <p style="margin:3px 0 0;font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34rem;">
@@ -100,11 +98,11 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                                 {isAdmin ? <ShieldX size={14} /> : <ShieldCheck size={14} />}
                             </HoverButton>
                         )}
-                        {role !== 'resident' && (
+                        {role !== 'user' && (
                             <HoverButton
                                 type="button"
                                 disabled={busy}
-                                onClick={() => void setRole('resident')}
+                                onClick={() => void setRole('user')}
                                 style="width:32px;height:32px;border-radius:8px;border:none;background:var(--bg-subtle);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
                                 aria-label="Demote to Resident"
                                 title="Demote to Resident"

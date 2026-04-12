@@ -346,12 +346,12 @@ type ChatSummaryRow = {
     is_group: boolean;
     timestamp: number | string | Date;
     participants:
-        | Array<{
-              userId: string;
-              displayName: string | null;
-              roles: string[];
-          }>
-        | unknown;
+    | Array<{
+        userId: string;
+        displayName: string | null;
+        roles: string[];
+    }>
+    | unknown;
     owner_id: string | null;
 };
 export interface Report {
@@ -2041,9 +2041,9 @@ export async function selectAdminUsers(
 }
 
 export async function updateUserRole(id: string, role: string): Promise<boolean> {
-    const normalizedRole = role.toLowerCase();
+    const normalizedRole = role.toLowerCase() === 'resident' ? 'user' : role.toLowerCase();
 
-    if (!['admin', 'mod', 'resident', 'banned'].includes(normalizedRole)) {
+    if (!['admin', 'mod', 'user', 'banned'].includes(normalizedRole)) {
         return false;
     }
 
