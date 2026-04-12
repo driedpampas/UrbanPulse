@@ -8,15 +8,20 @@ const surfaceCard =
 
 type Props = {
     user: User;
-    onSetRole: (userId: string, role: 'admin' | 'resident' | 'banned') => Promise<void>;
-    onDelete: (userId: string) => Promise<void>;
+    onSetRole: (
+        userId: string,
+        role: 'admin' | 'mod' | 'resident' | 'banned'
+    ) => void | Promise<void>;
+    onDelete: (userId: string) => void | Promise<void>;
 };
 
 function UserRowComponent({ user, onSetRole, onDelete }: Props) {
     const role = user.role?.toLowerCase() ?? 'resident';
     const [busy, setBusy] = useState(false);
+    const isAdmin = role === 'admin';
+    const isMod = role === 'mod';
 
-    const setRole = async (nextRole: 'admin' | 'resident' | 'banned') => {
+    const setRole = async (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
         setBusy(true);
         try {
             await onSetRole(user.id, nextRole);
@@ -63,30 +68,43 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
             <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;">
                 <HoverButton
                     type="button"
-                    disabled={busy || role === 'admin'}
+                    disabled={busy || isAdmin}
                     onClick={() => void setRole('admin')}
                     style="width:34px;height:34px;border-radius:10px;border:none;background:var(--accent-subtle);color:var(--accent);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Promote user"
+                    aria-label="Promote to admin"
+                    title="Promote to admin"
                 >
                     <Shield size={14} />
                 </HoverButton>
                 <HoverButton
                     type="button"
-                    disabled={busy || role === 'banned'}
-                    onClick={() => void setRole('banned')}
-                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Ban user"
+                    disabled={busy || isAdmin || isMod}
+                    onClick={() => void setRole('mod')}
+                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--warning-subtle);color:var(--warning);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                    aria-label="Promote to mod"
+                    title="Promote to mod"
                 >
-                    <Ban size={14} />
+                    <Shield size={14} />
                 </HoverButton>
                 <HoverButton
                     type="button"
-                    disabled={busy || role === 'resident'}
+                    disabled={busy || isAdmin || role === 'resident'}
                     onClick={() => void setRole('resident')}
                     style="width:34px;height:34px;border-radius:10px;border:none;background:var(--bg-muted);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Restore user"
+                    aria-label="Demote user"
+                    title="Demote user"
                 >
                     <CheckCircle size={14} />
+                </HoverButton>
+                <HoverButton
+                    type="button"
+                    disabled={busy || isAdmin}
+                    onClick={() => void setRole('banned')}
+                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                    aria-label="Ban user"
+                    title="Ban user"
+                >
+                    <Ban size={14} />
                 </HoverButton>
                 <HoverButton
                     type="button"

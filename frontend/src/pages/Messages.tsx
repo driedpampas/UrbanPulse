@@ -18,6 +18,8 @@ import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { HoverButton } from '../components/ui/HoverButton';
 import { readStoredAuthSession } from '../lib/auth';
 import {
     addGroupChatParticipants,
@@ -35,9 +37,9 @@ import {
     removeGroupChatParticipant,
     sendMessage,
     startDirectConversation,
-    waitForChatThreadSubscription,
     subscribeChatThread,
     unsubscribeChatThread,
+    waitForChatThreadSubscription,
 } from '../lib/chatApi';
 import {
     markThreadRead,
@@ -47,7 +49,6 @@ import {
 import { useQueryParamState } from '../lib/navigation';
 import type { User as AppUser, ChatMessage, ChatThread } from '../lib/types';
 import { fetchUsers } from '../lib/userApi';
-import { HoverButton } from '../components/ui/HoverButton';
 
 function timeAgo(ts: number) {
     const d = Date.now() - ts;
@@ -107,11 +108,15 @@ function removeMessageById(messages: ChatMessage[], messageId: string): ChatMess
 }
 
 function getThreadLatestTimestamp(thread: ChatThread) {
-    return thread.lastMessage?.timestamp ?? thread.messages[thread.messages.length - 1]?.timestamp ?? 0;
+    return (
+        thread.lastMessage?.timestamp ?? thread.messages[thread.messages.length - 1]?.timestamp ?? 0
+    );
 }
 
 function sortThreadsByLatestMessage(threads: ChatThread[]) {
-    return [...threads].sort((left, right) => getThreadLatestTimestamp(right) - getThreadLatestTimestamp(left));
+    return [...threads].sort(
+        (left, right) => getThreadLatestTimestamp(right) - getThreadLatestTimestamp(left)
+    );
 }
 
 function upsertThreadById(threads: ChatThread[], updatedThread: ChatThread) {
@@ -733,6 +738,20 @@ function ChatView({
         null
     );
     const [participantActionBusy, setParticipantActionBusy] = useState<string | null>(null);
+    const [confirmAction, setConfirmAction] = useState<null | {
+        title: string;
+        message: string;
+        confirmLabel: string;
+        destructive?: boolean;
+        onConfirm: () => Promise<void>;
+    }>(null);
+    const [memberActionConfirm, setMemberActionConfirm] = useState<null | {
+        title: string;
+        message: string;
+        confirmLabel: string;
+        destructive?: boolean;
+        onConfirm: () => Promise<void>;
+    }>(null);
     const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
     const [participantProfiles, setParticipantProfiles] = useState<Record<string, AppUser>>({});
     const [showAddMembers, setShowAddMembers] = useState(false);
@@ -1290,7 +1309,9 @@ function ChatView({
                                         <HoverButton
                                             type="button"
                                             onClick={(e) => handleContextMenu(e as any, msg.id)}
-                                            onContextMenu={(e) => handleContextMenu(e as any, msg.id)}
+                                            onContextMenu={(e) =>
+                                                handleContextMenu(e as any, msg.id)
+                                            }
                                             style={`
                                                 max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                                 ${
@@ -1367,7 +1388,9 @@ function ChatView({
                                                 >
                                                     <HoverButton
                                                         type="button"
-                                                        onClick={() => void handleCopyMessage(msg.content)}
+                                                        onClick={() =>
+                                                            void handleCopyMessage(msg.content)
+                                                        }
                                                         role="menuitem"
                                                         key="copy-text"
                                                         style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
@@ -1724,24 +1747,19 @@ function ChatView({
                                             <HoverButton
                                                 type="button"
                                                 class="btn-ghost"
-                                                onClick={async () => {
-                                                    if (
-                                                        confirm(
-                                                            'Are you sure you want to delete this group? This cannot be undone.'
-                                                        )
-                                                    ) {
-                                                        try {
+                                                onClick={() =>
+                                                    setConfirmAction({
+                                                        title: 'Delete group chat',
+                                                        message:
+                                                            'Are you sure you want to delete this group chat? This cannot be undone.',
+                                                        confirmLabel: 'Delete group',
+                                                        destructive: true,
+                                                        onConfirm: async () => {
                                                             await deleteGroupChat(thread.id);
                                                             onThreadDeleted(thread.id);
-                                                        } catch (err) {
-                                                            alert(
-                                                                err instanceof Error
-                                                                    ? err.message
-                                                                    : 'Failed to delete group'
-                                                            );
-                                                        }
-                                                    }
-                                                }}
+                                                        },
+                                                    })
+                                                }
                                                 style="width:100%;height:38px;font-size:13px;color:var(--danger);justify-content:center;gap:8px;background:var(--danger-subtle);border-radius:8px;"
                                             >
                                                 <Trash2 size={14} />
@@ -1751,27 +1769,22 @@ function ChatView({
                                             <HoverButton
                                                 type="button"
                                                 class="btn-ghost"
-                                                onClick={async () => {
-                                                    if (
-                                                        confirm(
-                                                            'Are you sure you want to leave this group?'
-                                                        )
-                                                    ) {
-                                                        try {
+                                                onClick={() =>
+                                                    setConfirmAction({
+                                                        title: 'Leave group chat',
+                                                        message:
+                                                            'Are you sure you want to leave this group?',
+                                                        confirmLabel: 'Leave group',
+                                                        destructive: true,
+                                                        onConfirm: async () => {
                                                             await removeGroupChatParticipant(
                                                                 thread.id,
                                                                 currentUserId
                                                             );
                                                             onThreadDeleted(thread.id);
-                                                        } catch (err) {
-                                                            alert(
-                                                                err instanceof Error
-                                                                    ? err.message
-                                                                    : 'Failed to leave group'
-                                                            );
-                                                        }
-                                                    }
-                                                }}
+                                                        },
+                                                    })
+                                                }
                                                 style="width:100%;height:38px;font-size:13px;justify-content:center;gap:8px;background:var(--bg-subtle);border-radius:8px;"
                                             >
                                                 <ArrowLeft size={14} />
@@ -1910,22 +1923,33 @@ function ChatView({
                                                         disabled={
                                                             participantActionBusy === participantId
                                                         }
-                                                        onClick={async (e) => {
+                                                        onClick={(e) => {
                                                             e.stopPropagation();
-                                                            setParticipantActionBusy(participantId);
-                                                            try {
-                                                                await promoteGroupChatParticipant(
-                                                                    thread.id,
-                                                                    participantId
-                                                                );
-                                                                const updated =
-                                                                    await onThreadRefresh(
-                                                                        thread.id
+                                                            setMemberActionConfirm({
+                                                                title: 'Promote member',
+                                                                message: `Promote ${name} to admin?`,
+                                                                confirmLabel: 'Promote',
+                                                                onConfirm: async () => {
+                                                                    setParticipantActionBusy(
+                                                                        participantId
                                                                     );
-                                                                onThreadUpdate(updated);
-                                                            } finally {
-                                                                setParticipantActionBusy(null);
-                                                            }
+                                                                    try {
+                                                                        await promoteGroupChatParticipant(
+                                                                            thread.id,
+                                                                            participantId
+                                                                        );
+                                                                        const updated =
+                                                                            await onThreadRefresh(
+                                                                                thread.id
+                                                                            );
+                                                                        onThreadUpdate(updated);
+                                                                    } finally {
+                                                                        setParticipantActionBusy(
+                                                                            null
+                                                                        );
+                                                                    }
+                                                                },
+                                                            });
                                                         }}
                                                         aria-label="Promote to admin"
                                                         title="Promote to admin"
@@ -1947,24 +1971,34 @@ function ChatView({
                                                                 participantActionBusy ===
                                                                 participantId
                                                             }
-                                                            onClick={async (e) => {
+                                                            onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setParticipantActionBusy(
-                                                                    participantId
-                                                                );
-                                                                try {
-                                                                    await removeGroupChatParticipant(
-                                                                        thread.id,
-                                                                        participantId
-                                                                    );
-                                                                    const updated =
-                                                                        await onThreadRefresh(
-                                                                            thread.id
+                                                                setMemberActionConfirm({
+                                                                    title: 'Remove member',
+                                                                    message: `Remove ${name} from this group?`,
+                                                                    confirmLabel: 'Remove',
+                                                                    destructive: true,
+                                                                    onConfirm: async () => {
+                                                                        setParticipantActionBusy(
+                                                                            participantId
                                                                         );
-                                                                    onThreadUpdate(updated);
-                                                                } finally {
-                                                                    setParticipantActionBusy(null);
-                                                                }
+                                                                        try {
+                                                                            await removeGroupChatParticipant(
+                                                                                thread.id,
+                                                                                participantId
+                                                                            );
+                                                                            const updated =
+                                                                                await onThreadRefresh(
+                                                                                    thread.id
+                                                                                );
+                                                                            onThreadUpdate(updated);
+                                                                        } finally {
+                                                                            setParticipantActionBusy(
+                                                                                null
+                                                                            );
+                                                                        }
+                                                                    },
+                                                                });
                                                             }}
                                                             aria-label="Remove from group"
                                                             title="Remove from group"
@@ -1982,6 +2016,40 @@ function ChatView({
                     </aside>
                 )}
             </div>
+            <ConfirmDialog
+                open={confirmAction !== null}
+                title={confirmAction?.title ?? ''}
+                message={confirmAction?.message ?? ''}
+                confirmLabel={confirmAction?.confirmLabel}
+                destructive={confirmAction?.destructive}
+                busy={false}
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={async () => {
+                    if (!confirmAction) return;
+                    try {
+                        await confirmAction.onConfirm();
+                    } finally {
+                        setConfirmAction(null);
+                    }
+                }}
+            />
+            <ConfirmDialog
+                open={memberActionConfirm !== null}
+                title={memberActionConfirm?.title ?? ''}
+                message={memberActionConfirm?.message ?? ''}
+                confirmLabel={memberActionConfirm?.confirmLabel}
+                destructive={memberActionConfirm?.destructive}
+                busy={participantActionBusy !== null}
+                onCancel={() => setMemberActionConfirm(null)}
+                onConfirm={async () => {
+                    if (!memberActionConfirm) return;
+                    try {
+                        await memberActionConfirm.onConfirm();
+                    } finally {
+                        setMemberActionConfirm(null);
+                    }
+                }}
+            />
         </div>
     );
 }

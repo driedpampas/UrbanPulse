@@ -7,7 +7,7 @@ const surfaceCard =
 
 type Props = {
     report: AdminFlag;
-    onUpdate: (id: string, status: 'resolved' | 'dismissed') => Promise<void>;
+    onUpdate: (id: string, status: 'resolved' | 'dismissed') => void | Promise<void>;
 };
 
 function ReportRowComponent({ report, onUpdate }: Props) {

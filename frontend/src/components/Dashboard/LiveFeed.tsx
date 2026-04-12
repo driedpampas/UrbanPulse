@@ -29,6 +29,7 @@ import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
 import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { ReportModal } from '../Modals/ReportModal';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { HoverButton } from '../ui/HoverButton';
 
 interface TypeDef {
@@ -133,6 +134,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [myResourceTokens, setMyResourceTokens] = useState<Set<string>>(new Set());
     const [acceptedPulseIds, setAcceptedPulseIds] = useState<Set<string>>(new Set());
     const [acceptingPulseId, setAcceptingPulseId] = useState<string | null>(null);
+    const [deleteConfirmPulseId, setDeleteConfirmPulseId] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -354,7 +356,6 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const visible = pulses;
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm('Delete this pulse?')) return;
         try {
             await deletePulse(id);
             setPulses((c) => c.filter((p) => p.id !== id));
@@ -578,7 +579,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                     {mayDelete && (
                                         <HoverButton
                                             type="button"
-                                            onClick={() => handleDelete(pulse.id)}
+                                            onClick={() => setDeleteConfirmPulseId(pulse.id)}
                                             style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
                                             title="Delete"
                                             aria-label="Delete pulse"
@@ -681,6 +682,20 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                     onClose={() => setReportingPulse(null)}
                 />
             )}
+            <ConfirmDialog
+                open={deleteConfirmPulseId !== null}
+                title="Delete pulse"
+                message="Delete this pulse?"
+                confirmLabel="Delete"
+                destructive
+                busy={false}
+                onCancel={() => setDeleteConfirmPulseId(null)}
+                onConfirm={async () => {
+                    if (!deleteConfirmPulseId) return;
+                    await handleDelete(deleteConfirmPulseId);
+                    setDeleteConfirmPulseId(null);
+                }}
+            />
 
             {/* Pagination / Loading Area */}
             <div

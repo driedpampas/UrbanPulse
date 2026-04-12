@@ -1,4 +1,5 @@
 import { Activity, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
+import { useState } from 'preact/hooks';
 import { LibraryRow } from '../components/Admin/LibraryRow';
 import { PulseRow } from '../components/Admin/PulseRow';
 import { ReportRow } from '../components/Admin/ReportRow';
@@ -6,9 +7,11 @@ import { SectionButton } from '../components/Admin/SectionButton';
 import { StatCard } from '../components/Admin/StatCard';
 import { UserRow } from '../components/Admin/UserRow';
 import { AppLayout } from '../components/Layout/AppLayout';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { HoverButton } from '../components/ui/HoverButton';
 import { type AdminSection, useAdminDashboardData } from '../hooks/useAdminDashboardData';
 import { useAuth } from '../lib/auth';
+import type { LibraryItem } from '../types';
 
 const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }> = [
     { id: 'overview', label: 'Overview', icon: Activity },
@@ -41,7 +44,18 @@ export function AdminDashboard() {
         removeUser,
         removePulse,
         changeReportStatus,
+        updateLibrary,
+        removeLibrary,
+        libraryBusyId,
     } = useAdminDashboardData();
+    const [confirmation, setConfirmation] = useState<{
+        title: string;
+        message: string;
+        confirmLabel?: string;
+        destructive?: boolean;
+        onConfirm: () => Promise<void>;
+    } | null>(null);
+    const [editingLibraryItem, setEditingLibraryItem] = useState<LibraryItem | null>(null);
 
     return (
         <AppLayout title="Admin">
@@ -116,8 +130,28 @@ export function AdminDashboard() {
                                     <UserRow
                                         key={user.id}
                                         user={user}
-                                        onSetRole={setUserRole}
-                                        onDelete={removeUser}
+                                        onSetRole={(userId, role) => {
+                                            setConfirmation({
+                                                title: 'Update user role',
+                                                message: `Change ${user.name} to ${role}?`,
+                                                confirmLabel: 'Confirm change',
+                                                destructive: role === 'banned',
+                                                onConfirm: async () => {
+                                                    await setUserRole(userId, role);
+                                                },
+                                            });
+                                        }}
+                                        onDelete={(userId) => {
+                                            setConfirmation({
+                                                title: 'Delete user',
+                                                message: `Delete ${user.name} permanently?`,
+                                                confirmLabel: 'Delete user',
+                                                destructive: true,
+                                                onConfirm: async () => {
+                                                    await removeUser(userId);
+                                                },
+                                            });
+                                        }}
                                     />
                                 ))}
                             </div>
@@ -153,7 +187,21 @@ export function AdminDashboard() {
                                     </HoverButton>
                                 </div>
                                 {pulses.map((pulse) => (
-                                    <PulseRow key={pulse.id} pulse={pulse} onDelete={removePulse} />
+                                    <PulseRow
+                                        key={pulse.id}
+                                        pulse={pulse}
+                                        onDelete={(pulseId) => {
+                                            setConfirmation({
+                                                title: 'Delete pulse',
+                                                message: `Delete pulse ${pulseId} permanently?`,
+                                                confirmLabel: 'Delete pulse',
+                                                destructive: true,
+                                                onConfirm: async () => {
+                                                    await removePulse(pulseId);
+                                                },
+                                            });
+                                        }}
+                                    />
                                 ))}
                                 {pulses.length === 0 && (
                                     <div
@@ -174,7 +222,23 @@ export function AdminDashboard() {
                         {section === 'library' && (
                             <div style="display:flex;flex-direction:column;gap:10px;">
                                 {library.map((item) => (
-                                    <LibraryRow key={item.id} item={item} />
+                                    <LibraryRow
+                                        key={item.id}
+                                        item={item}
+                                        busy={libraryBusyId === item.id}
+                                        onEdit={() => setEditingLibraryItem(item)}
+                                        onDelete={() => {
+                                            setConfirmation({
+                                                title: 'Delete library item',
+                                                message: `Delete ${item.title} permanently?`,
+                                                confirmLabel: 'Delete item',
+                                                destructive: true,
+                                                onConfirm: async () => {
+                                                    await removeLibrary(item.id);
+                                                },
+                                            });
+                                        }}
+                                    />
                                 ))}
                             </div>
                         )}
@@ -195,7 +259,23 @@ export function AdminDashboard() {
                                         <ReportRow
                                             key={report.id}
                                             report={report}
-                                            onUpdate={changeReportStatus}
+                                            onUpdate={(id, status) => {
+                                                setConfirmation({
+                                                    title:
+                                                        status === 'resolved'
+                                                            ? 'Resolve report'
+                                                            : 'Dismiss report',
+                                                    message: `${status === 'resolved' ? 'Resolve' : 'Dismiss'} report ${report.reason}?`,
+                                                    confirmLabel:
+                                                        status === 'resolved'
+                                                            ? 'Resolve'
+                                                            : 'Dismiss',
+                                                    destructive: status === 'dismissed',
+                                                    onConfirm: async () => {
+                                                        await changeReportStatus(id, status);
+                                                    },
+                                                });
+                                            }}
                                         />
                                     ))
                                 )}
@@ -203,7 +283,141 @@ export function AdminDashboard() {
                         )}
                     </>
                 )}
+                <ConfirmDialog
+                    open={confirmation !== null}
+                    title={confirmation?.title ?? ''}
+                    message={confirmation?.message ?? ''}
+                    confirmLabel={confirmation?.confirmLabel}
+                    destructive={confirmation?.destructive}
+                    busy={false}
+                    onCancel={() => setConfirmation(null)}
+                    onConfirm={async () => {
+                        if (!confirmation) return;
+                        try {
+                            await confirmation.onConfirm();
+                        } catch (error) {
+                            console.error(error);
+                        } finally {
+                            setConfirmation(null);
+                        }
+                    }}
+                />
+                {editingLibraryItem && (
+                    <LibraryEditModal
+                        item={editingLibraryItem}
+                        busy={libraryBusyId === editingLibraryItem.id}
+                        onClose={() => setEditingLibraryItem(null)}
+                        onSave={async (updates) => {
+                            await updateLibrary(editingLibraryItem.id, updates);
+                            setEditingLibraryItem(null);
+                        }}
+                    />
+                )}
             </div>
         </AppLayout>
+    );
+}
+
+function LibraryEditModal({
+    item,
+    busy,
+    onClose,
+    onSave,
+}: {
+    item: LibraryItem;
+    busy: boolean;
+    onClose: () => void;
+    onSave: (updates: {
+        title: string;
+        description: string;
+        tags: string[];
+        isAvailable: boolean;
+    }) => Promise<void>;
+}) {
+    const [title, setTitle] = useState(item.title);
+    const [description, setDescription] = useState(item.description);
+    const [tags, setTags] = useState(item.tags.join(', '));
+    const [isAvailable, setIsAvailable] = useState(item.available);
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            style="position:fixed;inset:0;z-index:130;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);padding:16px;"
+        >
+            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+            <div style="position:relative;width:100%;max-width:520px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                    <div>
+                        <p style="margin:0;font-size:16px;font-weight:700;color:var(--text);">
+                            Edit library item
+                        </p>
+                        <p style="margin:4px 0 0;font-size:12px;color:var(--text-secondary);">
+                            {item.type}
+                        </p>
+                    </div>
+                    <HoverButton
+                        type="button"
+                        class="btn-ghost"
+                        onClick={onClose}
+                        style="height:32px;padding:0 10px;font-size:12px;"
+                    >
+                        Close
+                    </HoverButton>
+                </div>
+                <input
+                    value={title}
+                    onInput={(e) => setTitle((e.target as HTMLInputElement).value)}
+                    style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;"
+                />
+                <textarea
+                    value={description}
+                    onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)}
+                    style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;min-height:100px;resize:vertical;"
+                />
+                <input
+                    value={tags}
+                    onInput={(e) => setTags((e.target as HTMLInputElement).value)}
+                    style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;"
+                />
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);">
+                    <input
+                        type="checkbox"
+                        checked={isAvailable}
+                        onChange={(e) => setIsAvailable((e.target as HTMLInputElement).checked)}
+                    />
+                    Available
+                </label>
+                <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
+                    <HoverButton
+                        type="button"
+                        class="btn-ghost"
+                        onClick={onClose}
+                        style="height:36px;padding:0 12px;font-size:12px;"
+                    >
+                        Cancel
+                    </HoverButton>
+                    <HoverButton
+                        type="button"
+                        class="btn-primary"
+                        disabled={busy || !title.trim()}
+                        onClick={() =>
+                            void onSave({
+                                title: title.trim(),
+                                description: description.trim(),
+                                tags: tags
+                                    .split(',')
+                                    .map((tag) => tag.trim())
+                                    .filter(Boolean),
+                                isAvailable,
+                            })
+                        }
+                        style="height:36px;padding:0 12px;font-size:12px;"
+                    >
+                        {busy ? 'Saving…' : 'Save'}
+                    </HoverButton>
+                </div>
+            </div>
+        </div>
     );
 }

@@ -25,7 +25,9 @@ import { AppLayout } from '../components/Layout/AppLayout';
 import { ReportModal } from '../components/Modals/ReportModal';
 import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { HoverButton } from '../components/ui/HoverButton';
 import { useAuth } from '../lib/auth';
 import {
     blockUser,
@@ -33,6 +35,7 @@ import {
     startDirectConversation,
     unblockUser,
 } from '../lib/chatApi';
+import { readQueryParam } from '../lib/navigation';
 import { useTheme } from '../lib/theme';
 import type { User } from '../lib/types';
 import {
@@ -43,9 +46,7 @@ import {
     updateAdminUserRole,
     updateProfile,
 } from '../lib/userApi';
-import { readQueryParam } from '../lib/navigation';
 import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation, isUsableCoordinates } from '../lib/utils';
-import { HoverButton } from '../components/ui/HoverButton';
 
 const DAYS = [
     { v: 0, s: 'Sun' },
@@ -132,7 +133,15 @@ export function Profile() {
     const [blocked, setBlocked] = useState(false);
     const [showReportUserModal, setShowReportUserModal] = useState(false);
     const [actionBusy, setActionBusy] = useState(false);
+    const [confirmAction, setConfirmAction] = useState<null | {
+        title: string;
+        message: string;
+        confirmLabel: string;
+        destructive?: boolean;
+        onConfirm: () => Promise<void>;
+    }>(null);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
+    const targetRole = user?.role?.toLowerCase() ?? 'resident';
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -369,7 +378,50 @@ export function Profile() {
         }
     };
 
-    const handleAdminRole = async (nextRole: 'admin' | 'resident' | 'banned') => {
+    const requestBlockToggle = () => {
+        setConfirmAction({
+            title: blocked ? 'Unban user' : 'Ban user',
+            message: blocked
+                ? `Remove the ban for ${user?.name ?? 'this user'}?`
+                : `Ban ${user?.name ?? 'this user'} from the platform?`,
+            confirmLabel: blocked ? 'Unban' : 'Ban',
+            destructive: !blocked,
+            onConfirm: handleToggleBlock,
+        });
+    };
+
+    const requestRoleChange = (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
+        setConfirmAction({
+            title:
+                nextRole === 'banned'
+                    ? 'Ban user'
+                    : nextRole === 'admin'
+                      ? 'Promote user'
+                      : nextRole === 'mod'
+                        ? 'Promote user'
+                        : 'Demote user',
+            message:
+                nextRole === 'banned'
+                    ? `Ban ${user?.name ?? 'this user'}?`
+                    : nextRole === 'admin'
+                      ? `Promote ${user?.name ?? 'this user'} to admin?`
+                      : nextRole === 'mod'
+                        ? `Promote ${user?.name ?? 'this user'} to mod?`
+                        : `Demote ${user?.name ?? 'this user'}?`,
+            confirmLabel:
+                nextRole === 'admin' || nextRole === 'mod'
+                    ? 'Promote'
+                    : nextRole === 'banned'
+                      ? 'Ban'
+                      : 'Demote',
+            destructive: nextRole === 'banned' || nextRole === 'resident',
+            onConfirm: async () => {
+                await handleAdminRole(nextRole);
+            },
+        });
+    };
+
+    const handleAdminRole = async (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
         if (!selectedUserId || actionBusy) {
             return;
         }
@@ -542,7 +594,7 @@ export function Profile() {
                         <HoverButton
                             type="button"
                             class="btn-ghost"
-                            onClick={handleToggleBlock}
+                            onClick={requestBlockToggle}
                             disabled={actionBusy}
                             style="flex:1 1 110px;height:36px;color:var(--danger);border-color:var(--danger-muted);"
                         >
@@ -568,15 +620,33 @@ export function Profile() {
                             type="button"
                             class="btn-ghost"
                             onClick={() =>
-                                handleAdminRole(
-                                    user.role?.toLowerCase() === 'admin' ? 'resident' : 'admin'
-                                )
+                                requestRoleChange(targetRole === 'admin' ? 'resident' : 'admin')
                             }
-                            disabled={actionBusy}
+                            disabled={actionBusy || targetRole === 'admin'}
                             style="height:36px;flex:1 1 120px;color:var(--accent);border-color:var(--accent-muted);"
                         >
                             <ShieldCheck size={14} />
-                            {user.role?.toLowerCase() === 'admin' ? 'Demote' : 'Promote'}
+                            {targetRole === 'admin' ? 'Demote' : 'Promote'}
+                        </HoverButton>
+                        <HoverButton
+                            type="button"
+                            class="btn-ghost"
+                            onClick={() => requestRoleChange('mod')}
+                            disabled={actionBusy || targetRole === 'admin'}
+                            style="height:36px;flex:1 1 120px;color:var(--warning);border-color:var(--warning-muted);"
+                        >
+                            <ShieldCheck size={14} />
+                            Promote Mod
+                        </HoverButton>
+                        <HoverButton
+                            type="button"
+                            class="btn-ghost"
+                            onClick={() => requestRoleChange('banned')}
+                            disabled={actionBusy || targetRole === 'admin'}
+                            style="height:36px;flex:1 1 120px;color:var(--danger);border-color:var(--danger-muted);"
+                        >
+                            <Ban size={14} />
+                            Ban
                         </HoverButton>
                         <HoverButton
                             type="button"
@@ -1001,6 +1071,23 @@ export function Profile() {
                     onClose={() => setShowReportUserModal(false)}
                 />
             )}
+            <ConfirmDialog
+                open={confirmAction !== null}
+                title={confirmAction?.title ?? ''}
+                message={confirmAction?.message ?? ''}
+                confirmLabel={confirmAction?.confirmLabel}
+                destructive={confirmAction?.destructive}
+                busy={actionBusy}
+                onCancel={() => setConfirmAction(null)}
+                onConfirm={async () => {
+                    if (!confirmAction) return;
+                    try {
+                        await confirmAction.onConfirm();
+                    } finally {
+                        setConfirmAction(null);
+                    }
+                }}
+            />
         </AppLayout>
     );
 }

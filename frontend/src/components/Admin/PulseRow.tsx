@@ -7,7 +7,7 @@ const surfaceCard =
 
 type Props = {
     pulse: Pulse;
-    onDelete: (pulseId: string) => Promise<void>;
+    onDelete: (pulseId: string) => void | Promise<void>;
 };
 
 function PulseRowComponent({ pulse, onDelete }: Props) {

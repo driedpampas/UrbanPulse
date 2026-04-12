@@ -524,12 +524,32 @@ export const httpRoutes: HttpRoutes = {
     '/api/admin/users/:id/role': {
         PATCH: async (req) =>
             validate(req, async () =>
-                adminAuthorize(req, async () =>
+                adminAuthorize(req, async (session) =>
                     caught(async () => {
                         const body = updateAdminUserRoleBodySchema.parse(
                             await req.json().then((raw) => raw)
                         );
-                        const updated = await db.updateUserRole(req.params.id as string, body.role);
+                        const actorRole = (await db.selectUserRole(session.id))?.toLowerCase();
+                        if (actorRole !== 'admin') {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        const targetRole = (
+                            await db.selectUserRole(req.params.id as string)
+                        )?.toLowerCase();
+                        if (!targetRole) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        const nextRole = body.role.toLowerCase();
+                        if (targetRole === 'admin' && nextRole !== 'admin') {
+                            return withCors(FORBIDDEN);
+                        }
+                        if (targetRole === 'admin' && nextRole === 'banned') {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        const updated = await db.updateUserRole(req.params.id as string, nextRole);
 
                         if (!updated) {
                             return withCors(NOT_FOUND);
@@ -1104,11 +1124,19 @@ export const httpRoutes: HttpRoutes = {
                         const payload = session as JwtPayload;
                         const threadId = req.params.id as string;
 
-                        const chats = await db.selectChats(payload.id);
-                        const isParticipant = chats.some((chat) => chat.chatId === threadId);
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        if (role !== 'admin') {
+                            const chats = await db.selectChats(payload.id);
+                            const isParticipant = chats.some((chat) => chat.chatId === threadId);
 
-                        if (!isParticipant) {
-                            return withCors(FORBIDDEN);
+                            if (!isParticipant) {
+                                return withCors(FORBIDDEN);
+                            }
+                        } else {
+                            const chat = await db.selectChatById(threadId);
+                            if (!chat || !chat.isGroup) {
+                                return withCors(FORBIDDEN);
+                            }
                         }
 
                         const messages = await db.selectMessages(threadId, payload.id);
@@ -1369,13 +1397,19 @@ export const httpRoutes: HttpRoutes = {
                         const payload = session as JwtPayload;
                         const threadId = req.params.id as string;
 
-                        const chats = await db.selectChats(payload.id);
-                        const isParticipant = chats.some((chat) => chat.chatId === threadId);
-                        if (!isParticipant) {
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const chat =
+                            role === 'admin'
+                                ? await db.selectChatById(threadId)
+                                : await db.selectChat(threadId, payload.id);
+                        if (!chat) {
                             return withCors(FORBIDDEN);
                         }
 
-                        const chatSummary = await db.selectChatSummary(threadId, payload.id);
+                        const chatSummary =
+                            role === 'admin'
+                                ? await db.selectChatSummaryById(threadId)
+                                : await db.selectChatSummary(threadId, payload.id);
                         if (!chatSummary) {
                             return withCors(NOT_FOUND);
                         }
@@ -1390,7 +1424,11 @@ export const httpRoutes: HttpRoutes = {
                         const payload = session as JwtPayload;
                         const threadId = req.params.id as string;
 
-                        const chat = await db.selectChat(threadId, payload.id);
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const chat =
+                            role === 'admin'
+                                ? await db.selectChatById(threadId)
+                                : await db.selectChat(threadId, payload.id);
                         if (!chat) {
                             return withCors(NOT_FOUND);
                         }
@@ -1399,7 +1437,6 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(FORBIDDEN);
                         }
 
-                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
                         const isOwner = chat.ownerId === payload.id;
                         const isAdminOrMod = role === 'admin' || role === 'mod';
 
@@ -1432,8 +1469,23 @@ export const httpRoutes: HttpRoutes = {
                             .json()
                             .then((raw) => addChatParticipantsSchema.parse(raw));
 
-                        const chat = await db.selectChat(req.params.id as string, payload.id);
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const chat =
+                            role === 'admin'
+                                ? await db.selectChatById(req.params.id as string)
+                                : await db.selectChat(req.params.id as string, payload.id);
                         if (!chat || !chat.isGroup) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        const participantRoles = await db.selectChatParticipantRoles(
+                            req.params.id as string
+                        );
+                        const currentRoles = participantRoles[payload.id as string] ?? [];
+                        const isOwner = chat.ownerId === payload.id;
+                        const isAdmin = role === 'admin' || currentRoles.includes('admin');
+
+                        if (!isOwner && !isAdmin) {
                             return withCors(FORBIDDEN);
                         }
 
@@ -1497,7 +1549,11 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(BAD_REQUEST);
                         }
 
-                        const chat = await db.selectChat(req.params.id as string, payload.id);
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const chat =
+                            role === 'admin'
+                                ? await db.selectChatById(req.params.id as string)
+                                : await db.selectChat(req.params.id as string, payload.id);
                         if (!chat || !chat.isGroup) {
                             return withCors(FORBIDDEN);
                         }
@@ -1507,7 +1563,7 @@ export const httpRoutes: HttpRoutes = {
                         );
                         const currentRoles = participantRoles[payload.id as string] ?? [];
                         const isOwner = chat.ownerId === payload.id;
-                        const isAdmin = currentRoles.includes('admin');
+                        const isAdmin = role === 'admin' || currentRoles.includes('admin');
                         const isSelfRemoval = participantId.data === payload.id;
 
                         const canRemove = isOwner || isAdmin || isSelfRemoval;
@@ -1569,8 +1625,25 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(BAD_REQUEST);
                         }
 
-                        const chat = await db.selectChat(req.params.id as string, payload.id);
-                        if (!chat || !chat.isGroup || chat.ownerId !== payload.id) {
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const chat =
+                            role === 'admin'
+                                ? await db.selectChatById(req.params.id as string)
+                                : await db.selectChat(req.params.id as string, payload.id);
+                        if (!chat || !chat.isGroup) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        const participantRoles = await db.selectChatParticipantRoles(
+                            req.params.id as string
+                        );
+                        const currentRoles = participantRoles[payload.id as string] ?? [];
+                        const canManage =
+                            chat.ownerId === payload.id ||
+                            role === 'admin' ||
+                            currentRoles.includes('admin');
+
+                        if (!canManage) {
                             return withCors(FORBIDDEN);
                         }
 

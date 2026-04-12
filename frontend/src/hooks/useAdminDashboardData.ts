@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
     deleteAdminPulse,
     deleteAdminUser,
+    deleteLibraryItem,
     fetchAdminLibrary,
     fetchAdminOverview,
     fetchAdminPulseById,
@@ -9,6 +10,7 @@ import {
     fetchAdminReports,
     fetchAdminUsers,
     updateAdminUserRole,
+    updateLibraryItem,
     updateReportStatus,
 } from '../lib/apiClients';
 import type { AdminFlag, AdminOverview, LibraryItem, Pulse, User } from '../types';
@@ -25,6 +27,7 @@ export function useAdminDashboardData() {
     const [pulseId, setPulseId] = useState('');
     const [loading, setLoading] = useState(true);
     const [pulseSearchLoading, setPulseSearchLoading] = useState(false);
+    const [libraryBusyId, setLibraryBusyId] = useState<string | null>(null);
 
     const loadData = useCallback(() => {
         setLoading(true);
@@ -65,9 +68,43 @@ export function useAdminDashboardData() {
     }, [pulseId]);
 
     const setUserRole = useCallback(
-        async (userId: string, role: 'admin' | 'resident' | 'banned') => {
+        async (userId: string, role: 'admin' | 'mod' | 'resident' | 'banned') => {
             await updateAdminUserRole(userId, role);
             loadData();
+        },
+        [loadData]
+    );
+
+    const updateLibrary = useCallback(
+        async (
+            itemId: string,
+            updates: {
+                title?: string;
+                description?: string;
+                tags?: string[];
+                isAvailable?: boolean;
+            }
+        ) => {
+            setLibraryBusyId(itemId);
+            try {
+                await updateLibraryItem(itemId, updates);
+                loadData();
+            } finally {
+                setLibraryBusyId(null);
+            }
+        },
+        [loadData]
+    );
+
+    const removeLibrary = useCallback(
+        async (itemId: string) => {
+            setLibraryBusyId(itemId);
+            try {
+                await deleteLibraryItem(itemId);
+                loadData();
+            } finally {
+                setLibraryBusyId(null);
+            }
         },
         [loadData]
     );
@@ -108,11 +145,14 @@ export function useAdminDashboardData() {
         setPulseId,
         loading,
         pulseSearchLoading,
+        libraryBusyId,
         loadData,
         searchPulse,
         setUserRole,
         removeUser,
         removePulse,
         changeReportStatus,
+        updateLibrary,
+        removeLibrary,
     };
 }

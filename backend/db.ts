@@ -1038,6 +1038,58 @@ export async function selectChatSummary(
     };
 }
 
+export async function selectChatSummaryById(chatId: string): Promise<ChatSummary | null> {
+    const [chat] = (await sql.begin(async (tx) => {
+        await ensureSchema();
+
+        return (await tx`
+            SELECT
+                ct.id,
+                ct.is_group,
+                ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
+                COALESCE(ct.owner_id::text, NULL) AS owner_id,
+                ARRAY_AGG(
+                    jsonb_build_object(
+                        'userId', cp.user_id::text,
+                        'displayName', NULLIF(users.display_name, ''),
+                        'roles', COALESCE(roles.roles, '[]'::jsonb)
+                    )
+                    ORDER BY cp.joined_at
+                ) AS participants
+            FROM app.chat_threads AS ct
+            JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
+            LEFT JOIN app.users AS users ON users.id = cp.user_id
+            LEFT JOIN LATERAL (
+                SELECT jsonb_agg(role ORDER BY role) AS roles
+                FROM app.chat_participant_roles AS cpr
+                WHERE cpr.thread_id = ct.id AND cpr.user_id = cp.user_id
+            ) AS roles ON true
+            WHERE ct.id = ${chatId}::uuid
+            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+        `) as ChatSummaryRow[];
+    })) as ChatSummaryRow[];
+
+    if (!chat) return null;
+
+    return {
+        id: chat.id,
+        isGroup: chat.is_group,
+        timestamp: Number(chat.timestamp),
+        ownerId: chat.owner_id,
+        participants: (
+            chat.participants as Array<{
+                userId: string;
+                displayName: string | null;
+                roles: string[];
+            }>
+        ).map((participant) => ({
+            userId: participant.userId,
+            displayName: participant.displayName,
+            roles: normalizeChatRoles(participant.roles),
+        })),
+    };
+}
+
 export async function selectMessages(threadId: string, currentUser: string): Promise<Message[]> {
     await ensureSchema();
     const messages = (await sql.begin(async (tx) => {
@@ -1088,6 +1140,53 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
+
+        return (await tx`
+            SELECT cp.thread_id, cp.user_id, ct.is_group,
+            ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
+            ct.owner_id
+            FROM app.chat_threads AS ct
+            JOIN app.chat_participants AS cp ON cp.thread_id = ct.id
+            WHERE ct.id = ${chatId};
+        `) as Array<ChatParticipantRow & ChatThreadRow>;
+    })) as Array<ChatParticipantRow & ChatThreadRow>;
+
+    if (chatRows.length === 0) {
+        return null;
+    }
+
+    const participants = chatRows.map((row) => ({
+        userId: String(row.user_id),
+    }));
+
+    const roleRows = (await sql`
+        SELECT user_id::text AS user_id, role
+        FROM app.chat_participant_roles
+        WHERE thread_id = ${chatId}::uuid
+    `) as ChatRoleRow[];
+
+    const participantRoles: Record<string, ChatParticipantRole[]> = {};
+    for (const roleRow of roleRows) {
+        const next = participantRoles[roleRow.user_id] ?? [];
+        if (roleRow.role === 'owner' || roleRow.role === 'admin') {
+            if (!next.includes(roleRow.role)) next.push(roleRow.role);
+        }
+        participantRoles[roleRow.user_id] = next;
+    }
+
+    return {
+        id: chatId,
+        participants,
+        isGroup: chatRows[0]!.is_group,
+        ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
+        participantRoles,
+        timestamp: Number(chatRows[0]!.timestamp),
+    };
+}
+
+export async function selectChatById(chatId: string): Promise<Chat | null> {
+    const chatRows = (await sql.begin(async (tx) => {
+        await ensureSchema();
 
         return (await tx`
             SELECT cp.thread_id, cp.user_id, ct.is_group,
@@ -1749,9 +1848,15 @@ export async function selectAdminOverview() {
 }
 
 export async function updateUserRole(id: string, role: string): Promise<boolean> {
+    const normalizedRole = role.toLowerCase();
+
+    if (!['admin', 'mod', 'resident', 'banned'].includes(normalizedRole)) {
+        return false;
+    }
+
     const [updated] = await sql`
         UPDATE app.users
-        SET role = ${role}
+        SET role = ${normalizedRole}
         WHERE id = ${id}
         RETURNING id
     `;
