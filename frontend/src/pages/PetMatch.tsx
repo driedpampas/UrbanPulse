@@ -227,9 +227,9 @@ export function PetMatch() {
             <div class="stack-v" style="padding:16px;gap:20px;max-width:760px;margin:0 auto;">
                 {/* Page Header */}
                 <div class="section animate-slide-up">
-                    <div class="stack-h flex-between gap-md">
-                        <div class="stack-v" style="gap:3px;">
-                            <h1 style="font-size:17px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:8px;">
+                    <div class="p-4 stack-h flex-between gap-md">
+                        <div class="stack-v" style="gap:2px;">
+                            <h1 style="font-size:16px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:8px;">
                                 <PawPrint size={18} style="color:var(--accent);" />
                                 Pet Guardian
                             </h1>
@@ -243,7 +243,6 @@ export function PetMatch() {
                                 setPostError(null);
                             }}
                             class="btn-primary"
-                            style="height:36px;padding:0 14px;font-size:13px;gap:6px;"
                             id="pet-report-btn"
                         >
                             {showForm ? <X size={14} /> : <Plus size={14} />}
@@ -304,8 +303,7 @@ export function PetMatch() {
                                 <HoverButton
                                     onClick={handlePost}
                                     disabled={posting || !reportContent.trim() || !userLocation}
-                                    class="btn-primary"
-                                    style="height:34px;padding:0 14px;font-size:12px;gap:6px;"
+                                    class="btn-primary h-[34px] px-3.5 text-[12px]"
                                     id="pet-report-submit"
                                 >
                                     <Send size={13} />

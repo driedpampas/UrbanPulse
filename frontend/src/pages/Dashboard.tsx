@@ -67,15 +67,17 @@ export function Dashboard() {
     return (
         <AppLayout title="UrbanPulse" headerRight={null}>
             <div class={cn('stack-v', view === 'map' && 'flex-1')}>
-                <DashboardToolbar
-                    view={view}
-                    showFilters={showFilters}
-                    radius={radius}
-                    limit={limit}
-                    onViewChange={setView}
-                    onToggleFilters={toggleFilters}
-                    onOpenPostForm={openPostForm}
-                />
+                <div class="mx-4">
+                    <DashboardToolbar
+                        view={view}
+                        showFilters={showFilters}
+                        radius={radius}
+                        limit={limit}
+                        onViewChange={setView}
+                        onToggleFilters={toggleFilters}
+                        onOpenPostForm={openPostForm}
+                    />
+                </div>
                 <DashboardFiltersPanel
                     showFilters={showFilters}
                     radius={radius}

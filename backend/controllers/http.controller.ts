@@ -1622,7 +1622,8 @@ export const httpRoutes: HttpRoutes = {
                         lng,
                         radius,
                         Number.isFinite(offset) ? offset : 0,
-                        type || undefined
+                        type || undefined,
+                        !type
                     );
 
                     return withCors(Response.json(pulses, { status: 200 }));
