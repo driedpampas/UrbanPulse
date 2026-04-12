@@ -116,11 +116,16 @@ export interface Message {
     threadId: string;
     senderId: string;
     content: string;
+    isEdited: boolean;
     messageType: 'text' | 'notice';
     timestamp: number;
 }
 
 export type DeleteMessageScope = 'me' | 'everyone';
+
+export type EditMessageResult =
+    | { success: true; message: Message }
+    | { success: false; reason: 'not_found' | 'forbidden' };
 
 export type ChatParticipantRole = 'owner' | 'admin';
 
@@ -310,6 +315,7 @@ type MessageRow = {
     thread_id: string;
     sender_id: string;
     content: string;
+    is_edited?: boolean | null;
     message_type?: string | null;
     timestamp: number | string | Date;
 };
@@ -693,6 +699,7 @@ function mapMessageRow(rawMessage: MessageRow): Message {
         threadId: String(rawMessage.thread_id),
         senderId: String(rawMessage.sender_id),
         content: String(rawMessage.content),
+        isEdited: Boolean(rawMessage.is_edited),
         messageType: (rawMessage.message_type as 'text' | 'notice') ?? 'text',
         timestamp: Number(rawMessage.timestamp ?? Date.now()),
     };
@@ -879,6 +886,18 @@ async function ensureSchema() {
         `;
 
         // Check app.messages.message_type
+        const messageEditedCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'is_edited'
+            LIMIT 1
+        `;
+        if (messageEditedCol.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD COLUMN is_edited boolean NOT NULL DEFAULT false
+            `;
+        }
+
         const messageTypeCol = await tx`
             SELECT 1 FROM information_schema.columns 
             WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'message_type'
@@ -890,6 +909,28 @@ async function ensureSchema() {
                 ADD COLUMN message_type text NOT NULL DEFAULT 'text'
             `;
         }
+
+        const messageEditsHistoryTable = await tx`
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'message_edits_history'
+            LIMIT 1
+        `;
+        if (messageEditsHistoryTable.length === 0) {
+            await tx`
+                CREATE TABLE app.message_edits_history (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    message_id uuid NOT NULL REFERENCES app.messages(id) ON DELETE CASCADE,
+                    old_content text NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now()
+                )
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_edits_history_message_id_idx
+            ON app.message_edits_history (message_id)
+        `;
 
         const deletionRequestedAtCol = await tx`
             SELECT 1 FROM information_schema.columns
@@ -1455,7 +1496,7 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content, message_type,
+            SELECT id, thread_id, sender_id, content, is_edited, message_type,
             ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
             FROM app.messages
                         WHERE thread_id = ${threadId}
@@ -1481,7 +1522,7 @@ export async function selectMessage(
         `;
 
         return (await tx`
-                        SELECT m.id, m.thread_id, m.sender_id, m.content, m.message_type,
+                        SELECT m.id, m.thread_id, m.sender_id, m.content, m.is_edited, m.message_type,
                         ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
                         FROM app.messages AS m
                         JOIN app.chat_participants AS cp
@@ -1830,6 +1871,66 @@ export async function deleteMessage(messageId: string, currentUser: string): Pro
     return Boolean(deleted);
 }
 
+export async function editMessage(
+    messageId: string,
+    editorId: string,
+    newContent: string
+): Promise<EditMessageResult> {
+    await ensureSchema();
+
+    return await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${editorId}, true);
+        `;
+
+        const [existingMessage] = (await tx`
+            SELECT m.id, m.thread_id, m.sender_id, m.content, m.is_edited, m.message_type,
+            ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            JOIN app.chat_participants AS cp
+                ON cp.thread_id = m.thread_id
+             AND cp.user_id = ${editorId}::uuid
+            WHERE m.id = ${messageId}::uuid
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app.hidden_messages AS hidden
+                    WHERE hidden.message_id = m.id
+                        AND hidden.user_id = ${editorId}::uuid
+                )
+            LIMIT 1
+            FOR UPDATE;
+        `) as MessageRow[];
+
+        if (!existingMessage) {
+            return { success: false, reason: 'not_found' } as const;
+        }
+
+        if (String(existingMessage.sender_id) !== editorId) {
+            return { success: false, reason: 'forbidden' } as const;
+        }
+
+        await tx`
+            INSERT INTO app.message_edits_history (message_id, old_content)
+            VALUES (${messageId}::uuid, ${existingMessage.content})
+        `;
+
+        const [updatedMessage] = (await tx`
+            UPDATE app.messages
+            SET content = ${newContent},
+                is_edited = true
+            WHERE id = ${messageId}::uuid
+            RETURNING id, thread_id, sender_id, content, is_edited, message_type,
+            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
+        `) as MessageRow[];
+
+        if (!updatedMessage) {
+            return { success: false, reason: 'not_found' } as const;
+        }
+
+        return { success: true, message: mapMessageRow(updatedMessage) } as const;
+    });
+}
+
 export async function hideMessageForUser(messageId: string, userId: string): Promise<boolean> {
     const [hidden] = await sql`
         INSERT INTO app.hidden_messages (message_id, user_id)
@@ -1901,7 +2002,7 @@ export async function insertMessage(
         return (await tx`
             INSERT INTO app.messages (thread_id, sender_id, content, message_type)
             VALUES (${threadId}, ${senderId}, ${content}, ${messageType})
-            RETURNING id, thread_id, sender_id, content, message_type,
+            RETURNING id, thread_id, sender_id, content, is_edited, message_type,
             ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
         `) as MessageRow[];
     })) as MessageRow[];

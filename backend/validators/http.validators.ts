@@ -83,6 +83,7 @@ export const messageNotificationPayloadSchema = z.strictObject({
         threadId: z.uuid(),
         senderId: z.uuid(),
         content: z.string(),
+        isEdited: z.boolean().optional(),
         messageType: z.enum(['text', 'notice']).optional(),
         timestamp: z.union([z.number(), z.string()]),
     }),
@@ -103,6 +104,10 @@ export const createMessageSchema = z.strictObject({
 export const deleteMessageSchema = z.strictObject({
     messageId: z.uuid(),
     scope: z.enum(['me', 'everyone']).optional(),
+});
+
+export const updateMessageSchema = z.strictObject({
+    content: z.string().trim().min(1).max(5000),
 });
 
 export const addChatParticipantsSchema = z.strictObject({
@@ -261,6 +266,7 @@ export type ResourceCatalogQuery = z.infer<typeof resourceCatalogQuerySchema>;
 export type CreateChatBody = z.infer<typeof createChatSchema>;
 export type CreateMessageBody = z.infer<typeof createMessageSchema>;
 export type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
+export type UpdateMessageBody = z.infer<typeof updateMessageSchema>;
 export type AddChatParticipantsBody = z.infer<typeof addChatParticipantsSchema>;
 export type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
 export type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;

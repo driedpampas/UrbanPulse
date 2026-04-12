@@ -33,6 +33,7 @@ import type {
     SearchUsersQuery,
     UpdateEmailBody,
     UpdateLibraryItemBody,
+    UpdateMessageBody,
     UpdatePassBody,
     UpdateUserBody,
     VerifyEmailQuery,
@@ -65,6 +66,7 @@ import {
     updateAdminUserRoleBodySchema,
     updateEmailSchema,
     updateLibraryItemSchema,
+    updateMessageSchema,
     updatePassSchema,
     updateReportStatusSchema,
     updateUserSchema,
@@ -1085,6 +1087,59 @@ export const httpRoutes: HttpRoutes = {
                         );
                         if (!updated) return withCors(NOT_FOUND);
                         return withCors(SUCCESS);
+                    })
+                )
+            ),
+    },
+    '/api/messages/:messageId': {
+        PATCH: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const parsedMessageId = z.uuid().safeParse(req.params.messageId as string);
+                        if (!parsedMessageId.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const body: UpdateMessageBody = await req
+                            .json()
+                            .then((raw) => updateMessageSchema.parse(raw));
+
+                        const result = await db.editMessage(
+                            parsedMessageId.data,
+                            payload.id,
+                            body.content
+                        );
+
+                        if (!result.success && result.reason === 'not_found') {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!result.success && result.reason === 'forbidden') {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        if (!result.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        server.publish(
+                            `chat-${result.message.threadId}`,
+                            JSON.stringify({
+                                event: 'message.updated',
+                                message: result.message,
+                            })
+                        );
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    message: result.message,
+                                },
+                                { status: 200 }
+                            )
+                        );
                     })
                 )
             ),

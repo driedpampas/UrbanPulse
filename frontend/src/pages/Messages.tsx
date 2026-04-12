@@ -5,6 +5,7 @@ import {
     Copy,
     Flag,
     Info,
+    Pencil,
     Plus,
     Search,
     Send,
@@ -31,6 +32,7 @@ import {
     deleteChatMessage,
     deleteGroupChat,
     disconnectChatWebSocket,
+    editChatMessage,
     fetchBlockedUserIds,
     fetchChats,
     fetchChatThread,
@@ -76,6 +78,8 @@ function upsertMessageById(
             existing.senderId === incoming.senderId &&
             existing.senderName === incoming.senderName &&
             existing.content === incoming.content &&
+            existing.isEdited === incoming.isEdited &&
+            existing.type === incoming.type &&
             existing.timestamp === incoming.timestamp;
 
         if (unchanged) {
@@ -272,7 +276,11 @@ export function Messages() {
 
     useEffect(() => {
         const handleThreadListSync = (event: ChatSocketEvent) => {
-            if (event.event !== 'message.created' && event.event !== 'notification.message') {
+            if (
+                event.event !== 'message.created' &&
+                event.event !== 'notification.message' &&
+                event.event !== 'message.updated'
+            ) {
                 return;
             }
 
@@ -303,6 +311,7 @@ export function Messages() {
                     senderId: event.message.senderId,
                     senderName,
                     content: event.message.content,
+                    isEdited: Boolean(event.message.isEdited),
                     type: (event.message.messageType as 'text' | 'notice') ?? 'text',
                     timestamp: Number(event.message.timestamp),
                 };
@@ -735,6 +744,10 @@ function ChatView({
     const [sending, setSending] = useState(false);
     const [threadSubscribed, setThreadSubscribed] = useState(false);
     const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editDraft, setEditDraft] = useState('');
+    const [savingEditMessageId, setSavingEditMessageId] = useState<string | null>(null);
+    const [editError, setEditError] = useState<string | null>(null);
     const [contextMenuMessageId, setContextMenuMessageId] = useState<string | null>(null);
     const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(
         null
@@ -811,6 +824,13 @@ function ChatView({
     useEffect(() => {
         threadRef.current = thread;
     }, [thread]);
+
+    useEffect(() => {
+        setEditingMessageId(null);
+        setEditDraft('');
+        setSavingEditMessageId(null);
+        setEditError(null);
+    }, [thread.id]);
 
     useEffect(() => {
         return () => {
@@ -946,6 +966,7 @@ function ChatView({
                 threadId: string;
                 senderId: string;
                 content: string;
+                isEdited?: boolean;
                 messageType?: string;
                 timestamp: number;
             };
@@ -983,7 +1004,11 @@ function ChatView({
                 return;
             }
 
-            if (event.event !== 'message.created' && event.event !== 'notification.message') {
+            if (
+                event.event !== 'message.created' &&
+                event.event !== 'notification.message' &&
+                event.event !== 'message.updated'
+            ) {
                 return;
             }
 
@@ -1009,6 +1034,7 @@ function ChatView({
                 senderId: event.message.senderId,
                 senderName,
                 content: event.message.content,
+                isEdited: Boolean(event.message.isEdited),
                 type: (event.message.messageType as 'text' | 'notice') ?? 'text',
                 timestamp: Number(event.message.timestamp),
             };
@@ -1060,6 +1086,7 @@ function ChatView({
             setMessages((prev) => {
                 const mappedMessage: ChatMessage = {
                     ...msg,
+                    isEdited: Boolean(msg.isEdited),
                     senderName:
                         participantNameById.get(msg.senderId) ||
                         msg.senderName ||
@@ -1116,6 +1143,75 @@ function ChatView({
             console.error(error);
         } finally {
             setDeletingMessageId(null);
+        }
+    };
+
+    const handleStartMessageEdit = (message: ChatMessage) => {
+        if (savingEditMessageId) {
+            return;
+        }
+
+        setEditingMessageId(message.id);
+        setEditDraft(message.content);
+        setEditError(null);
+        setContextMenuMessageId(null);
+        setContextMenuPosition(null);
+    };
+
+    const handleCancelMessageEdit = () => {
+        if (savingEditMessageId) {
+            return;
+        }
+
+        setEditingMessageId(null);
+        setEditDraft('');
+        setEditError(null);
+    };
+
+    const handleSaveMessageEdit = async (message: ChatMessage) => {
+        const nextContent = editDraft.trim();
+
+        if (!nextContent || savingEditMessageId !== null) {
+            return;
+        }
+
+        setSavingEditMessageId(message.id);
+        setEditError(null);
+
+        try {
+            const updatedMessage = await editChatMessage(message.id, nextContent);
+            const mappedMessage: ChatMessage = {
+                ...updatedMessage,
+                senderName:
+                    participantNameById.get(updatedMessage.senderId) ||
+                    updatedMessage.senderName ||
+                    `Neighbor ${updatedMessage.senderId.slice(0, 6)}`,
+            };
+
+            setMessages((prev) => {
+                const merged = upsertMessageById(prev, mappedMessage);
+                if (!merged.changed) {
+                    return prev;
+                }
+
+                onThreadUpdate({
+                    ...threadRef.current,
+                    messages: merged.messages,
+                    lastMessage: merged.messages[merged.messages.length - 1],
+                });
+
+                return merged.messages;
+            });
+
+            setEditingMessageId(null);
+            setEditDraft('');
+            setContextMenuMessageId(null);
+            setContextMenuPosition(null);
+        } catch (error) {
+            setEditError(error instanceof Error ? error.message : 'Could not update message.');
+            console.error(error);
+        } finally {
+            setSavingEditMessageId(null);
         }
     };
 
@@ -1278,6 +1374,7 @@ function ChatView({
                             {messages.map((msg) => {
                                 const isMe = msg.senderId === currentUserId;
                                 const isContextMenuOpen = contextMenuMessageId === msg.id;
+                                const isEditingMessage = editingMessageId === msg.id;
 
                                 if (msg.type === 'notice') {
                                     return (
@@ -1311,12 +1408,23 @@ function ChatView({
                                         )}
                                         <HoverButton
                                             type="button"
-                                            onClick={(e) => handleContextMenu(e as any, msg.id)}
-                                            onContextMenu={(e) =>
-                                                handleContextMenu(e as any, msg.id)
-                                            }
+                                            onClick={(e) => {
+                                                if (isEditingMessage) {
+                                                    return;
+                                                }
+
+                                                handleContextMenu(e as any, msg.id);
+                                            }}
+                                            onContextMenu={(e) => {
+                                                if (isEditingMessage) {
+                                                    e.preventDefault();
+                                                    return;
+                                                }
+
+                                                handleContextMenu(e as any, msg.id);
+                                            }}
                                             style={`
-                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
+                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isEditingMessage ? 'default' : isMe || (thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false)) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
                                                 ${
                                                     isMe
                                                         ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
@@ -1347,11 +1455,85 @@ function ChatView({
                                                 >
                                                     <Clock size={9} />
                                                     {timeAgo(msg.timestamp)}
+                                                    {msg.isEdited && (
+                                                        <span
+                                                            style={`margin-left:4px;opacity:${isMe ? 0.72 : 0.62};font-size:10px;`}
+                                                        >
+                                                            (edited)
+                                                        </span>
+                                                    )}
                                                 </span>
                                             </div>
-                                            <p style="margin:0;word-break:break-word;">
-                                                {msg.content}
-                                            </p>
+                                            {isEditingMessage ? (
+                                                <div
+                                                    style="display:flex;flex-direction:column;gap:8px;"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                    onContextMenu={(event) => event.stopPropagation()}
+                                                >
+                                                    <input
+                                                        value={editDraft}
+                                                        onInput={(event) => {
+                                                            setEditDraft(
+                                                                (event.target as HTMLInputElement)
+                                                                    .value
+                                                            );
+                                                            if (editError) {
+                                                                setEditError(null);
+                                                            }
+                                                        }}
+                                                        onKeyDown={(event) => {
+                                                            if (
+                                                                event.key === 'Enter' &&
+                                                                !event.repeat
+                                                            ) {
+                                                                event.preventDefault();
+                                                                void handleSaveMessageEdit(msg);
+                                                            }
+                                                        }}
+                                                        maxLength={5000}
+                                                        autoFocus
+                                                        style={`width:100%;padding:8px 10px;border-radius:8px;border:1px solid ${isMe ? 'rgba(255,255,255,0.45)' : 'var(--border)'};background:${isMe ? 'rgba(15,23,42,0.2)' : 'var(--bg-subtle)'};color:inherit;font-size:13px;outline:none;`}
+                                                    />
+                                                    <div style="display:flex;justify-content:flex-end;gap:8px;">
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={handleCancelMessageEdit}
+                                                            disabled={
+                                                                savingEditMessageId === msg.id
+                                                            }
+                                                            style={`height:28px;padding:0 10px;border-radius:7px;font-size:11px;font-weight:600;border:1px solid ${isMe ? 'rgba(255,255,255,0.35)' : 'var(--border)'};background:${isMe ? 'rgba(255,255,255,0.08)' : 'var(--bg-subtle)'};color:inherit;`}
+                                                        >
+                                                            Cancel
+                                                        </HoverButton>
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() =>
+                                                                void handleSaveMessageEdit(msg)
+                                                            }
+                                                            disabled={
+                                                                !editDraft.trim() ||
+                                                                savingEditMessageId === msg.id
+                                                            }
+                                                            style={`height:28px;padding:0 11px;border-radius:7px;font-size:11px;font-weight:700;border:1px solid transparent;background:${isMe ? '#fff' : 'var(--accent)'};color:${isMe ? 'var(--accent)' : '#fff'};`}
+                                                        >
+                                                            {savingEditMessageId === msg.id
+                                                                ? 'Saving…'
+                                                                : 'Save'}
+                                                        </HoverButton>
+                                                    </div>
+                                                    {editError && (
+                                                        <p
+                                                            style={`margin:0;font-size:11px;line-height:1.35;color:${isMe ? 'rgba(255,255,255,0.86)' : 'var(--danger)'};`}
+                                                        >
+                                                            {editError}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <p style="margin:0;word-break:break-word;">
+                                                    {msg.content}
+                                                </p>
+                                            )}
                                         </HoverButton>
 
                                         {!isMe && (
@@ -1411,6 +1593,34 @@ function ChatView({
                                                         <Copy size={14} />
                                                         Copy text
                                                     </HoverButton>
+                                                    {isMe && (
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleStartMessageEdit(msg)
+                                                            }
+                                                            disabled={
+                                                                savingEditMessageId !== null
+                                                            }
+                                                            role="menuitem"
+                                                            key="edit-message"
+                                                            style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                            onMouseEnter={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background =
+                                                                    'var(--bg-muted)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background = 'none';
+                                                            }}
+                                                        >
+                                                            <Pencil size={14} />
+                                                            Edit message
+                                                        </HoverButton>
+                                                    )}
                                                     <div style="height:1px;background:var(--border);" />
                                                     <HoverButton
                                                         type="button"

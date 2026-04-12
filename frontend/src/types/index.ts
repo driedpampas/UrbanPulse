@@ -102,6 +102,7 @@ export interface ChatMessage {
     senderId: string;
     senderName: string;
     content: string;
+    isEdited?: boolean;
     type?: 'text' | 'notice';
     timestamp: number;
 }

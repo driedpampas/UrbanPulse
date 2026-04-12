@@ -156,6 +156,7 @@ export const messages = app.table(
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
         content: text('content').notNull(),
+        isEdited: boolean('is_edited').notNull().default(false),
         messageType: text('message_type').notNull().default('text'),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
             .notNull()
@@ -165,6 +166,21 @@ export const messages = app.table(
         index('messages_thread_id_idx').on(table.threadId),
         index('messages_sender_id_idx').on(table.senderId),
     ]
+);
+
+export const messageEditsHistory = app.table(
+    'message_edits_history',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        messageId: uuid('message_id')
+            .notNull()
+            .references(() => messages.id, { onDelete: 'cascade' }),
+        oldContent: text('old_content').notNull(),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => [index('message_edits_history_message_id_idx').on(table.messageId)]
 );
 
 export const blockedUsers = app.table(
