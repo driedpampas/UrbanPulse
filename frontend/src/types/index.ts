@@ -7,6 +7,7 @@ export interface User {
     bio: string;
     trustScore: number;
     verified: boolean;
+    isEmailVerified: boolean;
     lat: number;
     lng: number;
     location?: {

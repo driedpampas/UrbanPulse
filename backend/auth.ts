@@ -1,4 +1,5 @@
 import * as bun from 'bun';
+import { randomBytes } from 'node:crypto';
 import * as jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import * as db from './db';
@@ -15,6 +16,12 @@ function getJwtSecret(): string {
 }
 
 const JWT_SECRET = getJwtSecret();
+const AUTH_MAILER_URL = bun.env.AUTH_MAILER_URL?.trim() ?? '';
+const FRONTEND_URL = (bun.env.FRONTEND_URL?.trim() || 'https://urbanpulse.syu.nl.eu.org').replace(
+    /\/$/,
+    ''
+);
+const verificationTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
 const authTokenPayloadSchema = z.object({
     id: z.string().uuid(),
@@ -23,8 +30,10 @@ const authTokenPayloadSchema = z.object({
 export type AuthTokenPayload = z.infer<typeof authTokenPayloadSchema>;
 
 export type AuthResult =
-    | { success: true; token: string; user: { id: string; role: string } }
+    | { success: true; token: string; user: { id: string; role: string; isEmailVerified: boolean } }
     | { success: false; status: number };
+
+export type VerifyEmailResult = { success: true } | { success: false; status: number };
 
 export type RegisterUser = {
     email: string;
@@ -48,11 +57,31 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
     }
 
     const hashedPass = await bun.password.hash(user.password);
-    const [dbUser] = await db.insertUser(user.email, hashedPass, user.displayName);
+    const verificationToken = randomBytes(32).toString('hex');
+    const [dbUser] = await db.insertUser(
+        user.email,
+        hashedPass,
+        user.displayName,
+        verificationToken
+    );
 
     const token = createAuthToken(dbUser.id);
 
-    return { success: true, token, user: dbUser };
+    try {
+        await triggerVerificationEmail(user.email, verificationToken);
+    } catch (error) {
+        console.error('Failed to enqueue verification email:', error);
+    }
+
+    return {
+        success: true,
+        token,
+        user: {
+            id: dbUser.id,
+            role: dbUser.role,
+            isEmailVerified: Boolean(dbUser.is_email_verified),
+        },
+    };
 }
 
 export async function loginUser(user: LoginUser): Promise<AuthResult> {
@@ -73,7 +102,30 @@ export async function loginUser(user: LoginUser): Promise<AuthResult> {
 
     const token = createAuthToken(dbUser.id);
 
-    return { success: true, token, user: { id: dbUser.id, role: dbUser.role } };
+    return {
+        success: true,
+        token,
+        user: {
+            id: dbUser.id,
+            role: dbUser.role,
+            isEmailVerified: Boolean(dbUser.is_email_verified),
+        },
+    };
+}
+
+export async function verifyEmailToken(token: string): Promise<VerifyEmailResult> {
+    const parsedToken = verificationTokenSchema.safeParse(token.trim());
+    if (!parsedToken.success) {
+        return { success: false, status: 400 };
+    }
+
+    const verified = await db.verifyUserEmailByToken(parsedToken.data);
+
+    if (!verified) {
+        return { success: false, status: 404 };
+    }
+
+    return { success: true };
 }
 
 function createAuthToken(userId: string) {
@@ -110,4 +162,28 @@ export function verifyToken(req: Request): AuthTokenPayload | null {
 
 export function verifyBearerToken(token: string): AuthTokenPayload | null {
     return verifyAuthToken(token);
+}
+
+async function triggerVerificationEmail(email: string, verificationToken: string): Promise<void> {
+    if (!AUTH_MAILER_URL) {
+        console.warn('AUTH_MAILER_URL is not configured. Verification email trigger skipped.');
+        return;
+    }
+
+    const verificationLink = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`;
+
+    const response = await fetch(AUTH_MAILER_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            email,
+            verification_link: verificationLink,
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Mailer worker returned ${response.status}`);
+    }
 }

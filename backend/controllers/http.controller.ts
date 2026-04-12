@@ -31,6 +31,7 @@ import type {
     UpdateLibraryItemBody,
     UpdatePassBody,
     UpdateUserBody,
+    VerifyEmailQuery,
 } from '../validators/http.validators';
 import {
     addChatParticipantsSchema,
@@ -56,6 +57,7 @@ import {
     updatePassSchema,
     updateReportStatusSchema,
     updateUserSchema,
+    verifyEmailQuerySchema,
 } from '../validators/http.validators';
 
 const PULSE_FEED_TOPIC = 'pulse-feed';
@@ -236,6 +238,41 @@ export const httpRoutes: HttpRoutes = {
 
                     return withCors(
                         Response.json({ token: res.token, user: res.user }, { status: 200 })
+                    );
+                })
+            ),
+    },
+    '/api/auth/verify': {
+        GET: async (req) =>
+            validate(req, async () =>
+                caught(async () => {
+                    const url = new URL(req.url);
+                    const query: VerifyEmailQuery = verifyEmailQuerySchema.parse({
+                        token: url.searchParams.get('token'),
+                    });
+
+                    const result = await auth.verifyEmailToken(query.token);
+
+                    if (!result.success) {
+                        if (result.status === 404) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Verification token is invalid or expired.' },
+                                    { status: 404 }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json({ error: 'Invalid verification token.' }, { status: 400 })
+                        );
+                    }
+
+                    return withCors(
+                        Response.json(
+                            { success: true, message: 'Email verified successfully.' },
+                            { status: 200 }
+                        )
                     );
                 })
             ),

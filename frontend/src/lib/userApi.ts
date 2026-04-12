@@ -11,6 +11,7 @@ type BackendUser = {
     displayName?: string | null;
     trustScore?: number | null;
     verified?: boolean;
+    isEmailVerified?: boolean;
     radius?: number | null;
     location?: {
         lat?: number | null;
@@ -108,6 +109,7 @@ function mapBackendUser(user: BackendUser): User {
         bio: user.bio || 'No bio yet.',
         trustScore: Math.round(user.trustScore || 0),
         verified: Boolean(user.verified),
+        isEmailVerified: Boolean(user.isEmailVerified),
         lat: location?.lat ?? 0,
         lng: location?.lng ?? 0,
         location,

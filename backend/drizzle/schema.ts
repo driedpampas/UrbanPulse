@@ -35,6 +35,8 @@ export const users = app.table(
         email: text('email').notNull(),
         role: text('role').notNull().default('user'),
         passwordHash: text('password_hash').notNull(),
+        isEmailVerified: boolean('is_email_verified').notNull().default(false),
+        verificationToken: text('verification_token'),
         displayName: text('display_name'),
         distanceLimitMeters: integer('distance_limit_meters'),
         location: geography('location'),

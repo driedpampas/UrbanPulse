@@ -7,8 +7,12 @@ import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
+import { useAuth } from '../lib/auth';
 
 export function Dashboard() {
+    const { session } = useAuth();
+    const showEmailVerificationBanner = session?.user.isEmailVerified === false;
+
     const {
         view,
         setView,
@@ -42,6 +46,16 @@ export function Dashboard() {
                     onRadiusChange={updateRadius}
                     onLimitChange={setLimit}
                 />
+                {showEmailVerificationBanner && (
+                    <div class="mx-4 mt-3 rounded-xl border border-[var(--warning)] bg-[var(--warning-subtle)] px-4 py-3">
+                        <p class="text-sm font-semibold text-[var(--warning)]">
+                            Please verify your email to unlock high-trust features.
+                        </p>
+                        <p class="mt-1 text-xs text-[var(--text-secondary)]">
+                            Check your inbox for the verification link.
+                        </p>
+                    </div>
+                )}
                 <WeatherAlert />
                 <HeroAlert />
                 {view === 'feed' ? (

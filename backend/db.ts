@@ -173,6 +173,8 @@ interface User {
     email?: string | null;
     role?: string;
     passwordHash?: string | null;
+    isEmailVerified?: boolean;
+    verificationToken?: string | null;
     displayName?: string | null;
     radius?: number | null;
     location?: Location | null;
@@ -280,6 +282,8 @@ type UserRow = {
     id: string;
     email?: string | null;
     role?: string;
+    is_email_verified?: boolean | null;
+    verification_token?: string | null;
     created_at?: Date | string | number;
     trust_score?: number | string | null;
     display_name?: string | null;
@@ -1974,11 +1978,16 @@ export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
     return matches.filter((match) => !match.suppressedByQuietHours).map((match) => match.id);
 }
 
-export async function insertUser(email: string, hashedPass: string, displayname: string) {
+export async function insertUser(
+    email: string,
+    hashedPass: string,
+    displayname: string,
+    verificationToken: string
+) {
     return await sql`
-    INSERT INTO app.users (email, display_name, password_hash)
-    VALUES (${email}, ${displayname}, ${hashedPass})
-    RETURNING id, role
+    INSERT INTO app.users (email, display_name, password_hash, verification_token)
+    VALUES (${email}, ${displayname}, ${hashedPass}, ${verificationToken})
+    RETURNING id, role, is_email_verified
     `;
 }
 
@@ -2001,6 +2010,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
     SELECT 
       id,
       email,
+    is_email_verified,
       trust_score,
       role,
       display_name,
@@ -2033,6 +2043,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
         id: rawUser.id,
         email: rawUser.email,
         role: rawUser.role,
+        isEmailVerified: Boolean(rawUser.is_email_verified),
         displayName: rawUser.display_name,
         verified: rawUser.is_verified_neighbor,
         radius: rawUser.distance_limit_meters,
@@ -2197,6 +2208,7 @@ export async function searchUsers(
         id,
         email,
         role,
+        is_email_verified,
         created_at,
         trust_score,
         display_name,
@@ -2263,6 +2275,7 @@ export async function searchUsers(
             id: rawUser.id,
             email: rawUser.email,
             role: rawUser.role,
+            isEmailVerified: Boolean(rawUser.is_email_verified),
             trustScore: rawUser.trust_score,
             createdAt: rawUser.created_at,
             displayName: rawUser.display_name,
@@ -2285,8 +2298,20 @@ export async function searchUsers(
 
 export async function selectUserAuth(email: string) {
     return await sql`
-    SELECT id, password_hash, role FROM app.users WHERE email = ${email}
+    SELECT id, password_hash, role, is_email_verified FROM app.users WHERE email = ${email}
     `;
+}
+
+export async function verifyUserEmailByToken(token: string): Promise<boolean> {
+    const [verifiedUser] = await sql`
+        UPDATE app.users
+        SET is_email_verified = true,
+            verification_token = NULL
+        WHERE verification_token = ${token}
+        RETURNING id
+    `;
+
+    return Boolean(verifiedUser);
 }
 
 export async function updateUserPassword(id: string, newHashedPass: string) {

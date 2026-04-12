@@ -15,6 +15,10 @@ export const loginUserSchema = z.strictObject({
     password: z.string(),
 });
 
+export const verifyEmailQuerySchema = z.strictObject({
+    token: z.string().trim().min(1),
+});
+
 export const pulseTypeSchema = z.union([z.enum(PULSE_TYPES), z.enum(PULSE_TYPE_ALIASES)]);
 
 export const createPulseSchema = z.strictObject({
@@ -213,6 +217,7 @@ export const updateReportStatusSchema = z.strictObject({
 
 export type RegisterUserBody = z.infer<typeof registerUserSchema>;
 export type LoginUserBody = z.infer<typeof loginUserSchema>;
+export type VerifyEmailQuery = z.infer<typeof verifyEmailQuerySchema>;
 export type UpdateUserBody = z.infer<typeof updateUserSchema>;
 export type UpdatePassBody = z.infer<typeof updatePassSchema>;
 export type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
