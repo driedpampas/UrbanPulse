@@ -4,6 +4,10 @@ export interface User {
     role?: string;
     name: string;
     avatar: string;
+    profilePictureFilename?: string | null;
+    profilePictureMimeType?: string | null;
+    profilePictureSizeBytes?: number | null;
+    profilePictureUpdatedAt?: number | null;
     bio: string;
     trustScore: number;
     verified: boolean;

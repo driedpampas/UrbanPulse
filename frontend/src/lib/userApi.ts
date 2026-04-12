@@ -24,6 +24,10 @@ type BackendUser = {
     quietDays?: Array<number | string> | null;
     timezone?: string | null;
     bio?: string | null;
+    profilePictureFilename?: string | null;
+    profilePictureMimeType?: string | null;
+    profilePictureSizeBytes?: number | null;
+    profilePictureUpdatedAt?: number | string | null;
     deletionRequestedAt?: number | string | null;
 };
 
@@ -42,7 +46,7 @@ function fallbackDisplayName(id: string) {
 }
 
 function toAvatarUrl(seed: string) {
-    return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    return `/default-cat-avatar.svg?seed=${encodeURIComponent(seed)}`;
 }
 
 function stripSeconds(time: string): string {
@@ -95,9 +99,9 @@ function mapBackendUser(user: BackendUser): User {
     const location =
         user.location && isUsableCoordinates(user.location.lat ?? 0, user.location.lng ?? 0)
             ? {
-                  lat: user.location.lat ?? 0,
-                  lng: user.location.lng ?? 0,
-              }
+                lat: user.location.lat ?? 0,
+                lng: user.location.lng ?? 0,
+            }
             : null;
 
     return {
@@ -106,6 +110,12 @@ function mapBackendUser(user: BackendUser): User {
         role: user.role,
         name: user.displayName || fallbackDisplayName(user.id),
         avatar: toAvatarUrl(user.displayName || user.id),
+        profilePictureFilename: user.profilePictureFilename ?? null,
+        profilePictureMimeType: user.profilePictureMimeType ?? null,
+        profilePictureSizeBytes: user.profilePictureSizeBytes ?? null,
+        profilePictureUpdatedAt: user.profilePictureUpdatedAt
+            ? Number(user.profilePictureUpdatedAt)
+            : null,
         bio: user.bio || 'No bio yet.',
         trustScore: Math.round(user.trustScore || 0),
         verified: Boolean(user.verified),
@@ -185,9 +195,66 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return undefined as T;
 }
 
+export const PROFILE_PICTURE_MAX_BYTES = 350 * 1024;
+
 export async function fetchCurrentUser(): Promise<User> {
     const user = await request<BackendUser>('/user', { method: 'GET' });
     return mapBackendUser(user);
+}
+
+export async function uploadProfilePicture(file: Blob): Promise<void> {
+    const body = new FormData();
+    body.append('pfp', file, 'profile-picture.webp');
+
+    const response = await fetch(`${API_BASE_URL}/user/pfp`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body,
+    });
+
+    if (!response.ok) {
+        let message = 'Failed to upload profile picture';
+        try {
+            const payload = (await response.json()) as { error?: string };
+            if (payload.error) {
+                message = payload.error;
+            }
+        } catch {
+            message = response.statusText || message;
+        }
+        throw new ApiError(message, response.status);
+    }
+}
+
+export async function deleteProfilePicture(): Promise<void> {
+    await request<void>('/user/pfp', { method: 'DELETE' });
+}
+
+export async function fetchProtectedProfilePicture(userId: string): Promise<string | null> {
+    const response = await fetch(`${API_BASE_URL}/user/pfp/${encodeURIComponent(userId)}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+    });
+
+    if (response.status === 404) {
+        return null;
+    }
+
+    if (!response.ok) {
+        let message = 'Failed to load profile picture';
+        try {
+            const payload = (await response.json()) as { error?: string };
+            if (payload.error) {
+                message = payload.error;
+            }
+        } catch {
+            message = response.statusText || message;
+        }
+        throw new ApiError(message, response.status);
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
 }
 
 export async function updateProfile(updates: Partial<User>): Promise<User> {
@@ -197,11 +264,11 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         updates.location && isUsableCoordinates(updates.location.lat, updates.location.lng)
             ? updates.location
             : isUsableCoordinates(updates.lat ?? 0, updates.lng ?? 0)
-              ? {
+                ? {
                     lat: updates.lat ?? 0,
                     lng: updates.lng ?? 0,
                 }
-              : null;
+                : null;
 
     const patchBody: {
         displayName?: string;

@@ -57,6 +57,13 @@ export const users = app.table(
         timezone: text('timezone').notNull().default('UTC'),
         trustScore: integer('trust_score').notNull().default(0),
         bio: text('bio'),
+        profilePictureFilename: text('profile_picture_filename'),
+        profilePictureMimeType: text('profile_picture_mime_type'),
+        profilePictureSizeBytes: integer('profile_picture_size_bytes'),
+        profilePictureUpdatedAt: timestamp('profile_picture_updated_at', {
+            withTimezone: true,
+            mode: 'date',
+        }),
         isVerifiedNeighbor: boolean('is_verified_neighbor').notNull().default(false),
         deletionRequestedAt: timestamp('deletion_requested_at', {
             withTimezone: true,
