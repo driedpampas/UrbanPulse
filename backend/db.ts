@@ -614,8 +614,13 @@ function getLocalQuietWindowContext(now: Date, timezone?: string | null): {
             !Number.isNaN(hour) &&
             !Number.isNaN(minute)
         ) {
+            const mappedDay = WEEKDAY_INDEX[weekdayPart];
+            if (mappedDay === undefined) {
+                throw new Error('Invalid weekday mapping');
+            }
+
             return {
-                day: WEEKDAY_INDEX[weekdayPart],
+                day: mappedDay,
                 minuteOfDay: hour * 60 + minute,
             };
         }
