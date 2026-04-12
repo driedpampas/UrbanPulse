@@ -629,12 +629,16 @@ export function Profile() {
                     <div class="section-header">
                         <p class="label-caps !m-0">IDENTITY</p>
                     </div>
-                    <div class="section-body !p-5 stack-h gap-lg" style="align-items:flex-start;">
-                        <div class="stack-v gap-sm" style="align-items:center;min-width:74px;">
+                    <div
+                        class="section-body !p-5 stack-v gap-md"
+                        style="align-items:center;text-align:center;"
+                    >
+                        <div class="stack-v gap-sm" style="align-items:center;">
                             <img
                                 src={profilePictureUrl || user.avatar}
                                 alt=""
-                                class="avatar avatar-lg shadow-sm"
+                                class="shadow-sm"
+                                style="width:88px;height:88px;border-radius:20px;object-fit:cover;border:1px solid var(--border);background:var(--bg-muted);"
                             />
                             {isOwnProfile && editing ? (
                                 <>
@@ -671,7 +675,10 @@ export function Profile() {
                                 </>
                             ) : null}
                         </div>
-                        <div class="stack-v gap-xs flex-1 min-w-0">
+                        <div
+                            class="stack-v gap-xs min-w-0"
+                            style="width:100%;max-width:430px;align-items:center;"
+                        >
                             {editing ? (
                                 <input
                                     value={draft.name ?? ''}
@@ -701,7 +708,7 @@ export function Profile() {
                                     Use a JPEG, PNG, or WebP image up to 350 KB.
                                 </p>
                             ) : null}
-                            <div class="stack-h gap-sm mt-1.5 flex-wrap">
+                            <div class="stack-h gap-sm mt-1.5 flex-wrap" style="justify-content:center;">
                                 <TrustBadge score={user.trustScore} verified={user.verified} />
                                 {user.role && <RoleBadge role={user.role} />}
                             </div>
@@ -790,8 +797,8 @@ export function Profile() {
                                 onClick={() => setShowRoleOptions(!showRoleOptions)}
                                 disabled={actionBusy}
                                 style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${showRoleOptions
-                                        ? 'background:var(--accent);color:#fff;'
-                                        : 'color:var(--accent);'
+                                    ? 'background:var(--accent);color:#fff;'
+                                    : 'color:var(--accent);'
                                     }`}
                             >
                                 <ShieldCheck size={14} />
@@ -964,8 +971,8 @@ export function Profile() {
                                         {displayLocationMap && mapError && (
                                             <div
                                                 style={`position:absolute;${mapLoaded
-                                                        ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
-                                                        : 'inset:0;justify-content:center;'
+                                                    ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
+                                                    : 'inset:0;justify-content:center;'
                                                     } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
                                                 class="animate-slide-up"
                                             >
