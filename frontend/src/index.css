@@ -452,6 +452,67 @@
     box-shadow: 0 0 0 3px var(--accent-muted);
 }
 
+.range-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: var(--bg-muted);
+    border-radius: 10px;
+    outline: none;
+    margin: 12px 0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.range-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    background: transparent;
+    border-radius: 10px;
+}
+
+.range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 18px;
+    width: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    margin-top: -6px; /* Center it on the track */
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 2px solid var(--surface);
+}
+
+.range-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.15);
+    box-shadow: var(--shadow);
+    background: var(--accent-hover);
+}
+
+.range-slider:active::-webkit-slider-thumb {
+    transform: scale(0.95);
+    background: var(--accent-hover);
+}
+
+.range-slider::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--surface);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+
+.range-slider:hover::-moz-range-thumb {
+    transform: scale(1.15);
+}
+
 /* ─── Badges / type chips ────────────────────────────────────── */
 
 .type-badge {

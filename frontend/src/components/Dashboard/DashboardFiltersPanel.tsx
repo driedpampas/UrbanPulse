@@ -43,7 +43,7 @@ function DashboardFiltersPanelComponent({
                     onInput={(event) =>
                         onRadiusChange(Number((event.target as HTMLInputElement).value))
                     }
-                    style="accent-color:var(--accent);"
+                    class="range-slider"
                     aria-label={`Radius: ${radius} meters`}
                 />
             </div>
@@ -70,7 +70,7 @@ function DashboardFiltersPanelComponent({
                     onInput={(event) =>
                         onLimitChange(Number((event.target as HTMLInputElement).value))
                     }
-                    style="accent-color:var(--accent);"
+                    class="range-slider"
                     aria-label={`Limit: ${limit} pulses`}
                 />
             </div>
