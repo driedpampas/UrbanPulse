@@ -1,4 +1,4 @@
-import { Ban, ShieldCheck, ShieldX, Slash, Trash2 } from 'lucide-preact';
+import { ShieldCheck, ShieldX, Slash, Trash2 } from 'lucide-preact';
 import { memo, useState } from 'preact/compat';
 import type { User } from '../../types';
 import { HoverButton } from '../ui/HoverButton';
@@ -20,7 +20,6 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
     const [busy, setBusy] = useState(false);
     const [showActions, setShowActions] = useState(false);
     const isAdmin = role === 'admin';
-    const isMod = role === 'mod';
 
     const setRole = async (nextRole: 'admin' | 'mod' | 'resident' | 'banned') => {
         setBusy(true);
