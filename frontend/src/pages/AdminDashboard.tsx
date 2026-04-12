@@ -1,4 +1,4 @@
-import { Activity, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
+import { Activity, CheckCircle, ClipboardList, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LibraryRow } from '../components/Admin/LibraryRow';
 import { PulseRow } from '../components/Admin/PulseRow';
@@ -16,6 +16,7 @@ import type { LibraryItem } from '../types';
 const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }> = [
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'users', label: 'Users', icon: UsersRound },
+    { id: 'requests', label: 'Requests', icon: ClipboardList },
     { id: 'pulses', label: 'Pulses', icon: Search },
     { id: 'library', label: 'Library', icon: LibraryBig },
     { id: 'reports', label: 'Reports', icon: Flag },
@@ -31,6 +32,7 @@ export function AdminDashboard() {
         setSection,
         overview,
         users,
+        requests,
         pulses,
         library,
         reports,
@@ -44,6 +46,11 @@ export function AdminDashboard() {
         userSearchLoading,
         usersHasMore,
         usersLoadingMore,
+        requestInteractionsByPulse,
+        expandedRequestId,
+        requestInteractionsLoadingFor,
+        requestInteractionActionId,
+        requestSolveActionId,
         loadData,
         searchPulse,
         searchUsers,
@@ -53,6 +60,9 @@ export function AdminDashboard() {
         cancelUserDeletion,
         removePulse,
         changeReportStatus,
+        toggleRequestDetails,
+        markRequestInteractionSuccessful,
+        markRequestSolved,
         updateLibrary,
         removeLibrary,
         libraryBusyId,
@@ -301,6 +311,181 @@ export function AdminDashboard() {
                                             No pulses found
                                         </p>
                                     </div>
+                                )}
+                            </div>
+                        )}
+
+                        {section === 'requests' && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                {requests.length === 0 ? (
+                                    <div
+                                        style={`${surfaceCard};padding:32px;text-align:center;color:var(--text-tertiary);`}
+                                    >
+                                        <ClipboardList
+                                            size={28}
+                                            style="margin:0 auto 10px;opacity:0.35;"
+                                        />
+                                        <p style="margin:0;font-size:14px;font-weight:600;">
+                                            No active requests
+                                        </p>
+                                    </div>
+                                ) : (
+                                    requests.map((request) => {
+                                        const expanded = expandedRequestId === request.id;
+                                        const interactions =
+                                            requestInteractionsByPulse[request.id] ?? [];
+                                        const canSolve =
+                                            !request.isSolved && request.successfulCount > 0;
+
+                                        return (
+                                            <div
+                                                key={request.id}
+                                                style={`${surfaceCard};padding:14px 16px;display:flex;flex-direction:column;gap:10px;`}
+                                            >
+                                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                                                    <div style="min-width:0;flex:1;">
+                                                        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">
+                                                            {request.userName}
+                                                        </div>
+                                                        <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">
+                                                            {request.content}
+                                                        </div>
+                                                        <div style="margin-top:6px;font-size:11px;color:var(--text-tertiary);display:flex;gap:8px;flex-wrap:wrap;">
+                                                            <span>
+                                                                {request.acceptedCount} accepted
+                                                            </span>
+                                                            <span>
+                                                                {request.successfulCount} successful
+                                                            </span>
+                                                            {request.isSolved && (
+                                                                <span style="color:var(--success);font-weight:700;">
+                                                                    Solved
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                                                        {canSolve && (
+                                                            <HoverButton
+                                                                type="button"
+                                                                disabled={requestSolveActionId === request.id}
+                                                                onClick={() => {
+                                                                    setConfirmation({
+                                                                        title: 'Mark request solved',
+                                                                        message:
+                                                                            'Mark this request as solved? This can only be done by admin/mod from this panel.',
+                                                                        confirmLabel: 'Mark solved',
+                                                                        onConfirm: async () => {
+                                                                            await markRequestSolved(
+                                                                                request.id
+                                                                            );
+                                                                            showToast(
+                                                                                'Request marked as solved.'
+                                                                            );
+                                                                        },
+                                                                    });
+                                                                }}
+                                                                style="height:30px;padding:0 10px;border-radius:8px;border:none;background:var(--success-subtle);color:var(--success);font-size:11px;font-weight:700;cursor:pointer;"
+                                                            >
+                                                                {requestSolveActionId === request.id
+                                                                    ? 'Solving...'
+                                                                    : 'Mark solved'}
+                                                            </HoverButton>
+                                                        )}
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() =>
+                                                                void toggleRequestDetails(request.id)
+                                                            }
+                                                            style="height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;"
+                                                        >
+                                                            {expanded
+                                                                ? 'Hide interactions'
+                                                                : 'View interactions'}
+                                                        </HoverButton>
+                                                    </div>
+                                                </div>
+
+                                                {expanded && (
+                                                    <div style="display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--border);">
+                                                        {requestInteractionsLoadingFor ===
+                                                            request.id && (
+                                                                <div style="font-size:12px;color:var(--text-tertiary);">
+                                                                    Loading interactions...
+                                                                </div>
+                                                            )}
+
+                                                        {requestInteractionsLoadingFor !==
+                                                            request.id &&
+                                                            interactions.length === 0 && (
+                                                                <div style="font-size:12px;color:var(--text-tertiary);">
+                                                                    No accepted interactions yet.
+                                                                </div>
+                                                            )}
+
+                                                        {interactions.map((interaction) => (
+                                                            <div
+                                                                key={interaction.id}
+                                                                style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:8px;background:var(--bg-subtle);"
+                                                            >
+                                                                <div style="min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                                                    <span style="font-size:12px;font-weight:700;color:var(--text);">
+                                                                        {interaction.helperName}
+                                                                    </span>
+                                                                    <span style="font-size:11px;color:var(--text-tertiary);">
+                                                                        {interaction.status ===
+                                                                            'successful'
+                                                                            ? `Successful (+${interaction.trustAwarded} trust)`
+                                                                            : 'Accepted'}
+                                                                    </span>
+                                                                </div>
+                                                                {interaction.status ===
+                                                                    'accepted' ? (
+                                                                    <HoverButton
+                                                                        type="button"
+                                                                        disabled={
+                                                                            requestInteractionActionId ===
+                                                                            interaction.id ||
+                                                                            request.isSolved
+                                                                        }
+                                                                        onClick={() => {
+                                                                            setConfirmation({
+                                                                                title: 'Mark interaction successful',
+                                                                                message:
+                                                                                    'Mark this interaction as successful? This is restricted to admin/mod from this panel.',
+                                                                                confirmLabel:
+                                                                                    'Mark successful',
+                                                                                onConfirm: async () => {
+                                                                                    await markRequestInteractionSuccessful(
+                                                                                        request.id,
+                                                                                        interaction.id
+                                                                                    );
+                                                                                    showToast(
+                                                                                        'Interaction marked successful.'
+                                                                                    );
+                                                                                },
+                                                                            });
+                                                                        }}
+                                                                        style="height:28px;padding:0 10px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
+                                                                    >
+                                                                        {requestInteractionActionId ===
+                                                                            interaction.id
+                                                                            ? 'Saving...'
+                                                                            : 'Mark successful'}
+                                                                    </HoverButton>
+                                                                ) : (
+                                                                    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--success);white-space:nowrap;">
+                                                                        <CheckCircle size={12} />
+                                                                        Successful
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         )}

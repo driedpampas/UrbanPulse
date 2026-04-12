@@ -614,6 +614,103 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
+    '/api/admin/requests': {
+        GET: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const url = new URL(req.url);
+                        const limit = Number(url.searchParams.get('limit') ?? '50');
+                        const offset = Number(url.searchParams.get('offset') ?? '0');
+                        const requests = await db.selectAdminRequests(
+                            Number.isFinite(limit) ? limit : 50,
+                            Number.isFinite(offset) ? offset : 0
+                        );
+
+                        return withCors(Response.json({ requests }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/admin/requests/:id/interactions': {
+        GET: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const interactions = await db.selectPulseInteractionsAsAdmin(
+                            req.params.id as string
+                        );
+
+                        return withCors(Response.json({ interactions }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/admin/requests/:id/interactions/:interactionId/success': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const result = await db.confirmPulseInteractionAsAdmin({
+                            pulseId: req.params.id as string,
+                            interactionId: req.params.interactionId as string,
+                        });
+
+                        if (!result.success && result.solved) {
+                            return withCors(
+                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
+                        if (!result.success && result.nonRequestType) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulse interactions can be marked successful',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.success || !result.interaction) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        return withCors(
+                            Response.json({ interaction: result.interaction }, { status: 200 })
+                        );
+                    })
+                )
+            ),
+    },
+    '/api/admin/requests/:id/solve': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const result = await db.markPulseSolvedAsAdmin(req.params.id as string);
+
+                        if (!result.pulse && result.noSuccessfulInteractions) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'A pulse can only be marked solved after at least one successful interaction',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.pulse) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        return withCors(Response.json({ pulse: result.pulse }, { status: 200 }));
+                    })
+                )
+            ),
+    },
     '/api/admin/pulses': {
         GET: async (req) =>
             validate(req, async () =>
@@ -1111,38 +1208,15 @@ export const httpRoutes: HttpRoutes = {
     '/api/pulses/:id/interactions/:interactionId/confirm': {
         POST: async (req) =>
             validate(req, async () =>
-                authorize(req, async (session) =>
+                authorize(req, async () =>
                     caught(async () => {
-                        const payload = session as JwtPayload;
-                        const result = await db.confirmPulseInteraction({
-                            pulseId: req.params.id as string,
-                            interactionId: req.params.interactionId as string,
-                            authorId: payload.id,
-                        });
-
-                        if (!result.success && result.solved) {
-                            return withCors(
-                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
-                            );
-                        }
-
-                        if (!result.success && result.nonRequestType) {
-                            return withCors(
-                                Response.json(
-                                    {
-                                        error: 'Only need pulse interactions can be marked successful',
-                                    },
-                                    { status: 409 }
-                                )
-                            );
-                        }
-
-                        if (!result.success || !result.interaction) {
-                            return withCors(BAD_REQUEST);
-                        }
-
                         return withCors(
-                            Response.json({ interaction: result.interaction }, { status: 200 })
+                            Response.json(
+                                {
+                                    error: 'This action is only available in Admin Dashboard > Requests.',
+                                },
+                                { status: 403 }
+                            )
                         );
                     })
                 )
@@ -1151,27 +1225,16 @@ export const httpRoutes: HttpRoutes = {
     '/api/pulses/:id/solve': {
         POST: async (req) =>
             validate(req, async () =>
-                authorize(req, async (session) =>
+                authorize(req, async () =>
                     caught(async () => {
-                        const payload = session as JwtPayload;
-                        const result = await db.markPulseSolved(req.params.id as string, payload.id);
-
-                        if (!result.pulse && result.noSuccessfulInteractions) {
-                            return withCors(
-                                Response.json(
-                                    {
-                                        error: 'A pulse can only be marked solved after at least one successful interaction',
-                                    },
-                                    { status: 409 }
-                                )
-                            );
-                        }
-
-                        if (!result.pulse) {
-                            return withCors(FORBIDDEN);
-                        }
-
-                        return withCors(Response.json({ pulse: result.pulse }, { status: 200 }));
+                        return withCors(
+                            Response.json(
+                                {
+                                    error: 'This action is only available in Admin Dashboard > Requests.',
+                                },
+                                { status: 403 }
+                            )
+                        );
                     })
                 )
             ),

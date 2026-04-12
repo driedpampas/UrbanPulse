@@ -16,6 +16,7 @@ type Props = {
     onTogglePulseDetails: (pulseId: string) => Promise<void>;
     onConfirmHelper: (pulseId: string, interactionId: string) => Promise<void>;
     onMarkPulseSolved: (pulseId: string) => Promise<void>;
+    canManageActions?: boolean;
 };
 
 function PostedPulsesSectionComponent({
@@ -28,6 +29,7 @@ function PostedPulsesSectionComponent({
     onTogglePulseDetails,
     onConfirmHelper,
     onMarkPulseSolved,
+    canManageActions = true,
 }: Props) {
     const [confirmSolvePulseId, setConfirmSolvePulseId] = useState<string | null>(null);
     const confirmSolvePulse =
@@ -81,7 +83,7 @@ function PostedPulsesSectionComponent({
                                     Solved
                                 </span>
                             )}
-                            {canSolvePulse && !pulse.isSolved && (
+                            {canManageActions && canSolvePulse && !pulse.isSolved && (
                                 <HoverButton
                                     type="button"
                                     onClick={() => setConfirmSolvePulseId(pulse.id)}
@@ -91,6 +93,11 @@ function PostedPulsesSectionComponent({
                                 >
                                     {solvingPulseId === pulse.id ? 'Solving...' : 'Mark solved'}
                                 </HoverButton>
+                            )}
+                            {!canManageActions && (
+                                <span style="font-size:11px;color:var(--text-tertiary);font-style:italic;">
+                                    Success and solve actions are handled by admins/mods.
+                                </span>
                             )}
                             <HoverButton
                                 type="button"
@@ -132,7 +139,7 @@ function PostedPulsesSectionComponent({
                                             </span>
                                         </div>
 
-                                        {interaction.status === 'accepted' ? (
+                                        {interaction.status === 'accepted' && canManageActions ? (
                                             <HoverButton
                                                 type="button"
                                                 onClick={() =>
@@ -149,6 +156,10 @@ function PostedPulsesSectionComponent({
                                                     ? 'Confirming...'
                                                     : 'Mark Success'}
                                             </HoverButton>
+                                        ) : interaction.status === 'accepted' ? (
+                                            <span style="font-size:11px;font-weight:600;color:var(--text-tertiary);white-space:nowrap;">
+                                                Admin only
+                                            </span>
                                         ) : (
                                             <span style="font-size:11px;font-weight:700;color:var(--success);white-space:nowrap;">
                                                 Successful
@@ -163,7 +174,7 @@ function PostedPulsesSectionComponent({
             })}
 
             <ConfirmDialog
-                open={confirmSolvePulseId !== null}
+                open={canManageActions && confirmSolvePulseId !== null}
                 title="Mark pulse as solved"
                 message={
                     confirmSolvePulse

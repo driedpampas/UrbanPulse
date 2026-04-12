@@ -33,7 +33,8 @@ function RouteRedirect({ to }: { to: string }) {
 
 function AppRoutes() {
     const { isAuthenticated, isReady, session } = useAuth();
-    const isAdmin = session?.user.role?.toLowerCase() === 'admin';
+    const role = session?.user.role?.toLowerCase();
+    const isAdmin = role === 'admin' || role === 'mod';
 
     if (!isReady) {
         return (

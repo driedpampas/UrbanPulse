@@ -289,11 +289,11 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
     try {
         const parsed = JSON.parse(rawMessage) as
             | {
-                  event?: string;
-                  pulse?: BackendPulse;
-                  pulseId?: string;
-                  matchedResources?: string[];
-              }
+                event?: string;
+                pulse?: BackendPulse;
+                pulseId?: string;
+                matchedResources?: string[];
+            }
             | BackendPulse;
 
         if (
@@ -477,6 +477,48 @@ export async function fetchAdminPulses(limit = 25, offset = 0): Promise<Pulse[]>
     );
 
     return data.pulses.map(mapBackendPulse);
+}
+
+export async function fetchAdminRequests(
+    limit = 50,
+    offset = 0
+): Promise<AuthorPulseRequest[]> {
+    const data = await request<{ requests: BackendAuthorPulseRequest[] }>(
+        `/admin/requests?limit=${limit}&offset=${offset}`,
+        { method: 'GET' }
+    );
+
+    return data.requests.map(mapBackendAuthorPulseRequest);
+}
+
+export async function fetchAdminRequestInteractions(pulseId: string): Promise<PulseInteraction[]> {
+    const data = await request<{ interactions: BackendPulseInteraction[] }>(
+        `/admin/requests/${encodeURIComponent(pulseId)}/interactions`,
+        { method: 'GET' }
+    );
+
+    return data.interactions.map(mapBackendPulseInteraction);
+}
+
+export async function markAdminRequestInteractionSuccessful(
+    pulseId: string,
+    interactionId: string
+): Promise<PulseInteraction> {
+    const data = await request<{ interaction: BackendPulseInteraction }>(
+        `/admin/requests/${encodeURIComponent(pulseId)}/interactions/${encodeURIComponent(interactionId)}/success`,
+        { method: 'POST' }
+    );
+
+    return mapBackendPulseInteraction(data.interaction);
+}
+
+export async function markAdminRequestSolved(pulseId: string): Promise<Pulse> {
+    const data = await request<{ pulse: BackendPulse }>(
+        `/admin/requests/${encodeURIComponent(pulseId)}/solve`,
+        { method: 'POST' }
+    );
+
+    return mapBackendPulse(data.pulse);
 }
 
 export async function fetchAdminPulseById(id: string): Promise<Pulse | null> {

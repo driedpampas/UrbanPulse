@@ -49,6 +49,7 @@ export function Requests() {
                             onTogglePulseDetails={togglePulseDetails}
                             onConfirmHelper={handleConfirmHelper}
                             onMarkPulseSolved={handleMarkPulseSolved}
+                            canManageActions={false}
                         />
 
                         <AcceptedRequestsSection acceptedByMe={acceptedByMe} />

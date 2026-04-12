@@ -1107,6 +1107,46 @@ export async function selectPulsesByAuthor(
     return pulses.map((pulse) => mapAuthorPulseRow(pulse));
 }
 
+export async function selectAdminRequests(limit = 50, offset = 0): Promise<AuthorPulseRequest[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+
+    const pulses = (await sql`
+        SELECT
+            pulses.id,
+            pulses.author_id AS "userId",
+            COALESCE(NULLIF(users.display_name, ''), pulses.author_id::text) AS "userName",
+            LOWER(pulses.pulse_type) AS type,
+            pulses.content,
+            ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
+            ST_Y(pulses.location::geometry) AS lat,
+            ST_X(pulses.location::geometry) AS lng,
+            COALESCE(pulses.is_verified_info, false) AS verified,
+            COALESCE(pulses.confirmation_count, 0) AS confirmations,
+            COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+            COALESCE(pulses.is_emergency, false) AS "is_emergency",
+            COALESCE(pulses.is_solved, false) AS "is_solved",
+            COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills",
+            COALESCE(interactions.accepted_count, 0) AS accepted_count,
+            COALESCE(interactions.successful_count, 0) AS successful_count
+        FROM app.pulses AS pulses
+        LEFT JOIN app.users AS users ON users.id = pulses.author_id
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(*)::int AS accepted_count,
+                COUNT(*) FILTER (WHERE status = 'successful')::int AS successful_count
+            FROM app.pulse_interactions
+            WHERE pulse_id = pulses.id
+        ) AS interactions ON true
+        WHERE LOWER(COALESCE(pulses.pulse_type, 'update')) = 'need'
+        ORDER BY pulses.created_at DESC, pulses.id DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as PulseRow[];
+
+    return pulses.map((pulse) => mapAuthorPulseRow(pulse));
+}
+
 export async function selectChats(userId: string): Promise<{ chatId: string }[]> {
     const chats = await sql`
         SELECT thread_id AS "chatId"
@@ -2901,6 +2941,30 @@ export async function selectPulseInteractions(
     return rows.map((row) => mapPulseInteractionRow(row));
 }
 
+export async function selectPulseInteractionsAsAdmin(pulseId: string): Promise<PulseInteraction[]> {
+    const rows = (await sql`
+        SELECT
+            pi.id::text AS id,
+            pi.pulse_id::text AS pulse_id,
+            pi.author_id::text AS author_id,
+            pi.helper_id::text AS helper_id,
+            NULLIF(helper.display_name, '') AS helper_name,
+            pi.status,
+            ROUND(EXTRACT(EPOCH FROM pi.accepted_at) * 1000)::bigint AS accepted_at,
+            CASE
+                WHEN pi.confirmed_at IS NULL THEN NULL
+                ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
+            END AS confirmed_at,
+            pi.trust_awarded
+        FROM app.pulse_interactions AS pi
+        LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
+        WHERE pi.pulse_id = ${pulseId}::uuid
+        ORDER BY pi.accepted_at ASC, pi.id ASC
+    `) as PulseInteractionRow[];
+
+    return rows.map((row) => mapPulseInteractionRow(row));
+}
+
 function trustAwardForEmergency(isEmergency: boolean): number {
     return isEmergency ? 4 : 1;
 }
@@ -3007,6 +3071,105 @@ export async function confirmPulseInteraction(params: {
     });
 }
 
+export async function confirmPulseInteractionAsAdmin(params: {
+    pulseId: string;
+    interactionId: string;
+}): Promise<{
+    success: boolean;
+    solved?: boolean;
+    nonRequestType?: boolean;
+    interaction?: PulseInteraction;
+}> {
+    return await sql.begin(async (tx) => {
+        await ensureSchema();
+
+        const [interaction] = (await tx`
+            SELECT
+                pi.id::text AS id,
+                pi.pulse_id::text AS pulse_id,
+                pi.author_id::text AS author_id,
+                pi.helper_id::text AS helper_id,
+                NULLIF(helper.display_name, '') AS helper_name,
+                pi.status,
+                ROUND(EXTRACT(EPOCH FROM pi.accepted_at) * 1000)::bigint AS accepted_at,
+                CASE
+                    WHEN pi.confirmed_at IS NULL THEN NULL
+                    ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
+                END AS confirmed_at,
+                pi.trust_awarded,
+                COALESCE(p.is_emergency, false) AS pulse_is_emergency,
+                COALESCE(p.is_solved, false) AS pulse_is_solved,
+                LOWER(COALESCE(p.pulse_type, 'update')) AS pulse_type
+            FROM app.pulse_interactions AS pi
+            JOIN app.pulses AS p ON p.id = pi.pulse_id
+            LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
+            WHERE pi.id = ${params.interactionId}::uuid
+              AND pi.pulse_id = ${params.pulseId}::uuid
+            LIMIT 1
+        `) as Array<
+            PulseInteractionRow & {
+                pulse_is_emergency: boolean;
+                pulse_is_solved: boolean;
+                pulse_type: string;
+            }
+        >;
+
+        if (!interaction) {
+            return { success: false };
+        }
+
+        if (interaction.status === 'successful') {
+            return { success: true, interaction: mapPulseInteractionRow(interaction) };
+        }
+
+        if (interaction.pulse_is_solved) {
+            return { success: false, solved: true };
+        }
+
+        if (interaction.pulse_type !== 'need') {
+            return { success: false, nonRequestType: true };
+        }
+
+        const trustAward = trustAwardForEmergency(Boolean(interaction.pulse_is_emergency));
+
+        const [updated] = (await tx`
+            UPDATE app.pulse_interactions
+            SET
+                status = 'successful',
+                confirmed_at = now(),
+                trust_awarded = ${trustAward}
+            WHERE id = ${params.interactionId}::uuid
+              AND pulse_id = ${params.pulseId}::uuid
+            RETURNING
+                id::text AS id,
+                pulse_id::text AS pulse_id,
+                author_id::text AS author_id,
+                helper_id::text AS helper_id,
+                status,
+                ROUND(EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at,
+                ROUND(EXTRACT(EPOCH FROM confirmed_at) * 1000)::bigint AS confirmed_at,
+                trust_awarded
+        `) as PulseInteractionRow[];
+
+        if (!updated) {
+            return { success: false };
+        }
+
+        await tx`
+            UPDATE app.users
+            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
+            WHERE id = ${updated.helper_id}::uuid
+        `;
+
+        const mappedInteraction = mapPulseInteractionRow({
+            ...updated,
+            helper_name: interaction.helper_name ?? null,
+        });
+
+        return { success: true, interaction: mappedInteraction };
+    });
+}
+
 export async function markPulseSolved(
     pulseId: string,
     authorId: string
@@ -3038,6 +3201,42 @@ export async function markPulseSolved(
         `) as Array<{ id: string }>;
 
         if (!ownPulse) {
+            return { pulse: null };
+        }
+
+        return { pulse: null, noSuccessfulInteractions: true };
+    }
+
+    return { pulse: await selectPulseById(updated.id) };
+}
+
+export async function markPulseSolvedAsAdmin(
+    pulseId: string
+): Promise<{ pulse: PulseFeedItem | null; noSuccessfulInteractions?: boolean }> {
+    const [updated] = (await sql`
+        UPDATE app.pulses
+        SET is_solved = true
+        WHERE id = ${pulseId}::uuid
+          AND LOWER(COALESCE(pulse_type, 'update')) = 'need'
+          AND EXISTS (
+              SELECT 1
+              FROM app.pulse_interactions AS pi
+              WHERE pi.pulse_id = app.pulses.id
+                AND pi.status = 'successful'
+          )
+        RETURNING id::text AS id
+    `) as Array<{ id: string }>;
+
+    if (!updated) {
+        const [requestPulse] = (await sql`
+            SELECT id::text AS id
+            FROM app.pulses
+            WHERE id = ${pulseId}::uuid
+              AND LOWER(COALESCE(pulse_type, 'update')) = 'need'
+            LIMIT 1
+        `) as Array<{ id: string }>;
+
+        if (!requestPulse) {
             return { pulse: null };
         }
 

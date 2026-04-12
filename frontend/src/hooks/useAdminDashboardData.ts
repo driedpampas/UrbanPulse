@@ -6,23 +6,36 @@ import {
     deleteLibraryItem,
     fetchAdminLibrary,
     fetchAdminOverview,
+    fetchAdminRequestInteractions,
+    fetchAdminRequests,
     fetchAdminPulseById,
     fetchAdminPulses,
     fetchAdminReports,
     fetchAdminUserDeletions,
     fetchAdminUsers,
+    markAdminRequestInteractionSuccessful,
+    markAdminRequestSolved,
     updateAdminUserRole,
     updateLibraryItem,
     updateReportStatus,
 } from '../lib/apiClients';
-import type { AdminFlag, AdminOverview, LibraryItem, Pulse, User } from '../types';
+import type {
+    AdminFlag,
+    AdminOverview,
+    AuthorPulseRequest,
+    LibraryItem,
+    Pulse,
+    PulseInteraction,
+    User,
+} from '../types';
 
-export type AdminSection = 'overview' | 'users' | 'pulses' | 'library' | 'reports';
+export type AdminSection = 'overview' | 'users' | 'requests' | 'pulses' | 'library' | 'reports';
 
 export function useAdminDashboardData() {
     const [section, setSection] = useState<AdminSection>('overview');
     const [overview, setOverview] = useState<AdminOverview | null>(null);
     const [users, setUsers] = useState<User[]>([]);
+    const [requests, setRequests] = useState<AuthorPulseRequest[]>([]);
     const [pulses, setPulses] = useState<Pulse[]>([]);
     const [library, setLibrary] = useState<LibraryItem[]>([]);
     const [reports, setReports] = useState<AdminFlag[]>([]);
@@ -34,6 +47,17 @@ export function useAdminDashboardData() {
     const [loading, setLoading] = useState(true);
     const [pulseSearchLoading, setPulseSearchLoading] = useState(false);
     const [userSearchLoading, setUserSearchLoading] = useState(false);
+    const [requestInteractionsByPulse, setRequestInteractionsByPulse] = useState<
+        Record<string, PulseInteraction[]>
+    >({});
+    const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+    const [requestInteractionsLoadingFor, setRequestInteractionsLoadingFor] = useState<
+        string | null
+    >(null);
+    const [requestInteractionActionId, setRequestInteractionActionId] = useState<string | null>(
+        null
+    );
+    const [requestSolveActionId, setRequestSolveActionId] = useState<string | null>(null);
     const [libraryBusyId, setLibraryBusyId] = useState<string | null>(null);
     const [usersOffset, setUsersOffset] = useState(0);
     const [usersHasMore, setUsersHasMore] = useState(true);
@@ -47,6 +71,7 @@ export function useAdminDashboardData() {
         Promise.all([
             fetchAdminOverview(),
             fetchAdminUsers({ limit: USERS_BATCH, offset: 0 }),
+            fetchAdminRequests(50, 0),
             fetchAdminPulses(),
             fetchAdminLibrary(),
             fetchAdminReports(),
@@ -56,6 +81,7 @@ export function useAdminDashboardData() {
                 ([
                     overviewData,
                     usersData,
+                    requestsData,
                     pulsesData,
                     libraryData,
                     reportsData,
@@ -63,6 +89,7 @@ export function useAdminDashboardData() {
                 ]) => {
                     setOverview(overviewData);
                     setUsers(usersData);
+                    setRequests(requestsData);
                     setPulses(pulsesData);
                     setLibrary(libraryData);
                     setReports(reportsData);
@@ -70,6 +97,8 @@ export function useAdminDashboardData() {
                     setUsersOffset(usersData.length);
                     setUsersHasMore(usersData.length === USERS_BATCH);
                     setUserSearchActive(false);
+                    setRequestInteractionsByPulse({});
+                    setExpandedRequestId(null);
                 }
             )
             .finally(() => setLoading(false));
@@ -233,11 +262,67 @@ export function useAdminDashboardData() {
         [loadData]
     );
 
+    const toggleRequestDetails = useCallback(
+        async (pulseId: string) => {
+            if (expandedRequestId === pulseId) {
+                setExpandedRequestId(null);
+                return;
+            }
+
+            setExpandedRequestId(pulseId);
+            if (requestInteractionsByPulse[pulseId]) {
+                return;
+            }
+
+            setRequestInteractionsLoadingFor(pulseId);
+            try {
+                const interactions = await fetchAdminRequestInteractions(pulseId);
+                setRequestInteractionsByPulse((current) => ({ ...current, [pulseId]: interactions }));
+            } finally {
+                setRequestInteractionsLoadingFor(null);
+            }
+        },
+        [expandedRequestId, requestInteractionsByPulse]
+    );
+
+    const markRequestInteractionSuccessful = useCallback(
+        async (pulseId: string, interactionId: string) => {
+            setRequestInteractionActionId(interactionId);
+            try {
+                await markAdminRequestInteractionSuccessful(pulseId, interactionId);
+                const [freshRequests, freshInteractions] = await Promise.all([
+                    fetchAdminRequests(50, 0),
+                    fetchAdminRequestInteractions(pulseId),
+                ]);
+                setRequests(freshRequests);
+                setRequestInteractionsByPulse((current) => ({
+                    ...current,
+                    [pulseId]: freshInteractions,
+                }));
+            } finally {
+                setRequestInteractionActionId(null);
+            }
+        },
+        []
+    );
+
+    const markRequestSolved = useCallback(async (pulseId: string) => {
+        setRequestSolveActionId(pulseId);
+        try {
+            await markAdminRequestSolved(pulseId);
+            const freshRequests = await fetchAdminRequests(50, 0);
+            setRequests(freshRequests);
+        } finally {
+            setRequestSolveActionId(null);
+        }
+    }, []);
+
     return {
         section,
         setSection,
         overview,
         users,
+        requests,
         pulses,
         library,
         reports,
@@ -251,6 +336,11 @@ export function useAdminDashboardData() {
         userSearchLoading,
         usersHasMore,
         usersLoadingMore,
+        requestInteractionsByPulse,
+        expandedRequestId,
+        requestInteractionsLoadingFor,
+        requestInteractionActionId,
+        requestSolveActionId,
         libraryBusyId,
         loadData,
         searchPulse,
@@ -261,6 +351,9 @@ export function useAdminDashboardData() {
         cancelUserDeletion,
         removePulse,
         changeReportStatus,
+        toggleRequestDetails,
+        markRequestInteractionSuccessful,
+        markRequestSolved,
         updateLibrary,
         removeLibrary,
     };
