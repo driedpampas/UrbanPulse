@@ -14,8 +14,6 @@ type Props = {
     onOpenPostForm: () => void;
 };
 
-const tabBaseStyle =
-    'display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;border:none;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;font-family:inherit;';
 
 function DashboardToolbarComponent({
     view,
@@ -29,33 +27,23 @@ function DashboardToolbarComponent({
     return (
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 0;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
+                <div class="tab-switcher">
                     <HoverButton
                         type="button"
                         id="view-feed-btn"
-                        class={cn(tabBaseStyle)}
-                        style={`${
-                            view === 'feed'
-                                ? 'background:var(--accent-subtle);color:var(--accent);'
-                                : 'background:transparent;color:var(--text-tertiary);'
-                        }`}
+                        class={cn('tab-btn', view === 'feed' && 'active')}
                         onClick={() => onViewChange('feed')}
                     >
-                        <List size={13} />
+                        <List size={14} strokeWidth={2.5} />
                         Feed
                     </HoverButton>
                     <HoverButton
                         type="button"
                         id="view-map-btn"
-                        class={cn(tabBaseStyle)}
-                        style={`${
-                            view === 'map'
-                                ? 'background:var(--accent-subtle);color:var(--accent);'
-                                : 'background:transparent;color:var(--text-tertiary);'
-                        }`}
+                        class={cn('tab-btn', view === 'map' && 'active')}
                         onClick={() => onViewChange('map')}
                     >
-                        <MapIcon size={13} />
+                        <MapIcon size={14} strokeWidth={2.5} />
                         Map
                     </HoverButton>
                 </div>

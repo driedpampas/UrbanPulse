@@ -284,6 +284,42 @@
         color 0.15s;
 }
 
+.tab-switcher {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-subtle);
+}
+
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
+    color: var(--text-tertiary);
+    background: transparent;
+}
+
+.tab-btn:hover {
+    color: var(--text-secondary);
+    background: var(--bg-muted);
+}
+
+.tab-btn.active {
+    background: var(--accent-subtle);
+    color: var(--accent);
+}
+
 /* ─── Form controls ──────────────────────────────────────────── */
 
 .input-field {
