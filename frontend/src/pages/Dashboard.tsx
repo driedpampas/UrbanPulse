@@ -1,3 +1,5 @@
+import { ShieldCheck } from 'lucide-preact';
+import { useState } from 'preact/hooks';
 import { DashboardFiltersPanel } from '../components/Dashboard/DashboardFiltersPanel';
 import { DashboardToolbar } from '../components/Dashboard/DashboardToolbar';
 import { HeroAlert } from '../components/Dashboard/HeroAlert';
@@ -6,9 +8,48 @@ import { PulseMap } from '../components/Dashboard/PulseMap';
 import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
+import { HoverButton } from '../components/ui/HoverButton';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
+import { useAuth } from '../lib/auth';
+import { requestVerificationEmail } from '../lib/settingsApi';
+import { cn } from '../lib/utils';
 
 export function Dashboard() {
+    const { session } = useAuth();
+    const showEmailVerificationBanner = session?.user.isEmailVerified === false;
+    const [sendingVerificationEmail, setSendingVerificationEmail] = useState(false);
+    const [verificationEmailFeedback, setVerificationEmailFeedback] = useState<{
+        type: 'success' | 'error';
+        message: string;
+    } | null>(null);
+
+    const handleSendVerificationEmail = async () => {
+        if (sendingVerificationEmail) {
+            return;
+        }
+
+        setSendingVerificationEmail(true);
+        setVerificationEmailFeedback(null);
+
+        try {
+            const result = await requestVerificationEmail();
+            setVerificationEmailFeedback({
+                type: 'success',
+                message: result.message || 'Verification link sent. Check your inbox.',
+            });
+        } catch (error) {
+            setVerificationEmailFeedback({
+                type: 'error',
+                message:
+                    error instanceof Error
+                        ? error.message
+                        : 'Unable to send verification email right now.',
+            });
+        } finally {
+            setSendingVerificationEmail(false);
+        }
+    };
+
     const {
         view,
         setView,
@@ -25,7 +66,7 @@ export function Dashboard() {
 
     return (
         <AppLayout title="UrbanPulse" headerRight={null}>
-            <div style={`display:flex;flex-direction:column;${view === 'map' ? 'flex:1;' : ''}`}>
+            <div class={cn('stack-v', view === 'map' && 'flex-1')}>
                 <DashboardToolbar
                     view={view}
                     showFilters={showFilters}
@@ -42,12 +83,55 @@ export function Dashboard() {
                     onRadiusChange={updateRadius}
                     onLimitChange={setLimit}
                 />
-                <WeatherAlert />
+                {showEmailVerificationBanner && (
+                    <div class="mx-4 mt-3 animate-slide-up">
+                        <div class="section border-[var(--warning)] bg-[var(--warning-subtle)]/30">
+                            <div class="p-4 stack-h gap-md">
+                                <div class="rounded-full bg-[var(--warning-subtle)] p-2 border border-[var(--warning)]/20">
+                                    <ShieldCheck class="h-5 w-5 text-[var(--warning)]" />
+                                </div>
+                                <div class="stack-v">
+                                    <p class="text-sm font-bold text-[var(--text)]">
+                                        Verify your email address
+                                    </p>
+                                    <p class="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        High-trust features require a verified account. Check your
+                                        inbox for the link.
+                                    </p>
+                                    <div class="mt-2 stack-h gap-sm">
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-primary"
+                                            onClick={() => void handleSendVerificationEmail()}
+                                            disabled={sendingVerificationEmail}
+                                            style="height:30px;padding:0 12px;font-size:11px;"
+                                        >
+                                            {sendingVerificationEmail
+                                                ? 'Sending...'
+                                                : 'Send verification email'}
+                                        </HoverButton>
+                                    </div>
+                                    {verificationEmailFeedback && (
+                                        <p
+                                            class="text-xs mt-2"
+                                            style={`color:${verificationEmailFeedback.type === 'success' ? 'var(--success)' : 'var(--danger)'};`}
+                                        >
+                                            {verificationEmailFeedback.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                <div class="mx-4">
+                    <WeatherAlert />
+                </div>
                 <HeroAlert />
                 {view === 'feed' ? (
                     <LiveFeed radiusFilter={radius} pulseLimit={limit} />
                 ) : (
-                    <div style="margin-top:12px;flex:1;display:flex;flex-direction:column;min-height:55dvh;">
+                    <div class="stack-v mt-3 flex-1 min-h-[55dvh]">
                         <PulseMap expanded radiusFilter={radius} pulseLimit={limit} />
                     </div>
                 )}

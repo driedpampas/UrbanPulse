@@ -34,6 +34,9 @@ function createSqlRunner(client: {
 const sql = createSqlRunner(db);
 
 const SEARCH_LIMIT = 50;
+const PULSE_CONFIRMATION_THRESHOLD = 3;
+const TRUST_SCORE_SUCCESS_THRESHOLD = 3;
+const TRUST_SCORE_INCREMENT = 1;
 
 export interface Location {
     lat?: number | null;
@@ -108,16 +111,31 @@ export interface AcceptedInteraction {
     };
 }
 
+export interface MessageReply {
+    id: string;
+    senderId: string;
+    senderName: string;
+    snippet: string;
+    isUnavailable: boolean;
+}
+
 export interface Message {
     id: string;
     threadId: string;
     senderId: string;
     content: string;
+    isEdited: boolean;
     messageType: 'text' | 'notice';
+    replyToId: string | null;
+    replyTo: MessageReply | null;
     timestamp: number;
 }
 
 export type DeleteMessageScope = 'me' | 'everyone';
+
+export type EditMessageResult =
+    | { success: true; message: Message }
+    | { success: false; reason: 'not_found' | 'forbidden' };
 
 export type ChatParticipantRole = 'owner' | 'admin';
 
@@ -128,6 +146,7 @@ export interface Chat {
     }[];
     participantRoles: Record<string, ChatParticipantRole[]>;
     ownerId: string | null;
+    name: string | null;
     isGroup: boolean;
     timestamp: number;
 }
@@ -140,6 +159,7 @@ export interface ChatSummary {
         roles: ChatParticipantRole[];
     }[];
     ownerId: string | null;
+    name: string | null;
     isGroup: boolean;
     timestamp: number;
 }
@@ -173,6 +193,10 @@ interface User {
     email?: string | null;
     role?: string;
     passwordHash?: string | null;
+    isEmailVerified?: boolean;
+    verificationToken?: string | null;
+    passwordResetToken?: string | null;
+    passwordResetExpires?: Date | null;
     displayName?: string | null;
     radius?: number | null;
     location?: Location | null;
@@ -280,6 +304,10 @@ type UserRow = {
     id: string;
     email?: string | null;
     role?: string;
+    is_email_verified?: boolean | null;
+    verification_token?: string | null;
+    password_reset_token?: string | null;
+    password_reset_expires?: Date | string | number | null;
     created_at?: Date | string | number;
     trust_score?: number | string | null;
     display_name?: string | null;
@@ -299,7 +327,13 @@ type MessageRow = {
     thread_id: string;
     sender_id: string;
     content: string;
+    is_edited?: boolean | null;
     message_type?: string | null;
+    reply_to_id?: string | null;
+    reply_to_sender_id?: string | null;
+    reply_to_sender_name?: string | null;
+    reply_to_snippet?: string | null;
+    reply_to_unavailable?: boolean | null;
     timestamp: number | string | Date;
 };
 
@@ -315,6 +349,7 @@ type ChatThreadRow = {
     is_group: boolean;
     timestamp: number | string | Date;
     owner_id?: string | null;
+    name?: string | null;
 };
 
 type ChatRoleRow = {
@@ -345,13 +380,14 @@ type ChatSummaryRow = {
     id: string;
     is_group: boolean;
     timestamp: number | string | Date;
+    name: string | null;
     participants:
-        | Array<{
-              userId: string;
-              displayName: string | null;
-              roles: string[];
-          }>
-        | unknown;
+    | Array<{
+        userId: string;
+        displayName: string | null;
+        roles: string[];
+    }>
+    | unknown;
     owner_id: string | null;
 };
 export interface Report {
@@ -363,6 +399,26 @@ export interface Report {
     timestamp: number;
     status: 'pending' | 'resolved' | 'dismissed';
     content: string;
+}
+
+export type MessageReportStatus = 'pending' | 'reviewed' | 'action_taken';
+export type MessageReportAction = 'ban_user' | 'delete_message' | 'dismiss';
+
+export interface AdminMessageReport {
+    id: string;
+    messageId: string;
+    messageContent: string;
+    reason: string;
+    status: MessageReportStatus;
+    timestamp: number;
+    reporter: {
+        id: string;
+        name: string;
+    };
+    offender: {
+        id: string;
+        name: string;
+    };
 }
 
 export interface ScheduledUserDeletion {
@@ -382,6 +438,19 @@ type ReportRow = {
     content: string;
 };
 
+type AdminMessageReportRow = {
+    id: string;
+    message_id: string;
+    message_content: string;
+    reason: string;
+    status: string;
+    created_at: number | string | Date;
+    reporter_id: string;
+    reporter_name: string;
+    offender_id: string;
+    offender_name: string;
+};
+
 function mapReportRow(row: ReportRow): Report {
     return {
         id: row.id,
@@ -392,6 +461,25 @@ function mapReportRow(row: ReportRow): Report {
         timestamp: Number(row.created_at),
         status: row.status as 'pending' | 'resolved' | 'dismissed',
         content: row.content,
+    };
+}
+
+function mapAdminMessageReportRow(row: AdminMessageReportRow): AdminMessageReport {
+    return {
+        id: row.id,
+        messageId: row.message_id,
+        messageContent: row.message_content,
+        reason: row.reason,
+        status: row.status as MessageReportStatus,
+        timestamp: Number(row.created_at),
+        reporter: {
+            id: row.reporter_id,
+            name: row.reporter_name,
+        },
+        offender: {
+            id: row.offender_id,
+            name: row.offender_name,
+        },
     };
 }
 
@@ -624,13 +712,58 @@ function isSuppressedByQuietWindow(
     return isWithinQuietHours(quietHours, local.minuteOfDay);
 }
 
+const MESSAGE_REPLY_SNIPPET_MAX_LENGTH = 180;
+
+function normalizeReplySnippet(snippet: string | null | undefined): string {
+    const normalized = String(snippet ?? '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (normalized.length === 0) {
+        return 'Original message unavailable';
+    }
+
+    if (normalized.length <= MESSAGE_REPLY_SNIPPET_MAX_LENGTH) {
+        return normalized;
+    }
+
+    return `${normalized.slice(0, MESSAGE_REPLY_SNIPPET_MAX_LENGTH)}...`;
+}
+
 function mapMessageRow(rawMessage: MessageRow): Message {
+    const replyToId = rawMessage.reply_to_id ? String(rawMessage.reply_to_id) : null;
+    const replyToUnavailable = Boolean(rawMessage.reply_to_unavailable);
+    const replySenderId = rawMessage.reply_to_sender_id
+        ? String(rawMessage.reply_to_sender_id)
+        : null;
+    const replySenderName = rawMessage.reply_to_sender_name?.trim().length
+        ? String(rawMessage.reply_to_sender_name)
+        : replySenderId
+            ? `Neighbor ${replySenderId.slice(0, 6)}`
+            : 'Unknown user';
+
+    const replyTo =
+        replyToId && replySenderId
+            ? {
+                id: replyToId,
+                senderId: replySenderId,
+                senderName: replySenderName,
+                snippet: replyToUnavailable
+                    ? 'Original message unavailable'
+                    : normalizeReplySnippet(rawMessage.reply_to_snippet),
+                isUnavailable: replyToUnavailable,
+            }
+            : null;
+
     return {
         id: String(rawMessage.id),
         threadId: String(rawMessage.thread_id),
         senderId: String(rawMessage.sender_id),
         content: String(rawMessage.content),
+        isEdited: Boolean(rawMessage.is_edited),
         messageType: (rawMessage.message_type as 'text' | 'notice') ?? 'text',
+        replyToId,
+        replyTo,
         timestamp: Number(rawMessage.timestamp ?? Date.now()),
     };
 }
@@ -662,6 +795,19 @@ async function ensureSchema() {
             await tx`
                 ALTER TABLE app.chat_threads
                 ADD COLUMN owner_id uuid REFERENCES app.users(id) ON DELETE SET NULL
+            `;
+        }
+
+        // Check chat_threads.name
+        const threadNameCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'chat_threads' AND column_name = 'name'
+            LIMIT 1
+        `;
+        if (threadNameCol.length === 0) {
+            await tx`
+                ALTER TABLE app.chat_threads
+                ADD COLUMN name text
             `;
         }
 
@@ -722,6 +868,61 @@ async function ensureSchema() {
             `;
         }
 
+        const messageReportStatusType = await tx`
+            SELECT 1
+            FROM pg_type AS t
+            JOIN pg_namespace AS n ON n.oid = t.typnamespace
+            WHERE t.typname = 'message_report_status'
+              AND n.nspname = 'app'
+            LIMIT 1
+        `;
+        if (messageReportStatusType.length === 0) {
+            await tx`
+                CREATE TYPE app.message_report_status AS ENUM ('pending', 'reviewed', 'action_taken')
+            `;
+        }
+
+        const messageReportsTable = await tx`
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'message_reports'
+            LIMIT 1
+        `;
+        if (messageReportsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.message_reports (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    reporter_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    offender_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    message_id uuid NOT NULL REFERENCES app.messages(id) ON DELETE CASCADE,
+                    reason text NOT NULL,
+                    status app.message_report_status NOT NULL DEFAULT 'pending',
+                    created_at timestamptz NOT NULL DEFAULT now()
+                )
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_reporter_id_idx
+            ON app.message_reports (reporter_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_offender_id_idx
+            ON app.message_reports (offender_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_message_id_idx
+            ON app.message_reports (message_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_status_created_at_idx
+            ON app.message_reports (status, created_at)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_created_at_idx
+            ON app.message_reports (created_at)
+        `;
+
         // Check pulse_interactions table
         const interactionsTable = await tx`
             SELECT 1 FROM information_schema.tables
@@ -761,6 +962,18 @@ async function ensureSchema() {
         `;
 
         // Check app.messages.message_type
+        const messageEditedCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'is_edited'
+            LIMIT 1
+        `;
+        if (messageEditedCol.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD COLUMN is_edited boolean NOT NULL DEFAULT false
+            `;
+        }
+
         const messageTypeCol = await tx`
             SELECT 1 FROM information_schema.columns 
             WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'message_type'
@@ -772,6 +985,84 @@ async function ensureSchema() {
                 ADD COLUMN message_type text NOT NULL DEFAULT 'text'
             `;
         }
+
+        const messageReplyToCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'messages' AND column_name = 'reply_to_id'
+            LIMIT 1
+        `;
+        if (messageReplyToCol.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD COLUMN reply_to_id uuid
+            `;
+        }
+
+        const messageReplyToForeignKey = await tx`
+            SELECT 1
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+                ON tc.constraint_name = kcu.constraint_name
+               AND tc.table_schema = kcu.table_schema
+            WHERE tc.table_schema = 'app'
+                AND tc.table_name = 'messages'
+                AND tc.constraint_type = 'FOREIGN KEY'
+                AND kcu.column_name = 'reply_to_id'
+            LIMIT 1
+        `;
+        if (messageReplyToForeignKey.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD CONSTRAINT messages_reply_to_id_fk
+                FOREIGN KEY (reply_to_id)
+                REFERENCES app.messages(id)
+                ON DELETE SET NULL
+            `;
+        }
+
+        const messageReplyToNoSelfConstraint = await tx`
+            SELECT 1
+            FROM information_schema.table_constraints
+            WHERE table_schema = 'app'
+                AND table_name = 'messages'
+                AND constraint_type = 'CHECK'
+                AND constraint_name = 'messages_reply_to_no_self_reply'
+            LIMIT 1
+        `;
+        if (messageReplyToNoSelfConstraint.length === 0) {
+            await tx`
+                ALTER TABLE app.messages
+                ADD CONSTRAINT messages_reply_to_no_self_reply
+                CHECK (reply_to_id IS NULL OR reply_to_id <> id)
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS messages_reply_to_id_idx
+            ON app.messages (reply_to_id)
+        `;
+
+        const messageEditsHistoryTable = await tx`
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'message_edits_history'
+            LIMIT 1
+        `;
+        if (messageEditsHistoryTable.length === 0) {
+            await tx`
+                CREATE TABLE app.message_edits_history (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    message_id uuid NOT NULL REFERENCES app.messages(id) ON DELETE CASCADE,
+                    old_content text NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now()
+                )
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_edits_history_message_id_idx
+            ON app.message_edits_history (message_id)
+        `;
 
         const deletionRequestedAtCol = await tx`
             SELECT 1 FROM information_schema.columns
@@ -858,6 +1149,83 @@ async function ensureSchema() {
             `;
         }
 
+        const pulseVerifiedInfoCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_verified_info'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseVerifiedInfoCol.length === 0) {
+            await tx`
+                ALTER TABLE app.pulses
+                ADD COLUMN is_verified_info boolean
+            `;
+        }
+
+        if (pulseVerifiedInfoCol[0]?.is_generated === 'ALWAYS') {
+            await tx`
+                ALTER TABLE app.pulses
+                ALTER COLUMN is_verified_info DROP EXPRESSION
+            `;
+        }
+
+        const pulseConfirmationCountCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'confirmation_count'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseConfirmationCountCol.length === 0) {
+            await tx`
+                ALTER TABLE app.pulses
+                ADD COLUMN confirmation_count integer
+            `;
+        }
+
+        if (pulseConfirmationCountCol[0]?.is_generated === 'ALWAYS') {
+            throw new Error(
+                'Unsupported app.pulses schema: confirmation_count must be writable and cannot be a generated column.'
+            );
+        }
+
+        await tx`
+            UPDATE app.pulses
+            SET confirmation_count = COALESCE(confirmation_count, 0)
+            WHERE confirmation_count IS NULL
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN confirmation_count SET DEFAULT 0
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN confirmation_count SET NOT NULL
+        `;
+
+        await tx`
+            UPDATE app.pulses
+            SET is_verified_info = CASE
+                WHEN COALESCE(confirmation_count, 0) >= ${PULSE_CONFIRMATION_THRESHOLD}
+                    THEN true
+                ELSE COALESCE(is_verified_info, false)
+            END
+            WHERE is_verified_info IS NULL OR COALESCE(confirmation_count, 0) >= ${PULSE_CONFIRMATION_THRESHOLD}
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_verified_info SET DEFAULT false
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_verified_info SET NOT NULL
+        `;
+
         const pulseEmergencyCol = await tx`
             SELECT 1 FROM information_schema.columns
             WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_emergency'
@@ -868,6 +1236,19 @@ async function ensureSchema() {
                 ALTER TABLE app.pulses
                 ADD COLUMN is_emergency boolean
             `;
+        }
+
+        const pulseEmergencyGeneratedCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_emergency'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseEmergencyGeneratedCol[0]?.is_generated === 'ALWAYS') {
+            throw new Error(
+                'Unsupported app.pulses schema: is_emergency must be writable and cannot be a generated column.'
+            );
         }
 
         await tx`
@@ -899,6 +1280,19 @@ async function ensureSchema() {
                 ALTER TABLE app.pulses
                 ADD COLUMN is_solved boolean
             `;
+        }
+
+        const pulseSolvedGeneratedCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_solved'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseSolvedGeneratedCol[0]?.is_generated === 'ALWAYS') {
+            throw new Error(
+                'Unsupported app.pulses schema: is_solved must be writable and cannot be a generated column.'
+            );
         }
 
         await tx`
@@ -1172,6 +1566,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
             SELECT
                 ct.id,
                 ct.is_group,
+                NULLIF(BTRIM(ct.name), '') AS name,
                 ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
                 COALESCE(ct.owner_id::text, NULL) AS owner_id,
                 ARRAY_AGG(
@@ -1195,7 +1590,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
                 FROM app.chat_participants
                 WHERE user_id = ${userId}
             )
-            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            GROUP BY ct.id, ct.is_group, ct.name, ct.created_at, ct.owner_id
             ORDER BY "timestamp" DESC, ct.id DESC
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
@@ -1203,6 +1598,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
     return chats.map((chat) => ({
         id: chat.id,
         isGroup: chat.is_group,
+        name: chat.name,
         timestamp: Number(chat.timestamp),
         ownerId: chat.owner_id,
         participants: (
@@ -1230,6 +1626,7 @@ export async function selectChatSummary(
             SELECT
                 ct.id,
                 ct.is_group,
+                NULLIF(BTRIM(ct.name), '') AS name,
                 ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
                 COALESCE(ct.owner_id::text, NULL) AS owner_id,
                 ARRAY_AGG(
@@ -1254,7 +1651,7 @@ export async function selectChatSummary(
                 FROM app.chat_participants
                 WHERE user_id = ${userId}
             )
-            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            GROUP BY ct.id, ct.is_group, ct.name, ct.created_at, ct.owner_id
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
 
@@ -1263,6 +1660,7 @@ export async function selectChatSummary(
     return {
         id: chat.id,
         isGroup: chat.is_group,
+        name: chat.name,
         timestamp: Number(chat.timestamp),
         ownerId: chat.owner_id,
         participants: (
@@ -1287,6 +1685,7 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
             SELECT
                 ct.id,
                 ct.is_group,
+                NULLIF(BTRIM(ct.name), '') AS name,
                 ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
                 COALESCE(ct.owner_id::text, NULL) AS owner_id,
                 ARRAY_AGG(
@@ -1306,7 +1705,7 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
                 WHERE cpr.thread_id = ct.id AND cpr.user_id = cp.user_id
             ) AS roles ON true
             WHERE ct.id = ${chatId}::uuid
-            GROUP BY ct.id, ct.is_group, ct.created_at, ct.owner_id
+            GROUP BY ct.id, ct.is_group, ct.name, ct.created_at, ct.owner_id
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
 
@@ -1315,6 +1714,7 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
     return {
         id: chat.id,
         isGroup: chat.is_group,
+        name: chat.name,
         timestamp: Number(chat.timestamp),
         ownerId: chat.owner_id,
         participants: (
@@ -1339,16 +1739,48 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-            FROM app.messages
-                        WHERE thread_id = ${threadId}
-                            AND NOT EXISTS (
-                                SELECT 1
-                                FROM app.hidden_messages AS hidden
-                                WHERE hidden.message_id = app.messages.id
-                                    AND hidden.user_id = ${currentUser}::uuid
-                            );
+            SELECT
+                m.id,
+                m.thread_id,
+                m.sender_id,
+                m.content,
+                m.is_edited,
+                m.message_type,
+                m.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN m.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN m.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            LEFT JOIN app.messages AS reply
+                ON reply.id = m.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${currentUser}::uuid
+            WHERE m.thread_id = ${threadId}::uuid
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app.hidden_messages AS hidden
+                    WHERE hidden.message_id = m.id
+                        AND hidden.user_id = ${currentUser}::uuid
+                )
+            ORDER BY m.created_at ASC, m.id ASC;
         `) as MessageRow[];
     })) as MessageRow[];
 
@@ -1359,20 +1791,86 @@ export async function selectMessage(
     messageId: string,
     currentUser: string
 ): Promise<Message | null> {
+    await ensureSchema();
     const [message] = (await sql.begin(async (tx) => {
         await tx`
             SELECT set_config('app.current_user_id', ${currentUser}, true);
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-            FROM app.messages
-            WHERE id = ${messageId};
+            SELECT
+                m.id,
+                m.thread_id,
+                m.sender_id,
+                m.content,
+                m.is_edited,
+                m.message_type,
+                m.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN m.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN m.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            JOIN app.chat_participants AS cp
+                ON cp.thread_id = m.thread_id
+               AND cp.user_id = ${currentUser}::uuid
+            LEFT JOIN app.messages AS reply
+                ON reply.id = m.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${currentUser}::uuid
+            WHERE m.id = ${messageId}::uuid
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app.hidden_messages AS hidden
+                    WHERE hidden.message_id = m.id
+                        AND hidden.user_id = ${currentUser}::uuid
+                )
+            LIMIT 1;
         `) as MessageRow[];
     })) as MessageRow[];
 
     return message ? mapMessageRow(message) : null;
+}
+
+export async function selectThreadMessageById(
+    threadId: string,
+    messageId: string
+): Promise<{ id: string; threadId: string } | null> {
+    await ensureSchema();
+
+    const [message] = (await sql`
+        SELECT id::text AS id, thread_id::text AS thread_id
+        FROM app.messages
+        WHERE id = ${messageId}::uuid
+            AND thread_id = ${threadId}::uuid
+        LIMIT 1;
+    `) as Array<{ id: string; thread_id: string }>;
+
+    if (!message) {
+        return null;
+    }
+
+    return {
+        id: message.id,
+        threadId: message.thread_id,
+    };
 }
 
 export async function selectChat(chatId: string, currentUser: string): Promise<Chat | null> {
@@ -1384,6 +1882,7 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
 
         return (await tx`
             SELECT cp.thread_id, cp.user_id, ct.is_group,
+            NULLIF(BTRIM(ct.name), '') AS name,
             ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
             ct.owner_id
             FROM app.chat_threads AS ct
@@ -1420,6 +1919,7 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
         participants,
         isGroup: chatRows[0]!.is_group,
         ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
+        name: chatRows[0]!.name?.trim() ? String(chatRows[0]!.name) : null,
         participantRoles,
         timestamp: Number(chatRows[0]!.timestamp),
     };
@@ -1431,6 +1931,7 @@ export async function selectChatById(chatId: string): Promise<Chat | null> {
 
         return (await tx`
             SELECT cp.thread_id, cp.user_id, ct.is_group,
+            NULLIF(BTRIM(ct.name), '') AS name,
             ROUND(EXTRACT(EPOCH FROM ct.created_at) * 1000)::bigint AS "timestamp",
             ct.owner_id
             FROM app.chat_threads AS ct
@@ -1467,6 +1968,7 @@ export async function selectChatById(chatId: string): Promise<Chat | null> {
         participants,
         isGroup: chatRows[0]!.is_group,
         ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
+        name: chatRows[0]!.name?.trim() ? String(chatRows[0]!.name) : null,
         participantRoles,
         timestamp: Number(chatRows[0]!.timestamp),
     };
@@ -1513,10 +2015,13 @@ export async function findDirectChatId(userAId: string, userBId: string): Promis
 export async function insertChat(
     participantIds: string[],
     isGroup: boolean,
-    currentUser: string
+    currentUser: string,
+    name?: string
 ): Promise<Chat> {
     const threadId = crypto.randomUUID();
     const csvParticipantIds = participantIds.join(',');
+    const normalizedName =
+        isGroup && typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
 
     await sql.begin(async (tx) => {
         await ensureSchema();
@@ -1525,8 +2030,8 @@ export async function insertChat(
         `;
 
         await tx`
-            INSERT INTO app.chat_threads (id, is_group, owner_id)
-            VALUES (${threadId}::uuid, ${isGroup}, ${currentUser}::uuid);
+            INSERT INTO app.chat_threads (id, is_group, owner_id, name)
+            VALUES (${threadId}::uuid, ${isGroup}, ${currentUser}::uuid, ${normalizedName});
         `;
 
         await tx`
@@ -1556,6 +2061,26 @@ export async function insertChat(
     }
 
     return (await selectChat(threadId, currentUser))!;
+}
+
+export async function updateChatName(threadId: string, ownerId: string, newName: string) {
+    await ensureSchema();
+
+    const [updated] = (await sql`
+        UPDATE app.chat_threads
+        SET name = ${newName}
+        WHERE id = ${threadId}::uuid
+          AND is_group = true
+          AND (owner_id = ${ownerId}::uuid OR owner_id IS NULL)
+        RETURNING id::text AS id, NULLIF(BTRIM(name), '') AS name;
+    `) as Array<{ id: string; name: string | null }>;
+
+    return updated
+        ? {
+            threadId: updated.id,
+            name: updated.name ?? '',
+        }
+        : null;
 }
 
 export async function addChatParticipants(
@@ -1704,6 +2229,101 @@ export async function deleteMessage(messageId: string, currentUser: string): Pro
     return Boolean(deleted);
 }
 
+export async function editMessage(
+    messageId: string,
+    editorId: string,
+    newContent: string
+): Promise<EditMessageResult> {
+    await ensureSchema();
+
+    return await sql.begin(async (tx) => {
+        await tx`
+            SELECT set_config('app.current_user_id', ${editorId}, true);
+        `;
+
+        const [existingMessage] = (await tx`
+            SELECT m.id, m.thread_id, m.sender_id, m.content, m.is_edited, m.message_type,
+            ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            JOIN app.chat_participants AS cp
+                ON cp.thread_id = m.thread_id
+             AND cp.user_id = ${editorId}::uuid
+            WHERE m.id = ${messageId}::uuid
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app.hidden_messages AS hidden
+                    WHERE hidden.message_id = m.id
+                        AND hidden.user_id = ${editorId}::uuid
+                )
+            LIMIT 1
+            FOR UPDATE;
+        `) as MessageRow[];
+
+        if (!existingMessage) {
+            return { success: false, reason: 'not_found' } as const;
+        }
+
+        if (String(existingMessage.sender_id) !== editorId) {
+            return { success: false, reason: 'forbidden' } as const;
+        }
+
+        await tx`
+            INSERT INTO app.message_edits_history (message_id, old_content)
+            VALUES (${messageId}::uuid, ${existingMessage.content})
+        `;
+
+        const [updatedMessage] = (await tx`
+            WITH updated AS (
+                UPDATE app.messages
+                SET content = ${newContent},
+                    is_edited = true
+                WHERE id = ${messageId}::uuid
+                RETURNING id, thread_id, sender_id, content, is_edited, message_type, reply_to_id, created_at
+            )
+            SELECT
+                updated.id,
+                updated.thread_id,
+                updated.sender_id,
+                updated.content,
+                updated.is_edited,
+                updated.message_type,
+                updated.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN updated.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN updated.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM updated.created_at) * 1000)::bigint AS "timestamp"
+            FROM updated
+            LEFT JOIN app.messages AS reply
+                ON reply.id = updated.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${editorId}::uuid;
+        `) as MessageRow[];
+
+        if (!updatedMessage) {
+            return { success: false, reason: 'not_found' } as const;
+        }
+
+        return { success: true, message: mapMessageRow(updatedMessage) } as const;
+    });
+}
+
 export async function hideMessageForUser(messageId: string, userId: string): Promise<boolean> {
     const [hidden] = await sql`
         INSERT INTO app.hidden_messages (message_id, user_id)
@@ -1764,7 +2384,8 @@ export async function insertMessage(
     threadId: string,
     senderId: string,
     content: string,
-    messageType: 'text' | 'notice' = 'text'
+    messageType: 'text' | 'notice' = 'text',
+    replyToId: string | null = null
 ): Promise<Message> {
     await ensureSchema();
     const [insertedMessage] = (await sql.begin(async (tx) => {
@@ -1772,15 +2393,61 @@ export async function insertMessage(
             SELECT set_config('app.current_user_id', ${senderId}, true);
         `;
 
+        const [inserted] = (await tx`
+            INSERT INTO app.messages (thread_id, sender_id, content, message_type, reply_to_id)
+            VALUES (${threadId}, ${senderId}, ${content}, ${messageType}, ${replyToId}::uuid)
+            RETURNING id;
+        `) as Array<{ id: string }>;
+
+        if (!inserted) {
+            return [] as MessageRow[];
+        }
+
         return (await tx`
-            INSERT INTO app.messages (thread_id, sender_id, content, message_type)
-            VALUES (${threadId}, ${senderId}, ${content}, ${messageType})
-            RETURNING id, thread_id, sender_id, content, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp";
+            SELECT
+                m.id,
+                m.thread_id,
+                m.sender_id,
+                m.content,
+                m.is_edited,
+                m.message_type,
+                m.reply_to_id,
+                reply.sender_id AS reply_to_sender_id,
+                COALESCE(
+                    NULLIF(reply_sender.display_name, ''),
+                    CASE
+                        WHEN reply.sender_id IS NULL THEN NULL
+                        ELSE 'Neighbor ' || LEFT(reply.sender_id::text, 6)
+                    END
+                ) AS reply_to_sender_name,
+                CASE
+                    WHEN m.reply_to_id IS NULL OR reply_hidden.message_id IS NOT NULL THEN NULL
+                    ELSE LEFT(reply.content, 220)
+                END AS reply_to_snippet,
+                CASE
+                    WHEN m.reply_to_id IS NULL THEN false
+                    WHEN reply_hidden.message_id IS NOT NULL THEN true
+                    ELSE false
+                END AS reply_to_unavailable,
+                ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+            FROM app.messages AS m
+            LEFT JOIN app.messages AS reply
+                ON reply.id = m.reply_to_id
+            LEFT JOIN app.users AS reply_sender
+                ON reply_sender.id = reply.sender_id
+            LEFT JOIN app.hidden_messages AS reply_hidden
+                ON reply_hidden.message_id = reply.id
+               AND reply_hidden.user_id = ${senderId}::uuid
+            WHERE m.id = ${inserted.id}::uuid
+            LIMIT 1;
         `) as MessageRow[];
     })) as MessageRow[];
 
-    return mapMessageRow(insertedMessage!);
+    if (!insertedMessage) {
+        throw new Error('Failed to insert message.');
+    }
+
+    return mapMessageRow(insertedMessage);
 }
 
 export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedItem> {
@@ -1813,6 +2480,51 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     `;
 
     return (await selectPulseById(insertedPulse.id))!;
+}
+
+export async function updatePulse(
+    pulseId: string,
+    authorId: string,
+    updates: {
+        content?: string;
+        isEmergency?: boolean;
+        requiredSkills?: string[];
+    }
+): Promise<PulseFeedItem | null> {
+    await ensureSchema();
+
+    const content = updates.content ?? null;
+    const isEmergency = updates.isEmergency ?? null;
+    const requiredSkills =
+        updates.requiredSkills !== undefined ? JSON.stringify(updates.requiredSkills) : null;
+
+    const [updated] = await sql`
+        UPDATE app.pulses
+        SET
+            content = COALESCE(${content}, content),
+            is_emergency = COALESCE(${isEmergency}::boolean, is_emergency),
+            urgency_level = CASE
+                WHEN ${isEmergency}::boolean IS NULL THEN urgency_level
+                WHEN ${isEmergency}::boolean = true THEN 5
+                ELSE CASE LOWER(COALESCE(pulse_type, 'update'))
+                    WHEN 'need' THEN 4
+                    WHEN 'skill' THEN 2
+                    WHEN 'item' THEN 1
+                    WHEN 'emergency' THEN 5
+                    ELSE 1
+                END
+            END,
+            required_skills = COALESCE(${requiredSkills}::jsonb, required_skills)
+        WHERE id = ${pulseId}::uuid
+          AND author_id = ${authorId}::uuid
+        RETURNING id::text AS id
+    `;
+
+    if (!updated) {
+        return null;
+    }
+
+    return await selectPulseById(updated.id);
 }
 
 export async function selectPulseMatchingResources(pulseId: string): Promise<string[]> {
@@ -1976,11 +2688,16 @@ export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
     return matches.filter((match) => !match.suppressedByQuietHours).map((match) => match.id);
 }
 
-export async function insertUser(email: string, hashedPass: string, displayname: string) {
+export async function insertUser(
+    email: string,
+    hashedPass: string,
+    displayname: string,
+    verificationToken: string
+) {
     return await sql`
-    INSERT INTO app.users (email, display_name, password_hash)
-    VALUES (${email}, ${displayname}, ${hashedPass})
-    RETURNING id, role
+    INSERT INTO app.users (email, display_name, password_hash, verification_token)
+    VALUES (${email}, ${displayname}, ${hashedPass}, ${verificationToken})
+    RETURNING id, role, is_email_verified
     `;
 }
 
@@ -1996,6 +2713,95 @@ export async function selectPasswordHash(id: string) {
     `;
 }
 
+export async function selectUserEmailById(id: string): Promise<string | null> {
+    const [row] = (await sql`
+        SELECT email
+        FROM app.users
+        WHERE id = ${id}
+        LIMIT 1
+    `) as Array<{ email: string | null }>;
+
+    return row?.email ?? null;
+}
+
+export async function storePasswordResetToken(
+    id: string,
+    token: string,
+    expiresAt: Date
+): Promise<boolean> {
+    const expiresAtIso = expiresAt.toISOString();
+
+    const [updated] = await sql`
+        UPDATE app.users
+        SET password_reset_token = ${token},
+            password_reset_expires = ${expiresAtIso}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
+export async function clearPasswordResetToken(id: string): Promise<void> {
+    await sql`
+        UPDATE app.users
+        SET password_reset_token = NULL,
+            password_reset_expires = NULL
+        WHERE id = ${id}
+    `;
+}
+
+export async function clearPasswordResetTokenByToken(token: string): Promise<void> {
+    await sql`
+        UPDATE app.users
+        SET password_reset_token = NULL,
+            password_reset_expires = NULL
+        WHERE password_reset_token = ${token}
+    `;
+}
+
+export async function selectPasswordResetRecord(token: string): Promise<{
+    id: string;
+    email: string;
+    password_reset_expires: Date | string | number | null;
+} | null> {
+    const [row] = (await sql`
+        SELECT id::text AS id,
+               email,
+               password_reset_expires
+        FROM app.users
+        WHERE password_reset_token = ${token}
+        LIMIT 1
+    `) as Array<{
+        id: string;
+        email: string;
+        password_reset_expires: Date | string | number | null;
+    }>;
+
+    return row ?? null;
+}
+
+export async function consumePasswordResetToken(
+    token: string,
+    hashedPassword: string,
+    now: Date
+): Promise<boolean> {
+    const nowIso = now.toISOString();
+
+    const [updated] = await sql`
+        UPDATE app.users
+        SET password_hash = ${hashedPassword},
+            password_reset_token = NULL,
+            password_reset_expires = NULL
+        WHERE password_reset_token = ${token}
+          AND password_reset_expires IS NOT NULL
+          AND password_reset_expires > ${nowIso}
+        RETURNING id
+    `;
+
+    return Boolean(updated);
+}
+
 export async function selectFullUser(id: string): Promise<User | null> {
     await ensureSchema();
 
@@ -2003,6 +2809,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
     SELECT 
       id,
       email,
+    is_email_verified,
       trust_score,
       role,
       display_name,
@@ -2035,6 +2842,7 @@ export async function selectFullUser(id: string): Promise<User | null> {
         id: rawUser.id,
         email: rawUser.email,
         role: rawUser.role,
+        isEmailVerified: Boolean(rawUser.is_email_verified),
         displayName: rawUser.display_name,
         verified: rawUser.is_verified_neighbor,
         radius: rawUser.distance_limit_meters,
@@ -2199,6 +3007,7 @@ export async function searchUsers(
         id,
         email,
         role,
+        is_email_verified,
         created_at,
         trust_score,
         display_name,
@@ -2265,6 +3074,7 @@ export async function searchUsers(
             id: rawUser.id,
             email: rawUser.email,
             role: rawUser.role,
+            isEmailVerified: Boolean(rawUser.is_email_verified),
             trustScore: rawUser.trust_score,
             createdAt: rawUser.created_at,
             displayName: rawUser.display_name,
@@ -2287,8 +3097,62 @@ export async function searchUsers(
 
 export async function selectUserAuth(email: string) {
     return await sql`
-    SELECT id, password_hash, role FROM app.users WHERE email = ${email}
+    SELECT id, password_hash, role, is_email_verified FROM app.users WHERE email = ${email}
     `;
+}
+
+export async function verifyUserEmailByToken(token: string): Promise<boolean> {
+    const [verifiedUser] = await sql`
+        UPDATE app.users
+        SET is_email_verified = true,
+            verification_token = NULL
+        WHERE verification_token = ${token}
+        RETURNING id
+    `;
+
+    return Boolean(verifiedUser);
+}
+
+export async function selectUserVerificationStateById(
+    id: string
+): Promise<{ email: string; is_email_verified: boolean } | null> {
+    const [user] = (await sql`
+        SELECT email,
+               is_email_verified
+        FROM app.users
+        WHERE id = ${id}
+        LIMIT 1
+    `) as Array<{ email: string; is_email_verified: boolean }>;
+
+    return user ?? null;
+}
+
+export async function updateUserVerificationToken(id: string, verificationToken: string): Promise<boolean> {
+    const [updatedUser] = await sql`
+        UPDATE app.users
+        SET verification_token = ${verificationToken}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updatedUser);
+}
+
+export async function updateUserEmailWithVerificationToken(
+    id: string,
+    email: string,
+    verificationToken: string
+): Promise<boolean> {
+    const [updatedUser] = await sql`
+        UPDATE app.users
+        SET email = ${email},
+            is_email_verified = false,
+            verification_token = ${verificationToken}
+        WHERE id = ${id}
+        RETURNING id
+    `;
+
+    return Boolean(updatedUser);
 }
 
 export async function updateUserPassword(id: string, newHashedPass: string) {
@@ -2800,35 +3664,46 @@ export async function confirmPulse(
     return await sql.begin(async (tx) => {
         await ensureSchema();
 
-        // 1. Check if user already confirmed or is author
-        const [pulse] = await tx`
-            SELECT author_id, urgency_level
+        // 1. Check if user is author
+        const [pulse] = (await tx`
+            SELECT author_id::text AS author_id
             FROM app.pulses
-            WHERE id = ${pulseId}
-        `;
+            WHERE id = ${pulseId}::uuid
+            LIMIT 1
+        `) as Array<{ author_id: string }>;
 
         if (!pulse) return { success: false, alreadyConfirmed: false };
         if (pulse.author_id === userId) return { success: false, alreadyConfirmed: false };
 
-        const [existing] = await tx`
-            SELECT 1 FROM app.pulse_confirmations
-            WHERE pulse_id = ${pulseId} AND user_id = ${userId}
-        `;
-
-        if (existing) return { success: false, alreadyConfirmed: true };
-
-        // 2. Record confirmation
-        await tx`
+        // 2. Record confirmation (idempotent on duplicate confirm)
+        const [inserted] = await tx`
             INSERT INTO app.pulse_confirmations (pulse_id, user_id)
-            VALUES (${pulseId}, ${userId})
+            VALUES (${pulseId}::uuid, ${userId}::uuid)
+            ON CONFLICT (pulse_id, user_id) DO NOTHING
+            RETURNING 1 AS inserted
         `;
 
-        // 3. Increment pulse count
-        await tx`
+        if (!inserted) {
+            return { success: false, alreadyConfirmed: true };
+        }
+
+        // 3. Increment confirmation count and auto-verify once threshold is met.
+        const [updatedPulse] = await tx`
             UPDATE app.pulses
-            SET confirmation_count = COALESCE(confirmation_count, 0) + 1
-            WHERE id = ${pulseId}
+            SET
+                confirmation_count = COALESCE(confirmation_count, 0) + 1,
+                is_verified_info = CASE
+                    WHEN COALESCE(confirmation_count, 0) + 1 >= ${PULSE_CONFIRMATION_THRESHOLD}
+                        THEN true
+                    ELSE COALESCE(is_verified_info, false)
+                END
+            WHERE id = ${pulseId}::uuid
+            RETURNING id::text AS id
         `;
+
+        if (!updatedPulse) {
+            return { success: false, alreadyConfirmed: false };
+        }
 
         return { success: true, alreadyConfirmed: false };
     });
@@ -2972,8 +3847,58 @@ export async function selectPulseInteractionsAsAdmin(pulseId: string): Promise<P
     return rows.map((row) => mapPulseInteractionRow(row));
 }
 
-function trustAwardForEmergency(isEmergency: boolean): number {
-    return isEmergency ? 4 : 1;
+async function applyTrustProgressionForInteraction(
+    tx: SqlRunner,
+    helperId: string,
+    interactionId: string
+): Promise<{ successfulCount: number; trustAwarded: number; trustScore: number }> {
+    const [successfulCountRow] = (await tx`
+        SELECT COUNT(*)::int AS successful_count
+        FROM app.pulse_interactions
+        WHERE helper_id = ${helperId}::uuid
+          AND status = 'successful'
+    `) as Array<{ successful_count: number }>;
+
+    const successfulCount = Number(successfulCountRow?.successful_count ?? 0);
+    const trustAwarded =
+        successfulCount > 0 && successfulCount % TRUST_SCORE_SUCCESS_THRESHOLD === 0
+            ? TRUST_SCORE_INCREMENT
+            : 0;
+
+    await tx`
+        UPDATE app.pulse_interactions
+        SET trust_awarded = ${trustAwarded}
+        WHERE id = ${interactionId}::uuid
+          AND helper_id = ${helperId}::uuid
+    `;
+
+    if (trustAwarded > 0) {
+        const [updatedTrust] = (await tx`
+            UPDATE app.users
+            SET trust_score = COALESCE(trust_score, 0) + ${trustAwarded}
+            WHERE id = ${helperId}::uuid
+            RETURNING COALESCE(trust_score, 0)::int AS trust_score
+        `) as Array<{ trust_score: number }>;
+
+        return {
+            successfulCount,
+            trustAwarded,
+            trustScore: Number(updatedTrust?.trust_score ?? 0),
+        };
+    }
+
+    const [existingTrust] = (await tx`
+        SELECT COALESCE(trust_score, 0)::int AS trust_score
+        FROM app.users
+        WHERE id = ${helperId}::uuid
+        LIMIT 1
+    `) as Array<{ trust_score: number }>;
+
+    return {
+        successfulCount,
+        trustAwarded,
+        trustScore: Number(existingTrust?.trust_score ?? 0),
+    };
 }
 
 export async function confirmPulseInteraction(params: {
@@ -2985,6 +3910,9 @@ export async function confirmPulseInteraction(params: {
     solved?: boolean;
     nonRequestType?: boolean;
     interaction?: PulseInteraction;
+    helperSuccessfulCount?: number;
+    helperTrustScore?: number;
+    trustIncremented?: boolean;
 }> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
@@ -3037,14 +3965,11 @@ export async function confirmPulseInteraction(params: {
             return { success: false, nonRequestType: true };
         }
 
-        const trustAward = trustAwardForEmergency(Boolean(interaction.pulse_is_emergency));
-
         const [updated] = (await tx`
             UPDATE app.pulse_interactions
             SET
                 status = 'successful',
-                confirmed_at = now(),
-                trust_awarded = ${trustAward}
+                confirmed_at = now()
             WHERE id = ${params.interactionId}::uuid
               AND pulse_id = ${params.pulseId}::uuid
               AND author_id = ${params.authorId}::uuid
@@ -3063,18 +3988,25 @@ export async function confirmPulseInteraction(params: {
             return { success: false };
         }
 
-        await tx`
-            UPDATE app.users
-            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
-            WHERE id = ${updated.helper_id}::uuid
-        `;
+        const trustProgress = await applyTrustProgressionForInteraction(
+            tx,
+            updated.helper_id,
+            updated.id
+        );
 
         const mappedInteraction = mapPulseInteractionRow({
             ...updated,
+            trust_awarded: trustProgress.trustAwarded,
             helper_name: interaction.helper_name ?? null,
         });
 
-        return { success: true, interaction: mappedInteraction };
+        return {
+            success: true,
+            interaction: mappedInteraction,
+            helperSuccessfulCount: trustProgress.successfulCount,
+            helperTrustScore: trustProgress.trustScore,
+            trustIncremented: trustProgress.trustAwarded > 0,
+        };
     });
 }
 
@@ -3086,6 +4018,9 @@ export async function confirmPulseInteractionAsAdmin(params: {
     solved?: boolean;
     nonRequestType?: boolean;
     interaction?: PulseInteraction;
+    helperSuccessfulCount?: number;
+    helperTrustScore?: number;
+    trustIncremented?: boolean;
 }> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
@@ -3137,14 +4072,11 @@ export async function confirmPulseInteractionAsAdmin(params: {
             return { success: false, nonRequestType: true };
         }
 
-        const trustAward = trustAwardForEmergency(Boolean(interaction.pulse_is_emergency));
-
         const [updated] = (await tx`
             UPDATE app.pulse_interactions
             SET
                 status = 'successful',
-                confirmed_at = now(),
-                trust_awarded = ${trustAward}
+                confirmed_at = now()
             WHERE id = ${params.interactionId}::uuid
               AND pulse_id = ${params.pulseId}::uuid
             RETURNING
@@ -3162,19 +4094,123 @@ export async function confirmPulseInteractionAsAdmin(params: {
             return { success: false };
         }
 
-        await tx`
-            UPDATE app.users
-            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
-            WHERE id = ${updated.helper_id}::uuid
-        `;
+        const trustProgress = await applyTrustProgressionForInteraction(
+            tx,
+            updated.helper_id,
+            updated.id
+        );
 
         const mappedInteraction = mapPulseInteractionRow({
             ...updated,
+            trust_awarded: trustProgress.trustAwarded,
             helper_name: interaction.helper_name ?? null,
         });
 
-        return { success: true, interaction: mappedInteraction };
+        return {
+            success: true,
+            interaction: mappedInteraction,
+            helperSuccessfulCount: trustProgress.successfulCount,
+            helperTrustScore: trustProgress.trustScore,
+            trustIncremented: trustProgress.trustAwarded > 0,
+        };
     });
+}
+
+export async function submitInteractionFeedback(params: {
+    interactionId: string;
+    actorId: string;
+    positive: boolean;
+}): Promise<{
+    success: boolean;
+    notFound?: boolean;
+    forbidden?: boolean;
+    solved?: boolean;
+    nonRequestType?: boolean;
+    positiveRequired?: boolean;
+    interaction?: PulseInteraction;
+    helperSuccessfulCount?: number;
+    helperTrustScore?: number;
+    trustIncremented?: boolean;
+}> {
+    await ensureSchema();
+
+    if (!params.positive) {
+        return { success: false, positiveRequired: true };
+    }
+
+    const [interaction] = (await sql`
+        SELECT
+            id::text AS id,
+            pulse_id::text AS pulse_id,
+            author_id::text AS author_id
+        FROM app.pulse_interactions
+        WHERE id = ${params.interactionId}::uuid
+        LIMIT 1
+    `) as Array<{ id: string; pulse_id: string; author_id: string }>;
+
+    if (!interaction) {
+        return { success: false, notFound: true };
+    }
+
+    if (interaction.author_id === params.actorId) {
+        const result = await confirmPulseInteraction({
+            pulseId: interaction.pulse_id,
+            interactionId: interaction.id,
+            authorId: params.actorId,
+        });
+
+        if (!result.success && result.solved) {
+            return { success: false, solved: true };
+        }
+
+        if (!result.success && result.nonRequestType) {
+            return { success: false, nonRequestType: true };
+        }
+
+        if (!result.success) {
+            return { success: false };
+        }
+
+        return {
+            success: true,
+            interaction: result.interaction,
+            helperSuccessfulCount: result.helperSuccessfulCount,
+            helperTrustScore: result.helperTrustScore,
+            trustIncremented: result.trustIncremented,
+        };
+    }
+
+    const actorRole = (await selectUserRole(params.actorId))?.toLowerCase() ?? '';
+    const isAdminActor = actorRole === 'admin' || actorRole === 'mod';
+
+    if (!isAdminActor) {
+        return { success: false, forbidden: true };
+    }
+
+    const result = await confirmPulseInteractionAsAdmin({
+        pulseId: interaction.pulse_id,
+        interactionId: interaction.id,
+    });
+
+    if (!result.success && result.solved) {
+        return { success: false, solved: true };
+    }
+
+    if (!result.success && result.nonRequestType) {
+        return { success: false, nonRequestType: true };
+    }
+
+    if (!result.success) {
+        return { success: false };
+    }
+
+    return {
+        success: true,
+        interaction: result.interaction,
+        helperSuccessfulCount: result.helperSuccessfulCount,
+        helperTrustScore: result.helperTrustScore,
+        trustIncremented: result.trustIncremented,
+    };
 }
 
 export async function markPulseSolved(
@@ -3343,6 +4379,183 @@ export async function updateReportStatus(id: string, status: string): Promise<bo
     `;
 
     return Boolean(updated);
+}
+
+export async function insertMessageReport(params: {
+    reporterId: string;
+    offenderId: string;
+    messageId: string;
+    reason: string;
+}): Promise<AdminMessageReport> {
+    await ensureSchema();
+
+    const [row] = (await sql`
+        INSERT INTO app.message_reports (reporter_id, offender_id, message_id, reason)
+        VALUES (${params.reporterId}::uuid, ${params.offenderId}::uuid, ${params.messageId}::uuid, ${params.reason})
+        RETURNING id::text AS id,
+                  message_id::text AS message_id,
+                  reason,
+                  status::text AS status,
+                  ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS created_at,
+                  reporter_id::text AS reporter_id,
+                  offender_id::text AS offender_id
+    `) as Array<{
+        id: string;
+        message_id: string;
+        reason: string;
+        status: string;
+        created_at: number | string | Date;
+        reporter_id: string;
+        offender_id: string;
+    }>;
+
+    const [details] = (await sql`
+        SELECT
+            m.content AS message_content,
+            COALESCE(NULLIF(reporter.display_name, ''), reporter.email, ${params.reporterId}) AS reporter_name,
+            COALESCE(NULLIF(offender.display_name, ''), offender.email, ${params.offenderId}) AS offender_name
+        FROM app.messages AS m
+        LEFT JOIN app.users AS reporter ON reporter.id = ${params.reporterId}::uuid
+        LEFT JOIN app.users AS offender ON offender.id = ${params.offenderId}::uuid
+        WHERE m.id = ${params.messageId}::uuid
+        LIMIT 1
+    `) as Array<{
+        message_content: string;
+        reporter_name: string;
+        offender_name: string;
+    }>;
+
+    return mapAdminMessageReportRow({
+        id: row!.id,
+        message_id: row!.message_id,
+        message_content: details?.message_content ?? '',
+        reason: row!.reason,
+        status: row!.status,
+        created_at: row!.created_at,
+        reporter_id: row!.reporter_id,
+        reporter_name: details?.reporter_name ?? `Neighbor ${params.reporterId.slice(0, 6)}`,
+        offender_id: row!.offender_id,
+        offender_name: details?.offender_name ?? `Neighbor ${params.offenderId.slice(0, 6)}`,
+    });
+}
+
+export async function selectAdminMessageReports(params?: {
+    limit?: number;
+    offset?: number;
+    status?: MessageReportStatus;
+}): Promise<AdminMessageReport[]> {
+    await ensureSchema();
+
+    const safeLimit = Number.isFinite(params?.limit)
+        ? Math.max(1, Math.min(Math.floor(params?.limit ?? 50), 100))
+        : 50;
+    const safeOffset = Number.isFinite(params?.offset)
+        ? Math.max(0, Math.floor(params?.offset ?? 0))
+        : 0;
+    const status = params?.status ?? 'pending';
+
+    const rows = (await sql`
+        SELECT
+            mr.id::text AS id,
+            mr.message_id::text AS message_id,
+            m.content AS message_content,
+            mr.reason,
+            mr.status::text AS status,
+            ROUND(EXTRACT(EPOCH FROM mr.created_at) * 1000)::bigint AS created_at,
+            mr.reporter_id::text AS reporter_id,
+            COALESCE(NULLIF(reporter.display_name, ''), reporter.email, mr.reporter_id::text) AS reporter_name,
+            mr.offender_id::text AS offender_id,
+            COALESCE(NULLIF(offender.display_name, ''), offender.email, mr.offender_id::text) AS offender_name
+        FROM app.message_reports AS mr
+        JOIN app.messages AS m ON m.id = mr.message_id
+        LEFT JOIN app.users AS reporter ON reporter.id = mr.reporter_id
+        LEFT JOIN app.users AS offender ON offender.id = mr.offender_id
+        WHERE mr.status = ${status}::app.message_report_status
+        ORDER BY mr.created_at DESC, mr.id DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as AdminMessageReportRow[];
+
+    return rows.map(mapAdminMessageReportRow);
+}
+
+export async function applyAdminMessageReportAction(params: {
+    reportId: string;
+    action: MessageReportAction;
+}): Promise<{
+    success: boolean;
+    notFound?: boolean;
+    invalidState?: boolean;
+}> {
+    await ensureSchema();
+
+    return await sql.begin(async (tx) => {
+        const [report] = (await tx`
+            SELECT id::text AS id,
+                   status::text AS status,
+                   offender_id::text AS offender_id,
+                   message_id::text AS message_id
+            FROM app.message_reports
+            WHERE id = ${params.reportId}::uuid
+            FOR UPDATE
+        `) as Array<{
+            id: string;
+            status: string;
+            offender_id: string;
+            message_id: string;
+        }>;
+
+        if (!report) {
+            return { success: false, notFound: true };
+        }
+
+        if (report.status !== 'pending') {
+            return { success: false, invalidState: true };
+        }
+
+        if (params.action === 'ban_user') {
+            await tx`
+                UPDATE app.users
+                SET role = 'banned'
+                WHERE id = ${report.offender_id}::uuid
+            `;
+
+            await tx`
+                UPDATE app.message_reports
+                SET status = 'action_taken'
+                WHERE id = ${report.id}::uuid
+            `;
+
+            return { success: true };
+        }
+
+        if (params.action === 'delete_message') {
+            await tx`
+                INSERT INTO app.hidden_messages (message_id, user_id)
+                SELECT m.id, cp.user_id
+                FROM app.messages AS m
+                JOIN app.chat_participants AS cp ON cp.thread_id = m.thread_id
+                WHERE m.id = ${report.message_id}::uuid
+                ON CONFLICT (message_id, user_id) DO NOTHING
+            `;
+
+            await tx`
+                UPDATE app.message_reports
+                SET status = 'action_taken'
+                WHERE id = ${report.id}::uuid
+            `;
+
+            return { success: true };
+        }
+
+        await tx`
+            UPDATE app.message_reports
+            SET status = 'reviewed'
+            WHERE id = ${report.id}::uuid
+        `;
+
+        return { success: true };
+    });
 }
 
 export async function deleteReport(id: string): Promise<boolean> {

@@ -7,17 +7,27 @@ export type ChatSocketMessage = {
     threadId: string;
     senderId: string;
     content: string;
+    isEdited?: boolean;
     messageType?: 'text' | 'notice';
+    replyToId?: string | null;
+    replyTo?: {
+        id: string;
+        senderId: string;
+        senderName: string;
+        snippet: string;
+        isUnavailable: boolean;
+    } | null;
     timestamp: number;
 };
 
 export type ChatSocketEvent =
     | { event: 'message.created'; message: ChatSocketMessage }
+    | { event: 'message.updated'; message: ChatSocketMessage }
     | { event: 'message.deleted'; messageId: string; scope: 'everyone' }
     | { event: 'chat.subscribed'; threadId: string }
     | { event: 'chat.unsubscribed'; threadId: string }
     | { event: 'chat.error'; threadId: string; reason: string }
-    | { event: 'chat.updated'; threadId: string }
+    | { event: 'chat.updated'; threadId: string; name?: string }
     | { event: 'chat.members.updated'; threadId: string }
     | {
           event: 'notification.message';
@@ -49,6 +59,7 @@ export interface CreateGroupChatInput {
 
 type BackendChatSummary = {
     id: string;
+    name?: string | null;
     participants: Array<{
         userId: string;
         displayName: string | null;
@@ -64,7 +75,16 @@ type BackendChatMessage = {
     threadId: string;
     senderId: string;
     content: string;
+    isEdited?: boolean;
     messageType?: string;
+    replyToId?: string | null;
+    replyTo?: {
+        id: string;
+        senderId: string;
+        senderName: string;
+        snippet: string;
+        isUnavailable: boolean;
+    } | null;
     timestamp: number | string;
 };
 
@@ -108,12 +128,25 @@ function updateStatus(newStatus: typeof connectionStatus) {
 }
 
 function normalizeMessage(message: BackendChatMessage, senderName: string): ChatMessage {
+    const replyTo = message.replyTo
+        ? {
+              id: message.replyTo.id,
+              senderId: message.replyTo.senderId,
+              senderName: message.replyTo.senderName,
+              snippet: message.replyTo.snippet,
+              isUnavailable: Boolean(message.replyTo.isUnavailable),
+          }
+        : null;
+
     return {
         id: message.id,
         senderId: message.senderId,
         senderName,
         content: message.content,
+        isEdited: Boolean(message.isEdited),
         type: (message.messageType as 'text' | 'notice') ?? 'text',
+        replyToId: message.replyToId ?? null,
+        replyTo,
         timestamp: Number(message.timestamp),
     };
 }
@@ -170,7 +203,12 @@ function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): Ch
         participantRoles,
         ownerId: summary.ownerId ?? null,
         isGroup: summary.isGroup,
-        name: summary.isGroup ? participantNames.join(', ') : undefined,
+        name:
+            summary.isGroup && typeof summary.name === 'string' && summary.name.trim().length > 0
+                ? summary.name.trim()
+                : summary.isGroup
+                  ? participantNames.join(', ')
+                  : undefined,
         lastMessage,
         messages,
     };
@@ -253,6 +291,7 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
         const parsed = JSON.parse(rawMessage) as {
             event?: string;
             threadId?: string;
+            name?: string;
             reason?: string;
             message?: ChatSocketMessage;
             senderName?: string;
@@ -269,6 +308,23 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
         ) {
             return {
                 event: 'message.created',
+                message: {
+                    ...parsed.message,
+                    timestamp: Number(parsed.message.timestamp),
+                },
+            };
+        }
+
+        if (
+            parsed.event === 'message.updated' &&
+            parsed.message &&
+            typeof parsed.message.id === 'string' &&
+            typeof parsed.message.threadId === 'string' &&
+            typeof parsed.message.senderId === 'string' &&
+            typeof parsed.message.content === 'string'
+        ) {
+            return {
+                event: 'message.updated',
                 message: {
                     ...parsed.message,
                     timestamp: Number(parsed.message.timestamp),
@@ -305,6 +361,7 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
             return {
                 event: 'chat.updated',
                 threadId: parsed.threadId,
+                name: typeof parsed.name === 'string' ? parsed.name : undefined,
             };
         }
 
@@ -395,8 +452,7 @@ export async function fetchChats(): Promise<ChatThread[]> {
 
     const threads = threadResults
         .filter(
-            (result): result is PromiseFulfilledResult<ChatThread> =>
-                result.status === 'fulfilled'
+            (result): result is PromiseFulfilledResult<ChatThread> => result.status === 'fulfilled'
         )
         .map((result) => result.value);
 
@@ -421,15 +477,19 @@ export async function fetchChatThread(threadId: string): Promise<ChatThread> {
     return normalizeChat(summary, normalizeThreadMessages(summary, messages));
 }
 
-export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
+export async function sendMessage(
+    threadId: string,
+    content: string,
+    replyToId?: string
+): Promise<ChatMessage> {
     const response = await request<BackendChatMessage | BackendSendMessageResponse>(
         `/chats/${threadId}/messages`,
         {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content, replyToId }),
         }
     );
 
@@ -440,14 +500,13 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
             : readStoredAuthSession()?.user.displayName ||
               `Neighbor ${message.senderId.slice(0, 6)}`;
 
-    const senderId = readStoredAuthSession()?.user.id ?? message.senderId;
+    const normalized = normalizeMessage(message, senderName);
+    const sessionUserId = readStoredAuthSession()?.user.id;
+
     return {
-        id: message.id,
-        senderId,
+        ...normalized,
+        senderId: sessionUserId ?? normalized.senderId,
         senderName,
-        content: message.content,
-        type: 'text',
-        timestamp: Number(message.timestamp),
     };
 }
 
@@ -560,6 +619,16 @@ export async function deleteGroupChat(threadId: string) {
     });
 }
 
+export async function updateChatName(threadId: string, name: string) {
+    return await request<{ threadId: string; name: string }>(`/chats/${threadId}/name`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+    });
+}
+
 export async function deleteChatMessage(
     threadId: string,
     messageId: string,
@@ -572,6 +641,43 @@ export async function deleteChatMessage(
         },
         body: JSON.stringify({ messageId, scope }),
     });
+}
+
+export async function editChatMessage(messageId: string, content: string): Promise<ChatMessage> {
+    const payload = await request<{ message: BackendChatMessage }>(`/messages/${messageId}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+    });
+
+    const sessionUser = readStoredAuthSession()?.user;
+
+    return {
+        id: payload.message.id,
+        senderId: payload.message.senderId,
+        senderName:
+            sessionUser && sessionUser.id === payload.message.senderId
+                ? sessionUser.displayName ||
+                  sessionUser.email ||
+                  `Neighbor ${sessionUser.id.slice(0, 6)}`
+                : `Neighbor ${payload.message.senderId.slice(0, 6)}`,
+        content: payload.message.content,
+        isEdited: Boolean(payload.message.isEdited),
+        type: (payload.message.messageType as 'text' | 'notice') ?? 'text',
+        replyToId: payload.message.replyToId ?? null,
+        replyTo: payload.message.replyTo
+            ? {
+                  id: payload.message.replyTo.id,
+                  senderId: payload.message.replyTo.senderId,
+                  senderName: payload.message.replyTo.senderName,
+                  snippet: payload.message.replyTo.snippet,
+                  isUnavailable: Boolean(payload.message.replyTo.isUnavailable),
+              }
+            : null,
+        timestamp: Number(payload.message.timestamp),
+    };
 }
 
 export async function fetchBlockedUserIds(): Promise<string[]> {

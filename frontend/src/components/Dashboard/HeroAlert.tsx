@@ -4,6 +4,8 @@ import { acceptPulseRequest, connectWebSocket, disconnectWebSocket } from '../..
 import type { Pulse } from '../../lib/types';
 import { HoverButton } from '../ui/HoverButton';
 
+const HERO_NOTIFICATION_PROMPT_DISMISSED_KEY = 'hero-notification-prompt-dismissed';
+
 export function HeroAlert() {
     const [activeAlert, setActiveAlert] = useState<Pulse | null>(null);
     const [matchedResources, setMatchedResources] = useState<string[]>([]);
@@ -11,6 +13,13 @@ export function HeroAlert() {
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
+    const [notificationPromptDismissed, setNotificationPromptDismissed] = useState(() => {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        return localStorage.getItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY) === 'true';
+    });
     const [isForeground, setIsForeground] = useState(() => {
         if (typeof document === 'undefined') {
             return true;
@@ -41,12 +50,18 @@ export function HeroAlert() {
     }, []);
 
     useEffect(() => {
-        const handleEvent = (event: any) => {
-            if (event.event === 'hero.alert') {
+        const handleEvent = (event: {
+            event: string;
+            pulse?: Pulse;
+            matchedResources?: string[];
+            pulseId?: string;
+        }) => {
+            if (event.event === 'hero.alert' && event.pulse) {
                 if (!isForeground) {
                     return;
                 }
 
+                const alertPulseId = event.pulse.id;
                 setActiveAlert(event.pulse);
                 setMatchedResources(
                     Array.isArray(event.matchedResources) ? event.matchedResources : []
@@ -54,7 +69,7 @@ export function HeroAlert() {
 
                 // Auto-hide after 15 seconds
                 setTimeout(() => {
-                    setActiveAlert((curr) => (curr?.id === event.pulse.id ? null : curr));
+                    setActiveAlert((curr) => (curr?.id === alertPulseId ? null : curr));
                     setMatchedResources((curr) => (curr.length > 0 ? [] : curr));
                 }, 15000);
             }
@@ -68,6 +83,17 @@ export function HeroAlert() {
         if (typeof Notification === 'undefined') return;
         const result = await Notification.requestPermission();
         setPermissionStatus(result);
+        if (result !== 'default') {
+            setNotificationPromptDismissed(false);
+            localStorage.removeItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY);
+        }
+    };
+
+    const dismissNotificationPrompt = () => {
+        setNotificationPromptDismissed(true);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY, 'true');
+        }
     };
 
     const handleAcceptRequest = async () => {
@@ -93,28 +119,45 @@ export function HeroAlert() {
     };
 
     if (!activeAlert) {
-        if (permissionStatus === 'default' && typeof Notification !== 'undefined') {
+        if (
+            permissionStatus === 'default' &&
+            typeof Notification !== 'undefined' &&
+            !notificationPromptDismissed
+        ) {
             return (
-                <div style="position:fixed;bottom:24px;right:24px;z-index:90;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);border-left:4px solid var(--accent);animate-fade-in">
-                    <div style="flex:1">
-                        <p style="margin:0;font-size:12px;font-weight:600;color:var(--text);">
+                <div class="fixed bottom-6 right-6 z-[90] stack-h items-start gap-md p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg border-l-4 border-l-[var(--accent)] animate-fade-in max-w-[min(360px,calc(100vw-24px))]">
+                    <div class="flex-1 min-w-0">
+                        <p class="m-0 text-[12px] font-bold text-[var(--text)]">
                             Enable Hero Notifications?
                         </p>
-                        <p style="margin:2px 0 0;font-size:11px;color:var(--text-secondary);">
+                        <p class="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                             Get alerted instantly when your skills are needed.
                         </p>
+                        <div class="stack-h gap-sm mt-3">
+                            <HoverButton
+                                type="button"
+                                onClick={requestNotificationPermission}
+                                class="btn-primary h-8 px-3 text-[11px]"
+                            >
+                                Enable
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                onClick={dismissNotificationPrompt}
+                                class="btn-ghost h-8 px-3 text-[11px]"
+                            >
+                                Not now
+                            </HoverButton>
+                        </div>
                     </div>
                     <HoverButton
                         type="button"
-                        onClick={requestNotificationPermission}
-                        class="btn-primary"
-                        style="height:32px;padding:0 12px;font-size:11px;background:var(--accent);"
-                        onMouseEnter={(e) =>
-                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                        }
-                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                        onClick={dismissNotificationPrompt}
+                        class="btn-icon w-6 h-6 text-[var(--text-secondary)] shrink-0"
+                        aria-label="Dismiss notification prompt"
+                        title="Dismiss"
                     >
-                        Enable
+                        <X size={14} />
                     </HoverButton>
                 </div>
             );
@@ -123,83 +166,65 @@ export function HeroAlert() {
     }
 
     return (
-        <div
-            class="animate-slide-up"
-            style={`
-				position:fixed;top:24px;left:50%;transform:translateX(-50%);
-				width:100%;max-width:440px;z-index:100;
-				background:var(--surface);border:1px solid var(--type-emergency-border);
-				border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,0.3);
-				overflow:hidden;backdrop-filter:blur(20px);
-			`}
-        >
-            <div style="padding:16px;background:linear-gradient(135deg, var(--type-emergency-bg), rgba(255,255,255,0.05));">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="background:var(--danger);color:white;padding:5px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+        <div class="animate-slide-up fixed top-6 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-[100] bg-[var(--surface)] border border-[var(--type-emergency-border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl">
+            <div class="p-4 bg-gradient-to-br from-[var(--type-emergency-bg)] to-white/5">
+                <div class="flex-between mb-3">
+                    <div class="stack-h gap-sm">
+                        <div class="bg-[var(--danger)] text-white p-1.5 rounded-lg flex-center">
                             <ShieldAlert size={18} />
                         </div>
-                        <span style="font-weight:800;font-size:14px;color:var(--type-emergency-text);letter-spacing:0.02em;text-transform:uppercase;">
+                        <span class="font-extrabold text-[14px] text-[var(--type-emergency-text)] tracking-wider uppercase">
                             Hero Alert
                         </span>
                     </div>
                     <HoverButton
                         type="button"
                         onClick={() => setActiveAlert(null)}
-                        style="background:rgba(0,0,0,0.1);border:none;color:var(--text);padding:4px;border-radius:50%;cursor:pointer;display:flex;"
-                        onMouseEnter={(e) =>
-                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                        }
-                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                        class="bg-black/10 text-[var(--text)] p-1 rounded-full flex hover:brightness-110 transition-all"
                     >
                         <X size={16} />
                     </HoverButton>
                 </div>
 
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:12px;margin-bottom:12px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3 mb-3">
+                    <div class="stack-h gap-md mb-2">
                         <img
                             src={activeAlert.userAvatar}
-                            style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent-muted);"
+                            class="w-7 h-7 rounded-full border-2 border-[var(--accent-muted)]"
                             alt={`${activeAlert.userName}'s avatar`}
                         />
-                        <span style="font-size:13px;font-weight:700;color:var(--text);">
+                        <span class="text-[13px] font-bold text-[var(--text)]">
                             {activeAlert.userName}
                         </span>
-                        <span style="font-size:11px;color:var(--text-secondary);margin-left:auto;">
+                        <span class="text-[11px] text-[var(--text-secondary)] ml-auto">
                             Just now
                         </span>
                     </div>
-                    <p style="margin:0;font-size:14px;color:var(--text);line-height:1.5;font-weight:500;">
+                    <p class="m-0 text-[14px] text-[var(--text)] leading-relaxed font-medium">
                         {activeAlert.content}
                     </p>
                 </div>
 
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                <div class="stack-h gap-sm flex-wrap mb-4">
                     {(matchedResources.length > 0
                         ? matchedResources
                         : (activeAlert.requiredSkills ?? [])
                     ).map((skill) => (
                         <span
                             key={skill}
-                            style="background:var(--accent);color:white;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;"
+                            class="bg-[var(--accent)] text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-sm"
                         >
                             {skill}
                         </span>
                     ))}
                 </div>
 
-                <div style="display:flex;gap:12px;">
+                <div class="stack-h gap-md">
                     <HoverButton
                         type="button"
                         onClick={handleAcceptRequest}
                         disabled={accepting}
-                        class="btn-primary"
-                        style="flex:1;height:42px;background:var(--accent);border-radius:10px;font-weight:700;box-shadow:0 4px 15px var(--accent-muted);"
-                        onMouseEnter={(e) =>
-                            ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                        }
-                        onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                        class="btn-primary flex-1 h-[42px] rounded-xl font-bold shadow-lg shadow-[var(--accent-muted)]/20"
                     >
                         <CheckCircle size={14} />
                         {accepting ? 'Accepting...' : 'Accept Request'}
@@ -207,9 +232,9 @@ export function HeroAlert() {
                 </div>
             </div>
 
-            <div style="background:rgba(0,0,0,0.2);padding:8px 16px;display:flex;align-items:center;gap:6px;">
-                <Bell size={10} style="color:var(--text-tertiary);" />
-                <span style="font-size:10px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            <div class="bg-black/20 px-4 py-2 stack-h gap-xs">
+                <Bell size={10} class="text-[var(--text-tertiary)]" />
+                <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest font-bold opacity-80">
                     Targeted alert based on your location and skills
                 </span>
             </div>

@@ -68,19 +68,7 @@ function normDays(days: Array<number | string> | undefined): number[] {
     ).sort((a, b) => a - b);
 }
 
-const S = {
-    label: 'display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;letter-spacing:0.01em;text-transform:uppercase;',
-    val: 'font-size:13px;color:var(--text);',
-    section:
-        'border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden;',
-    sectionHead:
-        'padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;',
-    sectionBody: 'padding:16px;display:flex;flex-direction:column;gap:14px;',
-    row: 'display:flex;align-items:center;justify-content:space-between;gap:12px;',
-    input: 'width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;',
-    textarea:
-        'width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;resize:none;height:80px;transition:border-color 0.15s,box-shadow 0.15s;',
-};
+// Centralized UI classes are defined in index.css
 
 const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const PROFILE_MAPBOX_STYLE_DARK = 'mapbox/dark-v11';
@@ -92,10 +80,10 @@ const MAP_FRAME_STYLE =
 function resolveLocationValue(
     value:
         | {
-            location?: { lat?: number | null; lng?: number | null } | null;
-            lat?: number | null;
-            lng?: number | null;
-        }
+              location?: { lat?: number | null; lng?: number | null } | null;
+              lat?: number | null;
+              lng?: number | null;
+          }
         | null
         | undefined
 ): { lat: number; lng: number } | null {
@@ -114,16 +102,7 @@ function locationText(location: { lat: number; lng: number } | null) {
     return location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Not set';
 }
 
-const focusOn = (e: Event) => {
-    const el = e.target as HTMLElement;
-    el.style.borderColor = 'var(--border-focus)';
-    el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
-};
-const focusOff = (e: Event) => {
-    const el = e.target as HTMLElement;
-    el.style.borderColor = 'var(--border)';
-    el.style.boxShadow = 'none';
-};
+// Focus handling is now managed by .input-field:focus in index.css
 
 export function Profile() {
     const { theme } = useTheme();
@@ -180,7 +159,9 @@ export function Profile() {
         const loadUser = async () => {
             const loadedUser = isOwnProfile
                 ? await fetchCurrentUser()
-                : await fetchUserById(selectedUserId!);
+                : selectedUserId
+                  ? await fetchUserById(selectedUserId)
+                  : null;
 
             if (!loadedUser) {
                 setUser(null);
@@ -331,8 +312,8 @@ export function Profile() {
     const mapSubtitle = editableLocationMap
         ? 'Click the map or drag the pin to update your profile.'
         : selectedLocation
-            ? 'Profile location preview'
-            : 'No location shared yet';
+          ? 'Profile location preview'
+          : 'No location shared yet';
 
     const handleSave = async () => {
         if (!draft) return;
@@ -411,24 +392,24 @@ export function Profile() {
                 nextRole === 'banned'
                     ? 'Ban user'
                     : nextRole === 'admin'
+                      ? 'Promote user'
+                      : nextRole === 'mod'
                         ? 'Promote user'
-                        : nextRole === 'mod'
-                            ? 'Promote user'
-                            : 'Demote user',
+                        : 'Demote user',
             message:
                 nextRole === 'banned'
                     ? `Ban ${user?.name ?? 'this user'}?`
                     : nextRole === 'admin'
-                        ? `Promote ${user?.name ?? 'this user'} to admin?`
-                        : nextRole === 'mod'
-                            ? `Promote ${user?.name ?? 'this user'} to mod?`
-                            : `Demote ${user?.name ?? 'this user'}?`,
+                      ? `Promote ${user?.name ?? 'this user'} to admin?`
+                      : nextRole === 'mod'
+                        ? `Promote ${user?.name ?? 'this user'} to mod?`
+                        : `Demote ${user?.name ?? 'this user'}?`,
             confirmLabel:
                 nextRole === 'admin' || nextRole === 'mod'
                     ? 'Promote'
                     : nextRole === 'banned'
-                        ? 'Ban'
-                        : 'Demote',
+                      ? 'Ban'
+                      : 'Demote',
             destructive: nextRole === 'banned' || nextRole === 'user',
             onConfirm: async () => {
                 await handleAdminRole(nextRole);
@@ -457,9 +438,7 @@ export function Profile() {
             }, 2400);
         } catch (error) {
             console.error(error);
-            window.alert(
-                error instanceof Error ? error.message : 'Could not update user role.'
-            );
+            window.alert(error instanceof Error ? error.message : 'Could not update user role.');
         } finally {
             setActionBusy(false);
         }
@@ -497,11 +476,11 @@ export function Profile() {
     if (!user) {
         return (
             <AppLayout title="Profile">
-                <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                <div class="section-body gap-md">
                     {[80, 120, 100].map((h, i) => (
                         <div
                             key={i}
-                            style={`height:${h}px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;animation-delay:${i * 100}ms;`}
+                            style={`height:${h}px;border-radius:12px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;animation-delay:${i * 100}ms;`}
                         />
                     ))}
                 </div>
@@ -530,21 +509,15 @@ export function Profile() {
                 ) : undefined
             }
         >
-            <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div class="section-body gap-md">
                 {/* Identity card */}
-                <div style={S.section} class="animate-slide-up">
-                    <div style={S.sectionHead}>
-                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
-                            IDENTITY
-                        </p>
+                <div class="section animate-slide-up">
+                    <div class="section-header">
+                        <p class="label-caps !m-0">IDENTITY</p>
                     </div>
-                    <div style={`${S.sectionBody}flex-direction:row;align-items:flex-start;`}>
-                        <img
-                            src={user.avatar}
-                            alt=""
-                            style="width:48px;height:48px;border-radius:8px;border:1px solid var(--border);object-fit:cover;flex-shrink:0;background:var(--bg-muted);"
-                        />
-                        <div style="flex:1;min-width:0;">
+                    <div class="section-body !p-5 stack-h gap-lg" style="align-items:flex-start;">
+                        <img src={user.avatar} alt="" class="avatar avatar-lg shadow-sm" />
+                        <div class="stack-v gap-xs flex-1 min-w-0">
                             {editing ? (
                                 <input
                                     value={draft.name ?? ''}
@@ -554,10 +527,8 @@ export function Profile() {
                                             name: (e.target as HTMLInputElement).value,
                                         }))
                                     }
-                                    style={S.input}
+                                    class="input-field"
                                     placeholder="Display name"
-                                    onFocus={focusOn}
-                                    onBlur={focusOff}
                                 />
                             ) : (
                                 <>
@@ -571,7 +542,7 @@ export function Profile() {
                                     )}
                                 </>
                             )}
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                            <div class="stack-h gap-sm mt-1.5 flex-wrap">
                                 <TrustBadge score={user.trustScore} verified={user.verified} />
                                 {user.role && <RoleBadge role={user.role} />}
                             </div>
@@ -579,8 +550,8 @@ export function Profile() {
                     </div>
 
                     {/* Bio row */}
-                    <div style="padding:0 16px 16px;">
-                        <p style={S.label}>Bio</p>
+                    <div class="section-body !px-5 !pb-5 !pt-0">
+                        <p class="label-caps !mb-2">Bio</p>
                         {editing ? (
                             <textarea
                                 value={draft.bio ?? ''}
@@ -590,10 +561,9 @@ export function Profile() {
                                         bio: (e.target as HTMLTextAreaElement).value,
                                     }))
                                 }
-                                style={S.textarea}
+                                class="input-field"
+                                style="height:100px;resize:none;"
                                 placeholder="Tell your neighbors a bit about yourself…"
-                                onFocus={focusOn}
-                                onBlur={focusOff}
                             />
                         ) : (
                             <p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.55;">
@@ -608,9 +578,9 @@ export function Profile() {
                 </div>
 
                 {!isOwnProfile && (
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        <p style={S.label}>Personal Actions</p>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                    <div class="stack-v gap-sm">
+                        <p class="label-caps">Personal Actions</p>
+                        <div class="stack-h gap-sm" style="flex-wrap:wrap;">
                             <HoverButton
                                 type="button"
                                 class="btn-primary"
@@ -647,23 +617,24 @@ export function Profile() {
 
                 {isAdmin && !isOwnProfile && (
                     <div
-                        style="margin-top:10px;display:flex;flex-direction:column;gap:8px;background:var(--danger-subtle);padding:14px;border-radius:12px;border:1px solid var(--danger-muted);position:relative;"
-                        class="animate-slide-up"
+                        class="animate-slide-up stack-v gap-sm"
+                        style="background:var(--danger-subtle);padding:14px;border-radius:12px;border:1px solid var(--danger-muted);position:relative;"
                     >
-                        <p style={`${S.label}color:var(--danger);opacity:0.8;`}>
+                        <p class="label-caps" style="color:var(--danger);opacity:0.8;">
                             Admin Control Panel
                         </p>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                        <div class="stack-h gap-sm" style="flex-wrap:wrap;">
                             <HoverButton
                                 id="manage-role-btn"
                                 type="button"
                                 class="btn-ghost"
                                 onClick={() => setShowRoleOptions(!showRoleOptions)}
                                 disabled={actionBusy}
-                                style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${showRoleOptions
-                                    ? 'background:var(--accent);color:#fff;'
-                                    : 'color:var(--accent);'
-                                    }`}
+                                style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${
+                                    showRoleOptions
+                                        ? 'background:var(--accent);color:#fff;'
+                                        : 'color:var(--accent);'
+                                }`}
                             >
                                 <ShieldCheck size={14} />
                                 {showRoleOptions ? 'Close Menu' : 'Manage User Role'}
@@ -741,13 +712,13 @@ export function Profile() {
                 )}
 
                 {/* Preferences */}
-                <div style={S.section} class="animate-slide-up" style-animation-delay="100ms">
-                    <div style={S.sectionHead}>
-                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
+                <div class="section animate-slide-up" style="animation-delay:100ms">
+                    <div class="section-header">
+                        <p class="label-caps" style="margin:0;">
                             PREFERENCES
                         </p>
                     </div>
-                    <div style={S.sectionBody}>
+                    <div class="section-body gap-md">
                         {/* Home location */}
                         {isOwnProfile && (
                             <div>
@@ -823,8 +794,9 @@ export function Profile() {
                                         </div>
                                         <div
                                             ref={mapContainerRef}
-                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${displayLocationMap ? 'block' : 'none'
-                                                };`}
+                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${
+                                                displayLocationMap ? 'block' : 'none'
+                                            };`}
                                         />
                                         {displayLocationMap && !mapLoaded && !mapError && (
                                             <div style="position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
@@ -834,10 +806,11 @@ export function Profile() {
                                         )}
                                         {displayLocationMap && mapError && (
                                             <div
-                                                style={`position:absolute;${mapLoaded
-                                                    ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
-                                                    : 'inset:0;justify-content:center;'
-                                                    } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
+                                                style={`position:absolute;${
+                                                    mapLoaded
+                                                        ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
+                                                        : 'inset:0;justify-content:center;'
+                                                } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
                                                 class="animate-slide-up"
                                             >
                                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -860,15 +833,15 @@ export function Profile() {
                                                         onClick={() => setMapError(null)}
                                                         style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
                                                         onMouseEnter={(e) =>
-                                                        ((
-                                                            e.target as HTMLElement
-                                                        ).style.background =
-                                                            'var(--danger-muted)')
+                                                            ((
+                                                                e.target as HTMLElement
+                                                            ).style.background =
+                                                                'var(--danger-muted)')
                                                         }
                                                         onMouseLeave={(e) =>
-                                                        ((
-                                                            e.target as HTMLElement
-                                                        ).style.background = 'transparent')
+                                                            ((
+                                                                e.target as HTMLElement
+                                                            ).style.background = 'transparent')
                                                         }
                                                         aria-label="Clear error"
                                                     >
@@ -914,8 +887,8 @@ export function Profile() {
 
                         {/* Distance limit */}
                         {isOwnProfile && (
-                            <div style={S.row}>
-                                <div style="display:flex;align-items:center;gap:7px;">
+                            <div class="flex-between">
+                                <div class="stack-h gap-sm">
                                     <MapPin
                                         size={13}
                                         style="color:var(--text-tertiary);flex-shrink:0;"
@@ -936,9 +909,8 @@ export function Profile() {
                                                 ),
                                             }))
                                         }
-                                        style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;text-align:right;"
-                                        onFocus={focusOn}
-                                        onBlur={focusOff}
+                                        class="input-field"
+                                        style="width:80px;height:32px;padding:4px 8px;font-size:12px;text-align:right;"
                                     />
                                 ) : (
                                     <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
@@ -949,15 +921,15 @@ export function Profile() {
                         )}
 
                         {/* Quiet hours */}
-                        <div style={S.row}>
-                            <div style="display:flex;align-items:center;gap:7px;">
+                        <div class="flex-between">
+                            <div class="stack-h gap-sm">
                                 <Moon size={13} style="color:var(--text-tertiary);flex-shrink:0;" />
                                 <span style="font-size:13px;color:var(--text-secondary);">
                                     Quiet hours
                                 </span>
                             </div>
                             {editing ? (
-                                <div style="display:flex;align-items:center;gap:6px;">
+                                <div class="stack-h gap-sm">
                                     <input
                                         type="time"
                                         value={draft.quietHoursStart}
@@ -968,9 +940,8 @@ export function Profile() {
                                                     .value,
                                             }))
                                         }
-                                        style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;"
-                                        onFocus={focusOn}
-                                        onBlur={focusOff}
+                                        class="input-field"
+                                        style="padding:4px 8px;height:32px;width:auto;font-size:12px;"
                                     />
                                     <span style="color:var(--text-tertiary);font-size:12px;">
                                         –
@@ -984,9 +955,8 @@ export function Profile() {
                                                 quietHoursEnd: (e.target as HTMLInputElement).value,
                                             }))
                                         }
-                                        style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:12px;font-family:inherit;outline:none;"
-                                        onFocus={focusOn}
-                                        onBlur={focusOff}
+                                        class="input-field"
+                                        style="padding:4px 8px;height:32px;width:auto;font-size:12px;"
                                     />
                                 </div>
                             ) : (
@@ -1019,9 +989,10 @@ export function Profile() {
 												padding:4px 10px;border-radius:5px;border:1px solid;
 												font-size:12px;font-weight:500;cursor:${editing ? 'pointer' : 'default'};
 												transition:all 0.15s;
-												${active
-                                                    ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
-                                                    : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+												${
+                                                    active
+                                                        ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
+                                                        : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                                 }
 											`}
                                         >
@@ -1049,8 +1020,8 @@ export function Profile() {
                             {saving
                                 ? 'Saving…'
                                 : isSetupMode && !selectedLocation
-                                    ? 'Choose a location'
-                                    : 'Save Changes'}
+                                  ? 'Choose a location'
+                                  : 'Save Changes'}
                         </HoverButton>
                         <HoverButton
                             type="button"
@@ -1069,6 +1040,17 @@ export function Profile() {
                 {/* Sign out */}
                 {isOwnProfile && (
                     <>
+                        <HoverButton
+                            type="button"
+                            id="account-settings-btn"
+                            class="btn-ghost"
+                            onClick={() => setLocation('/settings')}
+                            style="height:38px;width:100%;font-size:13px;color:var(--text-secondary);"
+                        >
+                            <ShieldCheck size={14} />
+                            Account Settings
+                        </HoverButton>
+
                         <HoverButton
                             type="button"
                             id="sign-out-btn"
@@ -1099,14 +1081,10 @@ export function Profile() {
 
             {/* Delete confirm */}
             {isOwnProfile && showDel && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);"
-                >
+                <div role="dialog" aria-modal="true" class="modal-overlay">
                     <div
-                        class="animate-slide-up"
-                        style="width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow-xl);"
+                        class="modal-content animate-slide-up"
+                        style="max-width:340px;padding:20px;"
                     >
                         <h3 style="font-size:15px;font-weight:700;color:var(--danger);margin:0 0 6px;">
                             Delete Account?
@@ -1114,7 +1092,7 @@ export function Profile() {
                         <p style="font-size:13px;color:var(--text-secondary);margin:0 0 18px;line-height:1.5;">
                             Your account will be queued for deletion and removed after 7 days.
                         </p>
-                        <div style="display:flex;gap:8px;">
+                        <div class="stack-h gap-sm">
                             <HoverButton
                                 type="button"
                                 onClick={() => {

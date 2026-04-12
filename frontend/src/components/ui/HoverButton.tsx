@@ -4,12 +4,12 @@ type HoverButtonProps = JSX.IntrinsicElements['button'];
 
 export function HoverButton({ onMouseEnter, onMouseLeave, children, ...props }: HoverButtonProps) {
     const handleMouseEnter: JSX.MouseEventHandler<HTMLButtonElement> = (e) => {
-        ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)');
+        (e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
         onMouseEnter?.(e);
     };
 
     const handleMouseLeave: JSX.MouseEventHandler<HTMLButtonElement> = (e) => {
-        ((e.target as HTMLElement).style.filter = 'none');
+        (e.target as HTMLElement).style.filter = 'none';
         onMouseLeave?.(e);
     };
 

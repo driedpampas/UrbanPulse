@@ -217,6 +217,23 @@ export function PulseMap({
 
             if (event.event === 'pulse.deleted') {
                 setPulses((current) => current.filter((pulse) => pulse.id !== event.pulseId));
+                return;
+            }
+
+            if (event.event === 'pulse.updated') {
+                setPulses((current) => {
+                    let found = false;
+                    const next = current.map((pulse) => {
+                        if (pulse.id === event.pulse.id) {
+                            found = true;
+                            return event.pulse;
+                        }
+
+                        return pulse;
+                    });
+
+                    return found ? next : current;
+                });
             }
         };
 

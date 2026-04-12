@@ -1,6 +1,15 @@
-import { Activity, CheckCircle, ClipboardList, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
+import {
+    Activity,
+    CheckCircle,
+    ClipboardList,
+    Flag,
+    LibraryBig,
+    Search,
+    UsersRound,
+} from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LibraryRow } from '../components/Admin/LibraryRow';
+import { MessageReportRow } from '../components/Admin/MessageReportRow';
 import { PulseRow } from '../components/Admin/PulseRow';
 import { ReportRow } from '../components/Admin/ReportRow';
 import { SectionButton } from '../components/Admin/SectionButton';
@@ -20,6 +29,7 @@ const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }
     { id: 'pulses', label: 'Pulses', icon: Search },
     { id: 'library', label: 'Library', icon: LibraryBig },
     { id: 'reports', label: 'Reports', icon: Flag },
+    { id: 'flaggedMessages', label: 'Flagged Messages', icon: Flag },
 ];
 
 const surfaceCard =
@@ -36,6 +46,7 @@ export function AdminDashboard() {
         pulses,
         library,
         reports,
+        flaggedMessageReports,
         pendingDeletions,
         pulseId,
         userSearch,
@@ -60,6 +71,7 @@ export function AdminDashboard() {
         cancelUserDeletion,
         removePulse,
         changeReportStatus,
+        applyFlaggedMessageAction,
         toggleRequestDetails,
         markRequestInteractionSuccessful,
         markRequestSolved,
@@ -222,7 +234,9 @@ export function AdminDashboard() {
                                                 destructive: role === 'banned',
                                                 onConfirm: async () => {
                                                     await setUserRole(userId, role);
-                                                    showToast(`${user.name} role changed to ${role}.`);
+                                                    showToast(
+                                                        `${user.name} role changed to ${role}.`
+                                                    );
                                                 },
                                             });
                                         }}
@@ -368,7 +382,10 @@ export function AdminDashboard() {
                                                         {canSolve && (
                                                             <HoverButton
                                                                 type="button"
-                                                                disabled={requestSolveActionId === request.id}
+                                                                disabled={
+                                                                    requestSolveActionId ===
+                                                                    request.id
+                                                                }
                                                                 onClick={() => {
                                                                     setConfirmation({
                                                                         title: 'Mark request solved',
@@ -395,7 +412,9 @@ export function AdminDashboard() {
                                                         <HoverButton
                                                             type="button"
                                                             onClick={() =>
-                                                                void toggleRequestDetails(request.id)
+                                                                void toggleRequestDetails(
+                                                                    request.id
+                                                                )
                                                             }
                                                             style="height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:700;cursor:pointer;"
                                                         >
@@ -410,10 +429,10 @@ export function AdminDashboard() {
                                                     <div style="display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--border);">
                                                         {requestInteractionsLoadingFor ===
                                                             request.id && (
-                                                                <div style="font-size:12px;color:var(--text-tertiary);">
-                                                                    Loading interactions...
-                                                                </div>
-                                                            )}
+                                                            <div style="font-size:12px;color:var(--text-tertiary);">
+                                                                Loading interactions...
+                                                            </div>
+                                                        )}
 
                                                         {requestInteractionsLoadingFor !==
                                                             request.id &&
@@ -434,18 +453,18 @@ export function AdminDashboard() {
                                                                     </span>
                                                                     <span style="font-size:11px;color:var(--text-tertiary);">
                                                                         {interaction.status ===
-                                                                            'successful'
+                                                                        'successful'
                                                                             ? `Successful (+${interaction.trustAwarded} trust)`
                                                                             : 'Accepted'}
                                                                     </span>
                                                                 </div>
                                                                 {interaction.status ===
-                                                                    'accepted' ? (
+                                                                'accepted' ? (
                                                                     <HoverButton
                                                                         type="button"
                                                                         disabled={
                                                                             requestInteractionActionId ===
-                                                                            interaction.id ||
+                                                                                interaction.id ||
                                                                             request.isSolved
                                                                         }
                                                                         onClick={() => {
@@ -455,21 +474,22 @@ export function AdminDashboard() {
                                                                                     'Mark this interaction as successful? This is restricted to admin/mod from this panel.',
                                                                                 confirmLabel:
                                                                                     'Mark successful',
-                                                                                onConfirm: async () => {
-                                                                                    await markRequestInteractionSuccessful(
-                                                                                        request.id,
-                                                                                        interaction.id
-                                                                                    );
-                                                                                    showToast(
-                                                                                        'Interaction marked successful.'
-                                                                                    );
-                                                                                },
+                                                                                onConfirm:
+                                                                                    async () => {
+                                                                                        await markRequestInteractionSuccessful(
+                                                                                            request.id,
+                                                                                            interaction.id
+                                                                                        );
+                                                                                        showToast(
+                                                                                            'Interaction marked successful.'
+                                                                                        );
+                                                                                    },
                                                                             });
                                                                         }}
                                                                         style="height:28px;padding:0 10px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
                                                                     >
                                                                         {requestInteractionActionId ===
-                                                                            interaction.id
+                                                                        interaction.id
                                                                             ? 'Saving...'
                                                                             : 'Mark successful'}
                                                                     </HoverButton>
@@ -553,6 +573,74 @@ export function AdminDashboard() {
                             </div>
                         )}
 
+                        {section === 'flaggedMessages' && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                {flaggedMessageReports.length === 0 ? (
+                                    <div
+                                        style={`${surfaceCard};padding:40px;text-align:center;color:var(--text-tertiary);`}
+                                    >
+                                        <Flag size={32} style="margin:0 auto 12px;opacity:0.3;" />
+                                        <p style="margin:0;font-size:14px;font-weight:600;">
+                                            No pending flagged messages
+                                        </p>
+                                    </div>
+                                ) : (
+                                    flaggedMessageReports.map((report) => (
+                                        <MessageReportRow
+                                            key={report.id}
+                                            report={report}
+                                            onAction={(reportId, action) => {
+                                                const labels = {
+                                                    delete_message: {
+                                                        title: 'Delete flagged message',
+                                                        message:
+                                                            'Hide this message for all thread participants and mark the report as action taken?',
+                                                        confirmLabel: 'Delete message',
+                                                        destructive: true,
+                                                    },
+                                                    ban_user: {
+                                                        title: 'Ban offender',
+                                                        message:
+                                                            'Ban the offender account and mark this report as action taken?',
+                                                        confirmLabel: 'Ban offender',
+                                                        destructive: true,
+                                                    },
+                                                    dismiss: {
+                                                        title: 'Dismiss flagged message',
+                                                        message:
+                                                            'Mark this flagged message report as reviewed without punitive action?',
+                                                        confirmLabel: 'Dismiss report',
+                                                        destructive: false,
+                                                    },
+                                                } as const;
+
+                                                const config = labels[action];
+                                                setConfirmation({
+                                                    title: config.title,
+                                                    message: config.message,
+                                                    confirmLabel: config.confirmLabel,
+                                                    destructive: config.destructive,
+                                                    onConfirm: async () => {
+                                                        await applyFlaggedMessageAction(
+                                                            reportId,
+                                                            action
+                                                        );
+                                                        showToast(
+                                                            action === 'dismiss'
+                                                                ? 'Flagged message dismissed.'
+                                                                : action === 'ban_user'
+                                                                  ? 'Offender banned and report updated.'
+                                                                  : 'Message hidden and report updated.'
+                                                        );
+                                                    },
+                                                });
+                                            }}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        )}
+
                         {section === 'overview' && pendingDeletions.length > 0 && (
                             <div style="display:flex;flex-direction:column;gap:10px;">
                                 <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--text);">
@@ -607,9 +695,7 @@ export function AdminDashboard() {
                             await confirmation.onConfirm();
                         } catch (error) {
                             console.error(error);
-                            window.alert(
-                                error instanceof Error ? error.message : 'Action failed.'
-                            );
+                            window.alert(error instanceof Error ? error.message : 'Action failed.');
                         } finally {
                             setConfirmation(null);
                         }

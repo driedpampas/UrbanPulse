@@ -15,7 +15,6 @@ type Props = {
     onOpenPostForm: () => void;
 };
 
-
 function DashboardToolbarComponent({
     view,
     showFilters,
@@ -27,8 +26,8 @@ function DashboardToolbarComponent({
 }: Props) {
     const [, setLocation] = useLocation();
     return (
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 0;gap:12px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="flex-between gap-md flex-wrap pt-3">
+            <div class="stack-h gap-md flex-wrap">
                 <div class="tab-switcher">
                     <HoverButton
                         type="button"
@@ -61,24 +60,27 @@ function DashboardToolbarComponent({
                     Pet Guardian
                 </HoverButton>
 
-                <div style="display:flex;align-items:center;gap:6px;">
+                <div class="stack-h gap-md">
                     <HoverButton
                         type="button"
                         id="toggle-filters-btn"
-                        class="btn-icon"
+                        class={cn(
+                            'btn-icon w-[34px] h-[34px]',
+                            showFilters
+                                ? 'text-[var(--accent)] bg-[var(--accent-subtle)]'
+                                : 'text-[var(--text-secondary)]'
+                        )}
                         onClick={onToggleFilters}
                         aria-label="Filters"
-                        style={`color:${showFilters ? 'var(--accent)' : 'var(--text-secondary)'};background:${showFilters ? 'var(--accent-subtle)' : 'transparent'};width:34px;height:34px;`}
                     >
                         <SlidersHorizontal size={15} />
                     </HoverButton>
                     <HoverButton
                         type="button"
                         id="post-pulse-btn"
-                        class="btn-primary"
+                        class="btn-primary h-[34px] px-3 gap-xs text-[12px]"
                         onClick={onOpenPostForm}
                         aria-label="Post pulse"
-                        style="padding:0 12px;height:34px;font-size:12px;gap:6px;"
                     >
                         <Plus size={14} strokeWidth={2.4} />
                         New Pulse
@@ -87,11 +89,11 @@ function DashboardToolbarComponent({
             </div>
 
             {!showFilters && (
-                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:1px;">
-                    <span style="font-size:11px;color:var(--text-tertiary);line-height:1;">
+                <div class="stack-v items-end gap-[1px]">
+                    <span class="text-[11px] text-[var(--text-tertiary)] leading-none">
                         {radius}m radius
                     </span>
-                    <span style="font-size:9px;color:var(--text-tertiary);opacity:0.7;font-weight:600;letter-spacing:0.02em;">
+                    <span class="text-[9px] text-[var(--text-tertiary)] opacity-70 font-semibold tracking-wide uppercase">
                         {limit} PER BATCH
                     </span>
                 </div>

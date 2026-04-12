@@ -20,19 +20,16 @@ function DashboardFiltersPanelComponent({
     }
 
     return (
-        <div
-            class="animate-slide-up"
-            style="margin-top:10px;padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);display:flex;flex-direction:column;gap:14px;"
-        >
+        <div class="section animate-slide-up mt-2 p-4 stack-v gap-md">
             <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div class="flex-between mb-2">
                     <label
-                        style="font-size:12px;font-weight:600;color:var(--text-secondary);"
+                        class="text-[12px] font-semibold text-[var(--text-secondary)]"
                         for="radius-input"
                     >
                         Radius filter
                     </label>
-                    <span style="font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;">
+                    <span class="text-[12px] font-bold text-[var(--accent)] tabular-nums">
                         {radius} m
                     </span>
                 </div>
@@ -46,20 +43,20 @@ function DashboardFiltersPanelComponent({
                     onInput={(event) =>
                         onRadiusChange(Number((event.target as HTMLInputElement).value))
                     }
-                    style="width:100%;accent-color:var(--accent);cursor:pointer;"
+                    class="range-slider"
                     aria-label={`Radius: ${radius} meters`}
                 />
             </div>
 
-            <div style="padding-top:12px;border-top:1px solid var(--border);">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="pt-3 border-t border-[var(--border)]">
+                <div class="flex-between mb-2">
                     <label
-                        style="font-size:12px;font-weight:600;color:var(--text-secondary);"
+                        class="text-[12px] font-semibold text-[var(--text-secondary)]"
                         for="limit-input"
                     >
                         Pulse capacity
                     </label>
-                    <span style="font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;">
+                    <span class="text-[10px] font-extrabold text-[var(--accent)] uppercase tracking-wider">
                         {limit} PER BATCH
                     </span>
                 </div>
@@ -73,7 +70,7 @@ function DashboardFiltersPanelComponent({
                     onInput={(event) =>
                         onLimitChange(Number((event.target as HTMLInputElement).value))
                     }
-                    style="width:100%;accent-color:var(--accent);cursor:pointer;"
+                    class="range-slider"
                     aria-label={`Limit: ${limit} pulses`}
                 />
             </div>

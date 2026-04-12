@@ -34,7 +34,7 @@ function PostedPulsesSectionComponent({
     const [confirmSolvePulseId, setConfirmSolvePulseId] = useState<string | null>(null);
     const confirmSolvePulse =
         confirmSolvePulseId !== null
-            ? myPulses.find((pulse) => pulse.id === confirmSolvePulseId) ?? null
+            ? (myPulses.find((pulse) => pulse.id === confirmSolvePulseId) ?? null)
             : null;
 
     return (

@@ -7,6 +7,7 @@ export interface User {
     bio: string;
     trustScore: number;
     verified: boolean;
+    isEmailVerified: boolean;
     lat: number;
     lng: number;
     location?: {
@@ -96,12 +97,23 @@ export interface WeatherData {
     warning?: string;
 }
 
+export interface ChatMessageReply {
+    id: string;
+    senderId: string;
+    senderName: string;
+    snippet: string;
+    isUnavailable: boolean;
+}
+
 export interface ChatMessage {
     id: string;
     senderId: string;
     senderName: string;
     content: string;
+    isEdited?: boolean;
     type?: 'text' | 'notice';
+    replyToId?: string | null;
+    replyTo?: ChatMessageReply | null;
     timestamp: number;
 }
 
@@ -138,6 +150,26 @@ export interface AdminFlag {
     timestamp: number;
     status: 'pending' | 'resolved' | 'dismissed';
     content: string;
+}
+
+export type MessageReportStatus = 'pending' | 'reviewed' | 'action_taken';
+export type MessageReportAction = 'ban_user' | 'delete_message' | 'dismiss';
+
+export interface AdminMessageReport {
+    id: string;
+    messageId: string;
+    messageContent: string;
+    reason: string;
+    status: MessageReportStatus;
+    timestamp: number;
+    reporter: {
+        id: string;
+        name: string;
+    };
+    offender: {
+        id: string;
+        name: string;
+    };
 }
 
 export interface AdminOverview {

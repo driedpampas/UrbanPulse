@@ -1,4 +1,4 @@
-import * as bun from 'bun';
+import type * as bun from 'bun';
 import type { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
 import * as auth from '../auth';
@@ -23,28 +23,41 @@ import type {
     CreateMessageBody,
     CreatePulseBody,
     DeleteMessageBody,
+    InteractionFeedbackBody,
     LoginUserBody,
+    PasswordConfirmBody,
+    PasswordRequestBody,
     PulseListQuery,
     PulseMatchBody,
     RegisterUserBody,
     SearchUsersQuery,
+    UpdateEmailBody,
     UpdateLibraryItemBody,
+    UpdateMessageBody,
     UpdatePassBody,
+    UpdatePulseBody,
     UpdateUserBody,
+    VerifyEmailQuery,
 } from '../validators/http.validators';
 import {
     addChatParticipantsSchema,
+    adminMessageReportActionSchema,
+    adminMessageReportsQuerySchema,
     adminUsersQuerySchema,
     buildSearchParams,
     chatSocketMessageSchema,
     createChatSchema,
     createLibraryItemSchema,
+    createMessageReportSchema,
     createMessageSchema,
     createPulseSchema,
     createReportSchema,
     deleteMessageSchema,
+    interactionFeedbackSchema,
     loginUserSchema,
     messageNotificationPayloadSchema,
+    passwordConfirmSchema,
+    passwordRequestSchema,
     pulseListQuerySchema,
     pulseMatchSchema,
     registerUserSchema,
@@ -52,10 +65,14 @@ import {
     searchUsersSchema,
     sendMessageResponseSchema,
     updateAdminUserRoleBodySchema,
+    updateEmailSchema,
     updateLibraryItemSchema,
+    updateMessageSchema,
     updatePassSchema,
+    updatePulseSchema,
     updateReportStatusSchema,
     updateUserSchema,
+    verifyEmailQuerySchema,
 } from '../validators/http.validators';
 
 const PULSE_FEED_TOPIC = 'pulse-feed';
@@ -241,34 +258,302 @@ export const httpRoutes: HttpRoutes = {
                 })
             ),
     },
+    '/api/auth/verify': {
+        GET: async (req) =>
+            validate(req, async () =>
+                caught(async () => {
+                    const url = new URL(req.url);
+                    const query: VerifyEmailQuery = verifyEmailQuerySchema.parse({
+                        token: url.searchParams.get('token'),
+                    });
+
+                    const result = await auth.verifyEmailToken(query.token);
+
+                    if (!result.success) {
+                        if (result.status === 404) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Verification token is invalid or expired.' },
+                                    { status: 404 }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json({ error: 'Invalid verification token.' }, { status: 400 })
+                        );
+                    }
+
+                    return withCors(
+                        Response.json(
+                            { success: true, message: 'Email verified successfully.' },
+                            { status: 200 }
+                        )
+                    );
+                })
+            ),
+    },
+    '/api/auth/verify/request': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+
+                        const rawBody = await req.text();
+                        if (rawBody.length > 0) {
+                            try {
+                                JSON.parse(rawBody);
+                            } catch {
+                                return withCors(BAD_REQUEST);
+                            }
+                        }
+
+                        const result = await auth.requestVerificationEmail(payload.id);
+
+                        if (!result.success) {
+                            if (result.status === 404) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            if (result.status === 409) {
+                                return withCors(
+                                    Response.json(
+                                        { error: 'Email is already verified.' },
+                                        { status: 409 }
+                                    )
+                                );
+                            }
+
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to send verification email.' },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    message: 'Verification link sent to your email address.',
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
     '/api/auth/password': {
         PATCH: async (req) =>
             validate(req, async () =>
                 authorize(req, async (session) =>
                     caught(async () => {
-                        const payload: JwtPayload = session as JwtPayload;
-                        const body: UpdatePassBody = await req
+                        const _payload: JwtPayload = session as JwtPayload;
+                        const _body: UpdatePassBody = await req
                             .json()
                             .then((raw) => updatePassSchema.parse(raw));
 
-                        const [passwordRow] = await db.selectPasswordHash(payload.id);
-                        if (!passwordRow?.password_hash) {
-                            return UNAUTHORIZED;
-                        }
-
-                        const isCorrect = await bun.password.verify(
-                            body.oldPassword,
-                            passwordRow.password_hash
+                        return withCors(
+                            Response.json(
+                                {
+                                    error: 'Direct password updates are disabled. Use /api/password/request and /api/password/confirm.',
+                                },
+                                { status: 403 }
+                            )
                         );
-
-                        if (!isCorrect) {
-                            return UNAUTHORIZED;
+                    })
+                )
+            ),
+    },
+    '/api/auth/password-reset': {
+        POST: async (req) =>
+            validate(req, async () =>
+                unauthorize(req, async () =>
+                    caught(async () => {
+                        const body: { email: string } = await req.json();
+                        if (!body.email || typeof body.email !== 'string') {
+                            return withCors(BAD_REQUEST);
                         }
 
-                        const newPassHash = await bun.password.hash(body.newPassword);
-                        await db.updateUserPassword(payload.id, newPassHash);
+                        const result = await auth.requestPasswordResetByEmail(body.email);
 
-                        return SUCCESS;
+                        if (!result.success) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to process password reset request.' },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    message:
+                                        'If an account with that email exists, a reset link has been sent.',
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
+    '/api/password/request': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const rawBody = await req.text();
+                        let parsedBody: unknown = {};
+                        if (rawBody.length > 0) {
+                            try {
+                                parsedBody = JSON.parse(rawBody);
+                            } catch {
+                                return withCors(BAD_REQUEST);
+                            }
+                        }
+                        const _body: PasswordRequestBody = passwordRequestSchema.parse(parsedBody);
+
+                        const result = await auth.requestPasswordChange(payload.id);
+
+                        if (!result.success) {
+                            if (result.status === 404) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to send password change email.' },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    message:
+                                        'Password change link sent to your current email address.',
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
+    '/api/password/confirm': {
+        POST: async (req) =>
+            validate(req, async () =>
+                caught(async () => {
+                    const body: PasswordConfirmBody = await req
+                        .json()
+                        .then((raw) => passwordConfirmSchema.parse(raw));
+
+                    const result = await auth.confirmPasswordChange(body.token, body.newPassword);
+
+                    if (!result.success) {
+                        if (result.status === 404) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Password reset token is invalid.' },
+                                    { status: 404 }
+                                )
+                            );
+                        }
+
+                        if (result.status === 410) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Password reset token has expired.' },
+                                    { status: 410 }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                { error: 'Invalid password reset request.' },
+                                { status: result.status }
+                            )
+                        );
+                    }
+
+                    return withCors(
+                        Response.json(
+                            { success: true, message: 'Password updated successfully.' },
+                            { status: 200 }
+                        )
+                    );
+                })
+            ),
+    },
+    '/api/settings/email': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const body: UpdateEmailBody = await req
+                            .json()
+                            .then((raw) => updateEmailSchema.parse(raw));
+
+                        const result = await auth.changeUserEmail(payload.id, body.email);
+
+                        if (!result.success) {
+                            if (result.status === 409) {
+                                return withCors(
+                                    Response.json(
+                                        { error: 'Email is already in use.' },
+                                        { status: 409 }
+                                    )
+                                );
+                            }
+
+                            if (result.status === 400) {
+                                return withCors(
+                                    Response.json(
+                                        {
+                                            error: 'Please choose a different email address to update your account.',
+                                        },
+                                        { status: 400 }
+                                    )
+                                );
+                            }
+
+                            if (result.status === 404) {
+                                return withCors(NOT_FOUND);
+                            }
+
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Unable to send verification email to the new address.',
+                                    },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    email: result.email,
+                                    isEmailVerified: result.isEmailVerified,
+                                    message:
+                                        'Email updated. Please verify your new email address to unlock high-trust features.',
+                                },
+                                { status: 200 }
+                            )
+                        );
                     })
                 )
             ),
@@ -379,9 +664,9 @@ export const httpRoutes: HttpRoutes = {
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                              lat: url.searchParams.get('lat'),
-                                              lng: url.searchParams.get('lng'),
-                                          }
+                                            lat: url.searchParams.get('lat'),
+                                            lng: url.searchParams.get('lng'),
+                                        }
                                         : null,
                                 availableDays: url.searchParams.getAll('available_days'),
                                 availableHours: url.searchParams.getAll('available_hours'),
@@ -466,9 +751,9 @@ export const httpRoutes: HttpRoutes = {
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                          lat: url.searchParams.get('lat'),
-                                          lng: url.searchParams.get('lng'),
-                                      }
+                                        lat: url.searchParams.get('lat'),
+                                        lng: url.searchParams.get('lng'),
+                                    }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -830,6 +1115,62 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
+    '/api/admin/reports/messages': {
+        GET: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const url = new URL(req.url);
+                        const query = adminMessageReportsQuerySchema.parse({
+                            status: url.searchParams.get('status') ?? undefined,
+                            limit: url.searchParams.get('limit') ?? undefined,
+                            offset: url.searchParams.get('offset') ?? undefined,
+                        });
+
+                        const reports = await db.selectAdminMessageReports({
+                            status: query.status ?? 'pending',
+                            limit: query.limit,
+                            offset: query.offset,
+                        });
+
+                        return withCors(Response.json({ reports }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/admin/reports/messages/:reportId/action': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const body = adminMessageReportActionSchema.parse(await req.json());
+                        const result = await db.applyAdminMessageReportAction({
+                            reportId: req.params.reportId as string,
+                            action: body.action,
+                        });
+
+                        if (!result.success && result.notFound) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!result.success && result.invalidState) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Report already processed.' },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        return withCors(SUCCESS);
+                    })
+                )
+            ),
+    },
     '/api/admin/reports/:id/status': {
         PATCH: async (req) =>
             validate(req, async () =>
@@ -846,20 +1187,98 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
-    '/api/messages/:id/report': {
+    '/api/messages/:messageId': {
+        PATCH: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const parsedMessageId = z.uuid().safeParse(req.params.messageId as string);
+                        if (!parsedMessageId.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const body: UpdateMessageBody = await req
+                            .json()
+                            .then((raw) => updateMessageSchema.parse(raw));
+
+                        const result = await db.editMessage(
+                            parsedMessageId.data,
+                            payload.id,
+                            body.content
+                        );
+
+                        if (!result.success && result.reason === 'not_found') {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!result.success && result.reason === 'forbidden') {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        if (!result.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        server.publish(
+                            `chat-${result.message.threadId}`,
+                            JSON.stringify({
+                                event: 'message.updated',
+                                message: result.message,
+                            })
+                        );
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    message: result.message,
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
+    '/api/messages/:messageId/report': {
         POST: async (req) =>
             validate(req, async () =>
                 authorize(req, async (session) =>
                     caught(async () => {
                         const payload = session as JwtPayload;
-                        const body = createReportSchema.parse(await req.json());
-                        const report = await db.insertReport({
+                        const body = createMessageReportSchema.parse(await req.json());
+                        const parsedMessageId = z.uuid().safeParse(req.params.messageId as string);
+
+                        if (!parsedMessageId.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        if (body.targetId && body.targetId !== parsedMessageId.data) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const message = await db.selectMessage(parsedMessageId.data, payload.id);
+
+                        if (!message) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (message.senderId === payload.id) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'You cannot report your own message.' },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const report = await db.insertMessageReport({
                             reporterId: payload.id,
-                            targetId: req.params.id as string,
-                            targetType: 'message',
+                            offenderId: message.senderId,
+                            messageId: message.id,
                             reason: body.reason,
-                            content: body.content,
                         });
+
                         return withCors(Response.json(report, { status: 201 }));
                     })
                 )
@@ -985,8 +1404,8 @@ export const httpRoutes: HttpRoutes = {
                                 Boolean(body.isEmergency) || requestedType === 'emergency';
                             const pulseType: PulseType =
                                 requestedType === 'emergency' ||
-                                requestedType === 'skill' ||
-                                requestedType === 'item'
+                                    requestedType === 'skill' ||
+                                    requestedType === 'item'
                                     ? 'need'
                                     : requestedType;
                             const urgencyLevel =
@@ -997,8 +1416,8 @@ export const httpRoutes: HttpRoutes = {
                             const selectedResources =
                                 pulseType === 'need'
                                     ? (body.selectedResources ?? body.requiredSkills ?? [])
-                                          .map((value) => value.trim())
-                                          .filter((value) => value.length > 0)
+                                        .map((value) => value.trim())
+                                        .filter((value) => value.length > 0)
                                     : [];
                             const fullUser = await db.selectFullUser(payload.id);
                             const requesterTimezone =
@@ -1104,6 +1523,93 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
+    '/api/pulses/:id': {
+        PATCH: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const parsedPulseId = z.uuid().safeParse(req.params.id as string);
+
+                        if (!parsedPulseId.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const body: UpdatePulseBody = await req
+                            .json()
+                            .then((raw) => updatePulseSchema.parse(raw));
+                        const pulse = await db.selectPulseById(parsedPulseId.data);
+
+                        if (!pulse) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        const role = (await db.selectUserRole(payload.id as string))?.toLowerCase();
+                        const isModerator = role === 'admin' || role === 'mod';
+                        const isAuthor = payload.id === pulse.userId;
+
+                        if (!isAuthor && !isModerator) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        if (body.requiredSkills !== undefined && pulse.type !== 'need') {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulses can update required skills.',
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        if (body.isEmergency !== undefined && pulse.type !== 'need') {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulses can be marked as emergency.',
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const updates: {
+                            content?: string;
+                            isEmergency?: boolean;
+                            requiredSkills?: string[];
+                        } = {};
+
+                        if (body.content !== undefined) {
+                            updates.content = body.content.trim();
+                        }
+
+                        if (body.isEmergency !== undefined) {
+                            updates.isEmergency = body.isEmergency;
+                        }
+
+                        if (body.requiredSkills !== undefined) {
+                            updates.requiredSkills = body.requiredSkills
+                                .map((value) => value.trim())
+                                .filter((value) => value.length > 0);
+                        }
+
+                        const updatedPulse = await db.updatePulse(pulse.id, pulse.userId, updates);
+
+                        if (!updatedPulse) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        server.publish(
+                            PULSE_FEED_TOPIC,
+                            JSON.stringify({ event: 'pulse.updated', pulse: updatedPulse })
+                        );
+
+                        return withCors(Response.json(updatedPulse, { status: 200 }));
+                    })
+                )
+            ),
+    },
     '/api/pulses/me': {
         GET: async (req) =>
             validate(req, async () =>
@@ -1205,6 +1711,70 @@ export const httpRoutes: HttpRoutes = {
                         );
 
                         return withCors(Response.json({ interactions }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/interactions/:id/feedback': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const body: InteractionFeedbackBody = await req
+                            .json()
+                            .then((raw) => interactionFeedbackSchema.parse(raw));
+
+                        const result = await db.submitInteractionFeedback({
+                            interactionId: req.params.id as string,
+                            actorId: payload.id,
+                            positive: body.positive,
+                        });
+
+                        if (!result.success && result.notFound) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!result.success && result.forbidden) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        if (!result.success && result.positiveRequired) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        if (!result.success && result.solved) {
+                            return withCors(
+                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
+                        if (!result.success && result.nonRequestType) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Feedback is only available for help interactions on need pulses',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.success || !result.interaction) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    interaction: result.interaction,
+                                    trustIncremented: Boolean(result.trustIncremented),
+                                    successfulInteractions: result.helperSuccessfulCount ?? null,
+                                    trustScore: result.helperTrustScore ?? null,
+                                },
+                                { status: 200 }
+                            )
+                        );
                     })
                 )
             ),
@@ -1353,9 +1923,25 @@ export const httpRoutes: HttpRoutes = {
                     caught(async () => {
                         const payload = session as JwtPayload;
                         const threadId = req.params.id as string;
-                        const body: CreateMessageBody = await req
-                            .json()
-                            .then((raw) => createMessageSchema.parse(raw));
+                        const rawBody = await req.json().catch(() => null);
+                        if (rawBody === null) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const parsedBody = createMessageSchema.safeParse(rawBody);
+                        if (!parsedBody.success) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Invalid message payload.',
+                                        issues: parsedBody.error.issues,
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const body: CreateMessageBody = parsedBody.data;
 
                         const chats = await db.selectChats(payload.id);
                         const isParticipant = chats.some((chat) => chat.chatId === threadId);
@@ -1367,6 +1953,17 @@ export const httpRoutes: HttpRoutes = {
                         const chat = await db.selectChat(threadId, payload.id);
                         if (!chat) {
                             return withCors(NOT_FOUND);
+                        }
+
+                        if (body.replyToId) {
+                            const replyTarget = await db.selectThreadMessageById(
+                                threadId,
+                                body.replyToId
+                            );
+
+                            if (!replyTarget) {
+                                return withCors(BAD_REQUEST);
+                            }
                         }
 
                         if (!chat.isGroup) {
@@ -1385,7 +1982,13 @@ export const httpRoutes: HttpRoutes = {
                             }
                         }
 
-                        const message = await db.insertMessage(threadId, payload.id, body.content);
+                        const message = await db.insertMessage(
+                            threadId,
+                            payload.id,
+                            body.content,
+                            'text',
+                            body.replyToId ?? null
+                        );
 
                         const thread = await db.selectChat(threadId, payload.id);
                         const threadSummary = (

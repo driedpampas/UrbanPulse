@@ -1,8 +1,10 @@
 import {
     AlertCircle,
-    ArrowRight,
+    ArrowLeft,
+    CheckCircle2,
     Eye,
     EyeOff,
+    KeyRound,
     LoaderCircle,
     LogIn,
     Moon,
@@ -11,11 +13,12 @@ import {
 } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
+import { HoverButton } from '../components/ui/HoverButton';
+import { API_BASE_URL } from '../lib/api';
 import { AuthApiError, useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
-import { HoverButton } from '../components/ui/HoverButton';
 
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register' | 'forgot-password';
 type FormErrors = Partial<{
     displayName: string;
     email: string;
@@ -37,6 +40,7 @@ export function Auth() {
     const [showPw, setShowPw] = useState(false);
     const [showCPw, setShowCPw] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
     const [errors, setErrors] = useState<FormErrors>({});
 
     const validate = () => {
@@ -44,10 +48,14 @@ export function Auth() {
         if (mode === 'register' && !displayName.trim()) e.displayName = 'Display name is required';
         if (!email.trim()) e.email = 'Email is required';
         else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Enter a valid email';
-        if (!password) e.password = 'Password is required';
-        else if (password.length < 8) e.password = 'Minimum 8 characters';
-        if (mode === 'register' && password !== confirmPassword)
-            e.confirmPassword = 'Passwords do not match';
+
+        if (mode !== 'forgot-password') {
+            if (!password) e.password = 'Password is required';
+            else if (password.length < 8) e.password = 'Minimum 8 characters';
+            if (mode === 'register' && password !== confirmPassword)
+                e.confirmPassword = 'Passwords do not match';
+        }
+
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -55,6 +63,7 @@ export function Auth() {
     const reset = (m: AuthMode) => {
         setMode(m);
         setErrors({});
+        setSuccessMsg('');
         setPassword('');
         setConfirmPassword('');
         setShowPw(false);
@@ -73,10 +82,30 @@ export function Auth() {
         if (!validate()) return;
         setLoading(true);
         setErrors({});
+        setSuccessMsg('');
+
         try {
-            if (mode === 'login') await login({ email: email.trim(), password });
-            else await register({ displayName: displayName.trim(), email: email.trim(), password });
-            setLocation(mode === 'login' ? '/' : '/profile?setup=1');
+            if (mode === 'forgot-password') {
+                const response = await fetch(`${API_BASE_URL}/auth/password-reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email.trim() }),
+                });
+                const data = (await response.json()) as { message?: string; error?: string };
+                if (!response.ok) {
+                    throw new AuthApiError(
+                        data.error || 'Failed to request reset',
+                        response.status
+                    );
+                }
+                setSuccessMsg(data.message || 'Check your inbox for a reset link.');
+            } else if (mode === 'login') {
+                await login({ email: email.trim(), password });
+                setLocation('/');
+            } else {
+                await register({ displayName: displayName.trim(), email: email.trim(), password });
+                setLocation('/profile?setup=1');
+            }
         } catch (err) {
             setErrors(mapErr(err));
         } finally {
@@ -84,340 +113,247 @@ export function Auth() {
         }
     };
 
-    const fieldStyle = (hasErr: boolean) => `
-		width:100%;padding:9px 12px;border-radius:8px;border:1px solid;
-		font-size:13px;font-family:inherit;outline:none;
-		background:var(--bg-subtle);color:var(--text);
-		border-color:${hasErr ? 'var(--danger)' : 'var(--border)'};
-		transition:border-color 0.15s,box-shadow 0.15s;
-	`;
-
-    const pwWrap = { position: 'relative' as const };
-    const eyeBtn = `
-		position:absolute;right:0;top:0;bottom:0;width:38px;
-		display:flex;align-items:center;justify-content:center;
-		background:none;border:none;cursor:pointer;color:var(--text-tertiary);
-	`;
-
     return (
-        <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);">
-            {/* Top bar */}
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:680px;width:100%;margin:0 auto;">
-                <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.02em;">
-                    UrbanPulse
-                </p>
+        <div class="page-shell bg-[var(--bg)] min-h-screen flex flex-col">
+            <div class="stack-h flex-between app-container px-5 py-4">
+                <p class="text-base font-bold text-[var(--text)] m-0 tracking-tight">UrbanPulse</p>
                 <HoverButton
                     type="button"
                     class="btn-icon"
                     onClick={toggle}
                     aria-label="Toggle theme"
-                    style="color:var(--text-secondary);"
-                    onMouseEnter={(e) =>
-                        ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                    }
-                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
-                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                 </HoverButton>
             </div>
 
-            {/* Centered card */}
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px;">
-                <div style="width:100%;max-width:380px;" class="animate-slide-up">
-                    {/* Heading */}
-                    <div style="margin-bottom:24px;">
-                        <h1 style="font-size:22px;font-weight:700;color:var(--text);margin:0 0 6px;letter-spacing:-0.03em;">
-                            {mode === 'login' ? 'Welcome back' : 'Create an account'}
+            <div class="flex-1 flex items-center justify-center p-5">
+                <div class="w-full max-w-[400px] animate-slide-up">
+                    <div class="mb-7 text-center stack-v gap-2">
+                        <h1 class="text-2xl font-bold tracking-tight text-[var(--text)]">
+                            {mode === 'login' && 'Welcome back'}
+                            {mode === 'register' && 'Join UrbanPulse'}
+                            {mode === 'forgot-password' && 'Reset Password'}
                         </h1>
-                        <p style="font-size:13px;color:var(--text-secondary);margin:0;">
-                            {mode === 'login'
-                                ? 'Sign in to access your neighborhood feed.'
-                                : 'Join your neighborhood network today.'}
+                        <p class="text-sm text-[var(--text-secondary)]">
+                            {mode === 'login' && 'Sign in to access your neighborhood feed.'}
+                            {mode === 'register' && 'Create an account to connect with neighbors.'}
+                            {mode === 'forgot-password' &&
+                                'Enter your email to receive a secure reset link.'}
                         </p>
                     </div>
 
-                    {/* Tab strip */}
-                    <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:20px;background:var(--bg-subtle);">
-                        {(['login', 'register'] as AuthMode[]).map((m) => (
-                            <HoverButton
-                                key={m}
-                                type="button"
-                                id={`auth-tab-${m}`}
-                                onClick={() => reset(m)}
-                                style={`
-									flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-									padding:6px 12px;border-radius:6px;border:none;
-									font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
-									transition:all 0.15s;
-									${
-                                        mode === m
-                                            ? 'background:var(--surface-raised);color:var(--text);box-shadow:var(--shadow-sm);'
-                                            : 'background:transparent;color:var(--text-tertiary);'
-                                    }
-								`}
-                                onMouseEnter={(e) => {
-                                    (e.target as HTMLElement).style.filter =
-                                        'var(--hover-brightness)';
-                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    (e.target as HTMLElement).style.filter = 'none';
-                                    (e.target as HTMLElement).style.background = 'transparent';
-                                }}
-                            >
-                                {m === 'login' ? <LogIn size={13} /> : <UserPlus size={13} />}
-                                {m === 'login' ? 'Sign In' : 'Register'}
-                            </HoverButton>
-                        ))}
-                    </div>
-
-                    {/* Form */}
-                    <form
-                        onSubmit={handleSubmit}
-                        style="display:flex;flex-direction:column;gap:14px;"
-                    >
-                        {mode === 'register' && (
-                            <div>
-                                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
-                                    Display name
-                                </label>
-                                <input
-                                    class="input-field"
-                                    value={displayName}
-                                    onInput={(e) =>
-                                        setDisplayName((e.target as HTMLInputElement).value)
-                                    }
-                                    placeholder="Alex Neighbor"
-                                    autoComplete="name"
-                                    style={fieldStyle(Boolean(errors.displayName))}
-                                    onFocus={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            'var(--border-focus)';
-                                        (e.target as HTMLElement).style.boxShadow =
-                                            '0 0 0 3px var(--accent-muted)';
-                                    }}
-                                    onBlur={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            errors.displayName ? 'var(--danger)' : 'var(--border)';
-                                        (e.target as HTMLElement).style.boxShadow = 'none';
-                                    }}
-                                />
-                                {errors.displayName && (
-                                    <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
-                                        {errors.displayName}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        <div>
-                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
-                                Email
-                            </label>
-                            <input
-                                type="email"
-                                class="input-field"
-                                value={email}
-                                onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
-                                placeholder="you@example.com"
-                                autoComplete="email"
-                                style={fieldStyle(Boolean(errors.email))}
-                                onFocus={(e) => {
-                                    (e.target as HTMLElement).style.borderColor =
-                                        'var(--border-focus)';
-                                    (e.target as HTMLElement).style.boxShadow =
-                                        '0 0 0 3px var(--accent-muted)';
-                                }}
-                                onBlur={(e) => {
-                                    (e.target as HTMLElement).style.borderColor = errors.email
-                                        ? 'var(--danger)'
-                                        : 'var(--border)';
-                                    (e.target as HTMLElement).style.boxShadow = 'none';
-                                }}
-                            />
-                            {errors.email && (
-                                <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
-                                    {errors.email}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
-                                Password
-                            </label>
-                            <div style={pwWrap}>
-                                <input
-                                    type={showPw ? 'text' : 'password'}
-                                    class="input-field"
-                                    value={password}
-                                    onInput={(e) =>
-                                        setPassword((e.target as HTMLInputElement).value)
-                                    }
-                                    placeholder="8+ characters"
-                                    autoComplete={
-                                        mode === 'login' ? 'current-password' : 'new-password'
-                                    }
-                                    style={`${fieldStyle(Boolean(errors.password))}padding-right:38px;`}
-                                    onFocus={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            'var(--border-focus)';
-                                        (e.target as HTMLElement).style.boxShadow =
-                                            '0 0 0 3px var(--accent-muted)';
-                                    }}
-                                    onBlur={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            errors.password ? 'var(--danger)' : 'var(--border)';
-                                        (e.target as HTMLElement).style.boxShadow = 'none';
-                                    }}
-                                />
+                    <div class="animate-slide-up" style="animation-delay: 0.1s;">
+                        {mode === 'forgot-password' && (
+                            <div class="mb-6">
                                 <HoverButton
                                     type="button"
-                                    onClick={() => setShowPw((v) => !v)}
-                                    style={eyeBtn}
-                                    aria-label={showPw ? 'Hide' : 'Show'}
-                                    onMouseEnter={(e) =>
-                                        ((e.target as HTMLElement).style.filter =
-                                            'var(--hover-brightness)')
-                                    }
-                                    onMouseLeave={(e) =>
-                                        ((e.target as HTMLElement).style.filter = 'none')
-                                    }
+                                    class="btn-ghost border-none h-8 px-0 text-xs text-[var(--text-secondary)] hover:text-[var(--text)]"
+                                    onClick={() => reset('login')}
                                 >
-                                    {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    <ArrowLeft size={14} />
+                                    Back to Sign In
                                 </HoverButton>
                             </div>
-                            {errors.password && (
-                                <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
-                                    {errors.password}
-                                </p>
-                            )}
-                        </div>
+                        )}
 
-                        {mode === 'register' && (
-                            <div>
-                                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
-                                    Confirm password
-                                </label>
-                                <div style={pwWrap}>
-                                    <input
-                                        type={showCPw ? 'text' : 'password'}
-                                        class="input-field"
-                                        value={confirmPassword}
-                                        onInput={(e) =>
-                                            setConfirmPassword((e.target as HTMLInputElement).value)
-                                        }
-                                        placeholder="Repeat password"
-                                        autoComplete="new-password"
-                                        style={
-                                            fieldStyle(Boolean(errors.confirmPassword)) +
-                                            'padding-right:38px;'
-                                        }
-                                        onFocus={(e) => {
-                                            (e.target as HTMLElement).style.borderColor =
-                                                'var(--border-focus)';
-                                            (e.target as HTMLElement).style.boxShadow =
-                                                '0 0 0 3px var(--accent-muted)';
-                                        }}
-                                        onBlur={(e) => {
-                                            (e.target as HTMLElement).style.borderColor =
-                                                errors.confirmPassword
-                                                    ? 'var(--danger)'
-                                                    : 'var(--border)';
-                                            (e.target as HTMLElement).style.boxShadow = 'none';
-                                        }}
-                                    />
-                                    <HoverButton
-                                        type="button"
-                                        onClick={() => setShowCPw((v) => !v)}
-                                        style={eyeBtn}
-                                        aria-label={showCPw ? 'Hide' : 'Show'}
-                                        onMouseEnter={(e) =>
-                                            ((e.target as HTMLElement).style.filter =
-                                                'var(--hover-brightness)')
-                                        }
-                                        onMouseLeave={(e) =>
-                                            ((e.target as HTMLElement).style.filter = 'none')
-                                        }
-                                    >
-                                        {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                                    </HoverButton>
-                                </div>
-                                {errors.confirmPassword && (
-                                    <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
-                                        {errors.confirmPassword}
-                                    </p>
+                        <div class="py-2">
+                            <form onSubmit={handleSubmit} class="stack-v gap-lg">
+                                {mode === 'register' && (
+                                    <div class="stack-v gap-sm">
+                                        <label class="label-caps">Display name</label>
+                                        <input
+                                            class={`input-field ${errors.displayName ? 'border-[var(--danger)]' : ''}`}
+                                            value={displayName}
+                                            onInput={(e) =>
+                                                setDisplayName((e.target as HTMLInputElement).value)
+                                            }
+                                            placeholder="Alex Neighbor"
+                                            autoComplete="name"
+                                        />
+                                        {errors.displayName && (
+                                            <p class="text-[11px] text-[var(--danger)] mt-1">
+                                                {errors.displayName}
+                                            </p>
+                                        )}
+                                    </div>
                                 )}
-                            </div>
-                        )}
 
-                        {errors.form && (
-                            <div style="padding:10px 12px;border-radius:8px;background:var(--danger-subtle);border:1px solid var(--type-emergency-border);display:flex;align-items:flex-start;gap:8px;">
-                                <AlertCircle
-                                    size={14}
-                                    style="color:var(--danger);flex-shrink:0;margin-top:1px;"
-                                />
-                                <p style="font-size:12px;color:var(--danger);margin:0;">
-                                    {errors.form}
-                                </p>
-                            </div>
-                        )}
-
-                        <HoverButton
-                            type="submit"
-                            id="auth-submit-btn"
-                            disabled={loading}
-                            class="btn-primary"
-                            style="height:40px;font-size:13px;width:100%;background:var(--accent);border-radius:8px;opacity:1;margin-top:2px;"
-                            onMouseEnter={(e) =>
-                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                            }
-                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
-                        >
-                            {loading ? (
-                                <>
-                                    <LoaderCircle size={14} class="animate-spin" />
-                                    Working…
-                                </>
-                            ) : (
-                                <>
-                                    {mode === 'login' ? (
-                                        <LogIn size={14} />
-                                    ) : (
-                                        <UserPlus size={14} />
+                                <div class="stack-v gap-sm">
+                                    <label class="label-caps">Email</label>
+                                    <input
+                                        type="email"
+                                        class={`input-field ${errors.email ? 'border-[var(--danger)]' : ''}`}
+                                        value={email}
+                                        onInput={(e) =>
+                                            setEmail((e.target as HTMLInputElement).value)
+                                        }
+                                        placeholder="you@example.com"
+                                        autoComplete="email"
+                                    />
+                                    {errors.email && (
+                                        <p class="text-[11px] text-[var(--danger)] mt-1">
+                                            {errors.email}
+                                        </p>
                                     )}
-                                    {mode === 'login' ? 'Sign In' : 'Create Account'}
-                                </>
-                            )}
-                        </HoverButton>
-                    </form>
+                                </div>
 
-                    {/* Switch mode */}
-                    <div style="margin-top:16px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;justify-content:space-between;">
-                        <span style="font-size:12px;color:var(--text-secondary);">
-                            {mode === 'login' ? 'No account?' : 'Already registered?'}
+                                {mode !== 'forgot-password' && (
+                                    <div class="stack-v gap-sm">
+                                        <div class="stack-h flex-between">
+                                            <label class="label-caps !m-0">Password</label>
+                                            {mode === 'login' && (
+                                                <HoverButton
+                                                    type="button"
+                                                    onClick={() => reset('forgot-password')}
+                                                    class="text-[11px] font-bold text-[var(--accent)] bg-transparent border-none p-0 h-auto uppercase tracking-wide hover:underline"
+                                                >
+                                                    Forgot?
+                                                </HoverButton>
+                                            )}
+                                        </div>
+                                        <div class="relative">
+                                            <input
+                                                type={showPw ? 'text' : 'password'}
+                                                class={`input-field pr-10 ${errors.password ? 'border-[var(--danger)]' : ''}`}
+                                                value={password}
+                                                onInput={(e) =>
+                                                    setPassword(
+                                                        (e.target as HTMLInputElement).value
+                                                    )
+                                                }
+                                                placeholder="8+ characters"
+                                                autoComplete={
+                                                    mode === 'login'
+                                                        ? 'current-password'
+                                                        : 'new-password'
+                                                }
+                                            />
+                                            <HoverButton
+                                                type="button"
+                                                onClick={() => setShowPw((v) => !v)}
+                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8"
+                                                aria-label={showPw ? 'Hide' : 'Show'}
+                                            >
+                                                {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                            </HoverButton>
+                                        </div>
+                                        {errors.password && (
+                                            <p class="text-[11px] text-[var(--danger)] mt-1">
+                                                {errors.password}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {mode === 'register' && (
+                                    <div class="stack-v gap-sm">
+                                        <label class="label-caps">Confirm password</label>
+                                        <div class="relative">
+                                            <input
+                                                type={showCPw ? 'text' : 'password'}
+                                                class={`input-field pr-10 ${errors.confirmPassword ? 'border-[var(--danger)]' : ''}`}
+                                                value={confirmPassword}
+                                                onInput={(e) =>
+                                                    setConfirmPassword(
+                                                        (e.target as HTMLInputElement).value
+                                                    )
+                                                }
+                                                placeholder="Repeat password"
+                                                autoComplete="new-password"
+                                            />
+                                            <HoverButton
+                                                type="button"
+                                                onClick={() => setShowCPw((v) => !v)}
+                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8"
+                                                aria-label={showCPw ? 'Hide' : 'Show'}
+                                            >
+                                                {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                            </HoverButton>
+                                        </div>
+                                        {errors.confirmPassword && (
+                                            <p class="text-[11px] text-[var(--danger)] mt-1">
+                                                {errors.confirmPassword}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {errors.form && (
+                                    <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] p-3">
+                                        <AlertCircle
+                                            size={14}
+                                            class="text-[var(--danger)] shrink-0 mt-0.5"
+                                        />
+                                        <p class="text-xs text-[var(--danger)] leading-tight">
+                                            {errors.form}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {successMsg && (
+                                    <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] p-3">
+                                        <CheckCircle2
+                                            size={14}
+                                            class="text-[var(--success)] shrink-0 mt-0.5"
+                                        />
+                                        <p class="text-xs text-[var(--success)] leading-tight">
+                                            {successMsg}
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div class="stack-v gap-4 mt-2">
+                                    <HoverButton
+                                        type="submit"
+                                        disabled={loading}
+                                        class="btn-primary h-12 text-[15px] w-full"
+                                    >
+                                        {loading ? (
+                                            <LoaderCircle size={18} class="animate-spin" />
+                                        ) : (
+                                            <>
+                                                {mode === 'login' && <LogIn size={18} />}
+                                                {mode === 'register' && <UserPlus size={18} />}
+                                                {mode === 'forgot-password' && (
+                                                    <KeyRound size={18} />
+                                                )}
+                                                {mode === 'login'
+                                                    ? 'Sign In'
+                                                    : mode === 'register'
+                                                      ? 'Create Account'
+                                                      : 'Send Reset Link'}
+                                            </>
+                                        )}
+                                    </HoverButton>
+
+                                    {mode !== 'forgot-password' && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                reset(mode === 'login' ? 'register' : 'login')
+                                            }
+                                            class="text-sm text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors py-2"
+                                        >
+                                            {mode === 'login'
+                                                ? "Don't have an account? "
+                                                : 'Already have an account? '}
+                                            <span class="font-bold text-[var(--accent)]">
+                                                {mode === 'login' ? 'Register' : 'Sign In'}
+                                            </span>
+                                        </button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 text-center">
+                        <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-50">
+                            UrbanPulse Version {__COMMIT_HASH__}
                         </span>
-                        <HoverButton
-                            type="button"
-                            onClick={() => reset(mode === 'login' ? 'register' : 'login')}
-                            style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;"
-                            onMouseEnter={(e) =>
-                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                            }
-                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
-                        >
-                            {mode === 'login' ? 'Register' : 'Sign In'}
-                            <ArrowRight size={12} />
-                        </HoverButton>
                     </div>
                 </div>
-            </div>
-
-            {/* Version indicator */}
-            <div style="padding:12px;text-align:center;">
-                <span style="font-size:10px;color:var(--text-tertiary);letter-spacing:0.02em;">
-                    Version: {__COMMIT_HASH__}
-                </span>
             </div>
         </div>
     );

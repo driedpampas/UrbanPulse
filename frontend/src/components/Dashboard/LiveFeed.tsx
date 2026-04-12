@@ -1,14 +1,20 @@
 import {
     AlertTriangle,
+    Check,
     CheckCircle,
     Clock,
+    Edit2,
     Flag,
+    Loader2,
     MapPin,
     MessageSquare,
     Package,
     PawPrint,
+    Plus,
+    Send,
     Trash2,
     Wrench,
+    X,
 } from 'lucide-preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
@@ -21,11 +27,13 @@ import {
     connectWebSocket,
     deletePulse,
     disconnectWebSocket,
+    editPulse,
     fetchAcceptedPulseInteractions,
+    fetchPulseResourceCatalog,
     fetchPulses,
     mergePulses,
 } from '../../lib/pulseApi';
-import type { Pulse } from '../../lib/types';
+import type { Pulse, ResourceCatalogEntry } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
 import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { ReportModal } from '../Modals/ReportModal';
@@ -60,6 +68,7 @@ interface Props {
 }
 
 const MIN_RESOURCE_TOKEN_LENGTH = 3;
+const PULSE_CONTENT_MAX = 280;
 
 function normalizeResourceText(value: string): string {
     return value
@@ -139,6 +148,62 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [acceptedPulseIds, setAcceptedPulseIds] = useState<Set<string>>(new Set());
     const [acceptingPulseId, setAcceptingPulseId] = useState<string | null>(null);
     const [deleteConfirmPulseId, setDeleteConfirmPulseId] = useState<string | null>(null);
+    const [editingPulseId, setEditingPulseId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState('');
+    const [editIsEmergency, setEditIsEmergency] = useState(false);
+    const [editResourceQuery, setEditResourceQuery] = useState('');
+    const [editSelectedResources, setEditSelectedResources] = useState<string[]>([]);
+    const [editCatalog, setEditCatalog] = useState<ResourceCatalogEntry[]>([]);
+    const [editCatalogLoading, setEditCatalogLoading] = useState(false);
+    const [editCatalogError, setEditCatalogError] = useState<string | null>(null);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
+
+    const editingPulse = editingPulseId
+        ? (pulses.find((pulse) => pulse.id === editingPulseId) ?? null)
+        : null;
+
+    useEffect(() => {
+        if (!editingPulse || editingPulse.type !== 'need') {
+            setEditResourceQuery('');
+            setEditCatalog([]);
+            setEditCatalogLoading(false);
+            setEditCatalogError(null);
+            return;
+        }
+
+        let cancelled = false;
+        setEditCatalogLoading(true);
+        setEditCatalogError(null);
+
+        const timer = window.setTimeout(() => {
+            fetchPulseResourceCatalog(editResourceQuery, 120)
+                .then((resources) => {
+                    if (!cancelled) {
+                        setEditCatalog(resources);
+                    }
+                })
+                .catch((apiError) => {
+                    if (!cancelled) {
+                        setEditCatalogError(
+                            apiError instanceof Error
+                                ? apiError.message
+                                : 'Could not load skills/items.'
+                        );
+                    }
+                })
+                .finally(() => {
+                    if (!cancelled) {
+                        setEditCatalogLoading(false);
+                    }
+                });
+        }, 180);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+        };
+    }, [editResourceQuery, editingPulse]);
 
     useEffect(() => {
         let cancelled = false;
@@ -348,6 +413,21 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             } else if (event.event === 'pulse.deleted') {
                 setPulses((c) => c.filter((p) => p.id !== event.pulseId));
                 setNewId((c) => (c === event.pulseId ? null : c));
+                setEditingPulseId((current) => (current === event.pulseId ? null : current));
+            } else if (event.event === 'pulse.updated') {
+                setPulses((current) => {
+                    let found = false;
+                    const next = current.map((pulse) => {
+                        if (pulse.id === event.pulse.id) {
+                            found = true;
+                            return event.pulse;
+                        }
+
+                        return pulse;
+                    });
+
+                    return found ? next : current;
+                });
             }
         },
         [feedCenter, radiusFilter]
@@ -418,6 +498,65 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             }
         } finally {
             setAcceptingPulseId(null);
+        }
+    };
+
+    const beginPulseEdit = (pulse: Pulse) => {
+        setEditingPulseId(pulse.id);
+        setEditContent(pulse.content);
+        setEditIsEmergency(Boolean(pulse.isEmergency));
+        setEditResourceQuery('');
+        setEditSelectedResources([...(pulse.requiredSkills ?? [])]);
+        setEditCatalog([]);
+        setEditCatalogError(null);
+        setEditError(null);
+    };
+
+    const cancelPulseEdit = () => {
+        setEditingPulseId(null);
+        setSavingEdit(false);
+        setEditError(null);
+    };
+
+    const handleSavePulseEdit = async (pulse: Pulse) => {
+        if (!session || session.user.id !== pulse.userId) {
+            return;
+        }
+
+        const nextContent = editContent.trim();
+        if (!nextContent) {
+            setEditError('Pulse content cannot be empty.');
+            return;
+        }
+
+        if (nextContent.length > PULSE_CONTENT_MAX) {
+            setEditError(`Pulse content must be ${PULSE_CONTENT_MAX} characters or fewer.`);
+            return;
+        }
+
+        const updates: Partial<Pulse> = {
+            content: nextContent,
+        };
+
+        if (pulse.type === 'need') {
+            updates.isEmergency = editIsEmergency;
+            updates.requiredSkills = editSelectedResources;
+        }
+
+        setSavingEdit(true);
+        setEditError(null);
+        try {
+            const updatedPulse = await editPulse(pulse.id, updates);
+            setPulses((current) =>
+                current.map((currentPulse) =>
+                    currentPulse.id === updatedPulse.id ? updatedPulse : currentPulse
+                )
+            );
+            setEditingPulseId(null);
+        } catch (error) {
+            setEditError(error instanceof Error ? error.message : 'Failed to update pulse.');
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -507,6 +646,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 const isNew = pulse.id === newId;
                 const isVerified = pulse.verified || pulse.confirmations >= 3;
                 const mayDelete = canDelete(pulse);
+                const mayEdit = Boolean(session && session.user.id === pulse.userId);
+                const isEditing = editingPulseId === pulse.id;
                 const p = def.cssPrefix;
                 const canAcceptRequest = Boolean(
                     session &&
@@ -516,6 +657,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                         pulseCanBeAcceptedByUser(pulse, myResourceTokens)
                 );
                 const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
+                const editCharactersLeft = PULSE_CONTENT_MAX - editContent.length;
+                const canMarkEmergency = pulse.type === 'need';
+                const showResourceSelector = pulse.type === 'need';
 
                 return (
                     <article
@@ -588,30 +732,268 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             </span>
                                         )}
                                     </div>
-                                    {mayDelete && (
-                                        <HoverButton
-                                            type="button"
-                                            onClick={() => setDeleteConfirmPulseId(pulse.id)}
-                                            style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
-                                            title="Delete"
-                                            aria-label="Delete pulse"
-                                            onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
-                                            }
-                                            onMouseLeave={(e) =>
-                                                ((e.target as HTMLElement).style.filter = 'none')
-                                            }
-                                        >
-                                            <Trash2 size={11} />
-                                        </HoverButton>
+                                    {(mayEdit || mayDelete) && (
+                                        <div style="display:flex;align-items:center;gap:6px;">
+                                            {mayEdit && (
+                                                <HoverButton
+                                                    type="button"
+                                                    onClick={() => beginPulseEdit(pulse)}
+                                                    style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--accent-subtle);color:var(--accent);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
+                                                    title="Edit"
+                                                    aria-label="Edit pulse"
+                                                >
+                                                    <Edit2 size={11} />
+                                                </HoverButton>
+                                            )}
+                                            {mayDelete && (
+                                                <HoverButton
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setDeleteConfirmPulseId(pulse.id)
+                                                    }
+                                                    style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;flex-shrink:0;transition:background 0.15s;"
+                                                    title="Delete"
+                                                    aria-label="Delete pulse"
+                                                    onMouseEnter={(e) =>
+                                                        ((e.target as HTMLElement).style.filter =
+                                                            'var(--hover-brightness)')
+                                                    }
+                                                    onMouseLeave={(e) =>
+                                                        ((e.target as HTMLElement).style.filter =
+                                                            'none')
+                                                    }
+                                                >
+                                                    <Trash2 size={11} />
+                                                </HoverButton>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 
                                 {/* Content */}
-                                <p style="font-size:13px;color:var(--text);margin:7px 0 0;line-height:1.55;">
-                                    {pulse.content}
-                                </p>
+                                {isEditing ? (
+                                    <div style="display:flex;flex-direction:column;gap:0;margin-top:9px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);">
+                                        {canMarkEmergency && (
+                                            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={editIsEmergency}
+                                                    onChange={(event) =>
+                                                        setEditIsEmergency(
+                                                            (event.target as HTMLInputElement)
+                                                                .checked
+                                                        )
+                                                    }
+                                                />
+                                                <span
+                                                    style={`font-size:12px;font-weight:600;color:${editIsEmergency ? 'var(--danger)' : 'var(--text-secondary)'};`}
+                                                >
+                                                    Mark as emergency
+                                                </span>
+                                            </label>
+                                        )}
+
+                                        <div style="position:relative;margin-bottom:12px;">
+                                            <textarea
+                                                class="input-field"
+                                                value={editContent}
+                                                onInput={(event) =>
+                                                    setEditContent(
+                                                        (event.target as HTMLTextAreaElement).value
+                                                    )
+                                                }
+                                                rows={3}
+                                                maxLength={PULSE_CONTENT_MAX + 20}
+                                                placeholder="What's happening in your neighborhood?"
+                                                style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
+                                            />
+                                            <span
+                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${
+                                                    editCharactersLeft < 0
+                                                        ? 'var(--danger)'
+                                                        : editCharactersLeft < 40
+                                                          ? 'var(--warning)'
+                                                          : 'var(--text-tertiary)'
+                                                };`}
+                                            >
+                                                {editCharactersLeft}
+                                            </span>
+                                        </div>
+
+                                        {showResourceSelector && (
+                                            <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
+                                                <label
+                                                    htmlFor={`pulse-edit-skills-${pulse.id}`}
+                                                    style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
+                                                >
+                                                    Skills / Items Needed
+                                                </label>
+                                                <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised);">
+                                                    <input
+                                                        id={`pulse-edit-skills-${pulse.id}`}
+                                                        type="text"
+                                                        value={editResourceQuery}
+                                                        onInput={(event) =>
+                                                            setEditResourceQuery(
+                                                                (event.target as HTMLInputElement)
+                                                                    .value
+                                                            )
+                                                        }
+                                                        placeholder="Search available skills or items"
+                                                        style="flex:1;border:none;background:transparent;outline:none;color:var(--text);font-size:12px;font-family:inherit;"
+                                                    />
+                                                    {editCatalogLoading && (
+                                                        <Loader2 size={12} class="animate-spin" />
+                                                    )}
+                                                </div>
+
+                                                <div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);">
+                                                    {editCatalog.length === 0 &&
+                                                    !editCatalogLoading ? (
+                                                        <p style="margin:0;padding:10px 12px;font-size:12px;color:var(--text-tertiary);">
+                                                            {editCatalogError ||
+                                                                'No matching skills/items found.'}
+                                                        </p>
+                                                    ) : (
+                                                        editCatalog.map((resource) => {
+                                                            const isSelected =
+                                                                editSelectedResources.some(
+                                                                    (value) =>
+                                                                        value
+                                                                            .trim()
+                                                                            .toLowerCase() ===
+                                                                        resource.value
+                                                                            .trim()
+                                                                            .toLowerCase()
+                                                                );
+
+                                                            return (
+                                                                <HoverButton
+                                                                    key={`${resource.type}:${resource.value}`}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const normalized =
+                                                                            resource.value
+                                                                                .trim()
+                                                                                .toLowerCase();
+
+                                                                        setEditSelectedResources(
+                                                                            (current) => {
+                                                                                const exists =
+                                                                                    current.some(
+                                                                                        (entry) =>
+                                                                                            entry
+                                                                                                .trim()
+                                                                                                .toLowerCase() ===
+                                                                                            normalized
+                                                                                    );
+
+                                                                                if (exists) {
+                                                                                    return current.filter(
+                                                                                        (entry) =>
+                                                                                            entry
+                                                                                                .trim()
+                                                                                                .toLowerCase() !==
+                                                                                            normalized
+                                                                                    );
+                                                                                }
+
+                                                                                return [
+                                                                                    ...current,
+                                                                                    resource.value.trim(),
+                                                                                ];
+                                                                            }
+                                                                        );
+                                                                    }}
+                                                                    style={`
+                                                                        width:100%;display:flex;align-items:center;justify-content:space-between;
+                                                                        gap:10px;padding:8px 10px;border:none;border-bottom:1px solid var(--border);
+                                                                        background:${isSelected ? 'var(--accent-subtle)' : 'transparent'};
+                                                                        color:${isSelected ? 'var(--accent)' : 'var(--text-secondary)'};
+                                                                        font-size:12px;font-weight:600;cursor:pointer;text-align:left;
+                                                                    `}
+                                                                >
+                                                                    <span style="display:flex;align-items:center;gap:7px;">
+                                                                        <Plus size={11} />
+                                                                        {resource.value}
+                                                                    </span>
+                                                                    {isSelected && (
+                                                                        <Check size={12} />
+                                                                    )}
+                                                                </HoverButton>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {showResourceSelector &&
+                                            editSelectedResources.length > 0 && (
+                                                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                                    {editSelectedResources.map((resource) => (
+                                                        <HoverButton
+                                                            key={resource}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditSelectedResources(
+                                                                    (current) =>
+                                                                        current.filter(
+                                                                            (entry) =>
+                                                                                entry
+                                                                                    .trim()
+                                                                                    .toLowerCase() !==
+                                                                                resource
+                                                                                    .trim()
+                                                                                    .toLowerCase()
+                                                                        )
+                                                                );
+                                                            }}
+                                                            style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;"
+                                                        >
+                                                            {resource}
+                                                            <X size={10} />
+                                                        </HoverButton>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                        {editError && (
+                                            <p
+                                                style="margin:10px 0 0;padding:8px 12px;border-radius:6px;background:var(--danger-subtle);color:var(--danger);font-size:12px;border:1px solid var(--type-emergency-border);"
+                                                role="alert"
+                                            >
+                                                {editError}
+                                            </p>
+                                        )}
+
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                                            <HoverButton
+                                                type="button"
+                                                class="btn-primary"
+                                                onClick={() => handleSavePulseEdit(pulse)}
+                                                disabled={savingEdit || editCharactersLeft < 0}
+                                                style="height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;padding:0 14px;"
+                                            >
+                                                <Send size={13} />
+                                                {savingEdit ? 'Saving...' : 'Save Pulse'}
+                                            </HoverButton>
+                                            <HoverButton
+                                                type="button"
+                                                class="btn-ghost"
+                                                onClick={cancelPulseEdit}
+                                                disabled={savingEdit}
+                                                style="height:38px;padding:0 14px;"
+                                            >
+                                                Cancel
+                                            </HoverButton>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p style="font-size:13px;color:var(--text);margin:7px 0 0;line-height:1.55;">
+                                        {pulse.content}
+                                    </p>
+                                )}
 
                                 {/* Meta */}
                                 <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">

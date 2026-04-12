@@ -15,6 +15,21 @@ export const loginUserSchema = z.strictObject({
     password: z.string(),
 });
 
+export const verifyEmailQuerySchema = z.strictObject({
+    token: z.string().trim().min(1),
+});
+
+export const passwordRequestSchema = z.strictObject({});
+
+export const passwordConfirmSchema = z.strictObject({
+    token: z.string().trim().min(1),
+    newPassword: z.string().trim().min(8),
+});
+
+export const updateEmailSchema = z.strictObject({
+    email: z.string().email(),
+});
+
 export const pulseTypeSchema = z.union([z.enum(PULSE_TYPES), z.enum(PULSE_TYPE_ALIASES)]);
 
 export const createPulseSchema = z.strictObject({
@@ -31,6 +46,22 @@ export const createPulseSchema = z.strictObject({
     selectedResources: z.array(z.string()).optional(),
 });
 
+export const updatePulseSchema = z
+    .strictObject({
+        content: z.string().trim().min(1).max(5000).optional(),
+        isEmergency: z.boolean().optional(),
+        requiredSkills: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+    })
+    .refine(
+        (value) =>
+            value.content !== undefined ||
+            value.isEmergency !== undefined ||
+            value.requiredSkills !== undefined,
+        {
+            message: 'At least one pulse field must be updated.',
+        }
+    );
+
 export const pulseMatchSchema = z.strictObject({
     resources: z.array(z.string().trim().min(1)).min(1).max(30),
     timezone: z.string().trim().min(1).optional(),
@@ -40,6 +71,10 @@ export const pulseMatchSchema = z.strictObject({
             lng: z.number(),
         })
         .optional(),
+});
+
+export const interactionFeedbackSchema = z.strictObject({
+    positive: z.literal(true),
 });
 
 export const pulseListQuerySchema = z.strictObject({
@@ -52,38 +87,75 @@ export const resourceCatalogQuerySchema = z.strictObject({
     limit: z.coerce.number().optional(),
 });
 
+const chatNameSchema = z.string().trim().min(1).max(50);
+
 export const createChatSchema = z.strictObject({
     isGroup: z.boolean(),
     participantIds: z.array(z.uuid()).min(1).max(50),
+    name: chatNameSchema.optional(),
+});
+
+export const updateChatNameSchema = z.strictObject({
+    name: chatNameSchema,
+});
+
+const quotedReplySchema = z.strictObject({
+    id: z.uuid(),
+    senderId: z.uuid(),
+    senderName: z.string(),
+    snippet: z.string(),
+    isUnavailable: z.boolean(),
+});
+
+const messagePayloadSchema = z.strictObject({
+    id: z.uuid(),
+    threadId: z.uuid(),
+    senderId: z.uuid(),
+    content: z.string(),
+    isEdited: z.boolean().optional(),
+    messageType: z.enum(['text', 'notice']).optional(),
+    replyToId: z.uuid().nullable().optional(),
+    replyTo: quotedReplySchema.nullable().optional(),
+    timestamp: z.union([z.number(), z.string()]),
 });
 
 export const messageNotificationPayloadSchema = z.strictObject({
     event: z.literal('notification.message'),
-    message: z.strictObject({
-        id: z.uuid(),
-        threadId: z.uuid(),
-        senderId: z.uuid(),
-        content: z.string(),
-        messageType: z.enum(['text', 'notice']).optional(),
-        timestamp: z.union([z.number(), z.string()]),
-    }),
+    message: messagePayloadSchema,
     senderName: z.string(),
     threadName: z.string().optional(),
 });
 
 export const sendMessageResponseSchema = z.strictObject({
-    message: messageNotificationPayloadSchema.shape.message,
+    message: messagePayloadSchema,
     senderName: z.string(),
     threadName: z.string().optional(),
 });
 
-export const createMessageSchema = z.strictObject({
+const optionalReplyToIdSchema = z.preprocess((value) => {
+    if (value === null || value === undefined) {
+        return undefined;
+    }
+
+    if (typeof value === 'string' && value.trim().length === 0) {
+        return undefined;
+    }
+
+    return value;
+}, z.uuid().optional());
+
+export const createMessageSchema = z.object({
     content: z.string().trim().min(1).max(5000),
+    replyToId: optionalReplyToIdSchema,
 });
 
 export const deleteMessageSchema = z.strictObject({
     messageId: z.uuid(),
     scope: z.enum(['me', 'everyone']).optional(),
+});
+
+export const updateMessageSchema = z.strictObject({
+    content: z.string().trim().min(1).max(5000),
 });
 
 export const addChatParticipantsSchema = z.strictObject({
@@ -207,26 +279,64 @@ export const createReportSchema = z.strictObject({
     content: z.string().nonempty(),
 });
 
+export const createMessageReportSchema = z
+    .union([
+        z.strictObject({
+            reason: z.string().nonempty().max(500),
+        }),
+        z.strictObject({
+            targetId: z.uuid(),
+            targetType: z.literal('message'),
+            reason: z.string().nonempty().max(500),
+            content: z.string().optional(),
+        }),
+    ])
+    .transform((value) => ({
+        reason: value.reason,
+        targetId: 'targetId' in value ? value.targetId : undefined,
+    }));
+
+export const adminMessageReportsQuerySchema = z.strictObject({
+    status: z.enum(['pending', 'reviewed', 'action_taken']).optional(),
+    limit: z.coerce.number().optional(),
+    offset: z.coerce.number().optional(),
+});
+
+export const adminMessageReportActionSchema = z.strictObject({
+    action: z.enum(['ban_user', 'delete_message', 'dismiss']),
+});
+
 export const updateReportStatusSchema = z.strictObject({
     status: z.enum(['resolved', 'dismissed']),
 });
 
 export type RegisterUserBody = z.infer<typeof registerUserSchema>;
 export type LoginUserBody = z.infer<typeof loginUserSchema>;
+export type VerifyEmailQuery = z.infer<typeof verifyEmailQuerySchema>;
+export type PasswordRequestBody = z.infer<typeof passwordRequestSchema>;
+export type PasswordConfirmBody = z.infer<typeof passwordConfirmSchema>;
+export type UpdateEmailBody = z.infer<typeof updateEmailSchema>;
 export type UpdateUserBody = z.infer<typeof updateUserSchema>;
 export type UpdatePassBody = z.infer<typeof updatePassSchema>;
 export type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
 export type CreatePulseBody = z.infer<typeof createPulseSchema>;
+export type UpdatePulseBody = z.infer<typeof updatePulseSchema>;
 export type PulseMatchBody = z.infer<typeof pulseMatchSchema>;
+export type InteractionFeedbackBody = z.infer<typeof interactionFeedbackSchema>;
 export type PulseListQuery = z.infer<typeof pulseListQuerySchema>;
 export type ResourceCatalogQuery = z.infer<typeof resourceCatalogQuerySchema>;
 export type CreateChatBody = z.infer<typeof createChatSchema>;
+export type UpdateChatNameBody = z.infer<typeof updateChatNameSchema>;
 export type CreateMessageBody = z.infer<typeof createMessageSchema>;
 export type DeleteMessageBody = z.infer<typeof deleteMessageSchema>;
+export type UpdateMessageBody = z.infer<typeof updateMessageSchema>;
 export type AddChatParticipantsBody = z.infer<typeof addChatParticipantsSchema>;
 export type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
 export type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 export type CreateReportBody = z.infer<typeof createReportSchema>;
+export type CreateMessageReportBody = z.infer<typeof createMessageReportSchema>;
+export type AdminMessageReportsQuery = z.infer<typeof adminMessageReportsQuerySchema>;
+export type AdminMessageReportActionBody = z.infer<typeof adminMessageReportActionSchema>;
 export type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
 
 export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned']);

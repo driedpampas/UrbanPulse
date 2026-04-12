@@ -90,6 +90,7 @@ type PulseSocketHandler = (event: PulseSocketEvent) => void;
 export type PulseSocketEvent =
     | { event: 'pulse.created'; pulse: Pulse }
     | { event: 'pulse.deleted'; pulseId: string }
+    | { event: 'pulse.updated'; pulse: Pulse }
     | { event: 'hero.alert'; pulse: Pulse; matchedResources?: string[] };
 
 const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
@@ -319,6 +320,16 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
         if (
             parsed &&
             typeof parsed === 'object' &&
+            'event' in parsed &&
+            parsed.event === 'pulse.updated' &&
+            parsed.pulse
+        ) {
+            return { event: 'pulse.updated', pulse: mapBackendPulse(parsed.pulse) };
+        }
+
+        if (
+            parsed &&
+            typeof parsed === 'object' &&
             'id' in parsed &&
             'userId' in parsed &&
             'content' in parsed
@@ -470,6 +481,46 @@ export async function postPulse(input: CreatePulseInput): Promise<Pulse> {
 
 export async function deletePulse(id: string): Promise<void> {
     await request<void>(`/pulse/${id}`, { method: 'DELETE' });
+}
+
+export async function editPulse(id: string, updates: Partial<Pulse>): Promise<Pulse> {
+    const payload: {
+        content?: string;
+        isEmergency?: boolean;
+        requiredSkills?: string[];
+    } = {};
+
+    if (updates.content !== undefined) {
+        payload.content = updates.content.trim();
+    }
+
+    if (updates.isEmergency !== undefined) {
+        payload.isEmergency = updates.isEmergency;
+    }
+
+    if (updates.requiredSkills !== undefined) {
+        payload.requiredSkills = updates.requiredSkills
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0);
+    }
+
+    if (
+        payload.content === undefined &&
+        payload.isEmergency === undefined &&
+        payload.requiredSkills === undefined
+    ) {
+        throw new PulseApiError('No editable pulse fields were provided.', 400);
+    }
+
+    const response = await request<BackendPulse>(`/pulses/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    return mapBackendPulse(response);
 }
 
 export async function fetchAdminPulses(limit = 25, offset = 0): Promise<Pulse[]> {

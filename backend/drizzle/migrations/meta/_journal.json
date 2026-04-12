@@ -15,6 +15,55 @@
       "when": 1775906725719,
       "tag": "0001_faulty_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775986480178,
+      "tag": "0002_flippant_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775989154427,
+      "tag": "0003_youthful_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775993862306,
+      "tag": "0004_flashy_iron_monger",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775996409305,
+      "tag": "0005_quiet_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776000762414,
+      "tag": "0006_wealthy_blacklash",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776002993669,
+      "tag": "0007_exact_molecule_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776004969078,
+      "tag": "0008_dry_havok",
+      "breakpoints": true
     }
   ]
 }

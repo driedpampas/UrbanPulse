@@ -8,6 +8,7 @@ const AUTH_STORAGE_KEY = 'urbanpulse.auth.session';
 interface AuthApiUser {
     id: string;
     role: string;
+    isEmailVerified: boolean;
 }
 
 export interface AuthSessionUser extends AuthApiUser {
@@ -41,7 +42,9 @@ interface AuthContextValue {
     login: (input: LoginInput) => Promise<AuthSession>;
     register: (input: RegisterInput) => Promise<AuthSession>;
     logout: () => void;
-    updateLocalUser: (updates: Partial<Pick<AuthSessionUser, 'displayName' | 'email'>>) => void;
+    updateLocalUser: (
+        updates: Partial<Pick<AuthSessionUser, 'displayName' | 'email' | 'isEmailVerified'>>
+    ) => void;
 }
 
 type ErrorPayload = {
@@ -72,7 +75,8 @@ function isStoredSession(value: unknown): value is AuthSession {
         typeof session.token === 'string' &&
             typeof user?.id === 'string' &&
             typeof user.role === 'string' &&
-            typeof user.email === 'string'
+            typeof user.email === 'string' &&
+            (typeof user.isEmailVerified === 'boolean' || user.isEmailVerified === undefined)
     );
 }
 
@@ -129,7 +133,19 @@ export function readStoredAuthSession(): AuthSession | null {
     try {
         const parsed = JSON.parse(rawValue) as unknown;
         if (isStoredSession(parsed)) {
-            return parsed;
+            const normalizedSession: AuthSession = {
+                ...parsed,
+                user: {
+                    ...parsed.user,
+                    isEmailVerified: Boolean(parsed.user.isEmailVerified),
+                },
+            };
+
+            if (parsed.user.isEmailVerified === undefined) {
+                writeStoredAuthSession(normalizedSession);
+            }
+
+            return normalizedSession;
         }
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
     } catch {
@@ -221,7 +237,9 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
         persistSession(null);
     };
 
-    const updateLocalUser = (updates: Partial<Pick<AuthSessionUser, 'displayName' | 'email'>>) => {
+    const updateLocalUser = (
+        updates: Partial<Pick<AuthSessionUser, 'displayName' | 'email' | 'isEmailVerified'>>
+    ) => {
         setSession((currentSession) => {
             if (!currentSession) {
                 return currentSession;

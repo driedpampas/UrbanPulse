@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+    type AnyPgColumn,
     boolean,
     customType,
     index,
@@ -28,6 +29,12 @@ const timeMultirange = customType<{ data: unknown; driverData: unknown }>({
 
 export const app = pgSchema('app');
 
+export const messageReportStatusEnum = app.enum('message_report_status', [
+    'pending',
+    'reviewed',
+    'action_taken',
+]);
+
 export const users = app.table(
     'users',
     {
@@ -35,6 +42,13 @@ export const users = app.table(
         email: text('email').notNull(),
         role: text('role').notNull().default('user'),
         passwordHash: text('password_hash').notNull(),
+        isEmailVerified: boolean('is_email_verified').notNull().default(false),
+        verificationToken: text('verification_token'),
+        passwordResetToken: text('password_reset_token'),
+        passwordResetExpires: timestamp('password_reset_expires', {
+            withTimezone: true,
+            mode: 'date',
+        }),
         displayName: text('display_name'),
         distanceLimitMeters: integer('distance_limit_meters'),
         location: geography('location'),
@@ -93,6 +107,7 @@ export const pulses = app.table(
 
 export const chatThreads = app.table('chat_threads', {
     id: uuid('id').defaultRandom().primaryKey(),
+    name: text('name'),
     isGroup: boolean('is_group').notNull().default(false),
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -142,7 +157,11 @@ export const messages = app.table(
         senderId: uuid('sender_id')
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
+        replyToId: uuid('reply_to_id').references((): AnyPgColumn => messages.id, {
+            onDelete: 'set null',
+        }),
         content: text('content').notNull(),
+        isEdited: boolean('is_edited').notNull().default(false),
         messageType: text('message_type').notNull().default('text'),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
             .notNull()
@@ -151,7 +170,23 @@ export const messages = app.table(
     (table) => [
         index('messages_thread_id_idx').on(table.threadId),
         index('messages_sender_id_idx').on(table.senderId),
+        index('messages_reply_to_id_idx').on(table.replyToId),
     ]
+);
+
+export const messageEditsHistory = app.table(
+    'message_edits_history',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        messageId: uuid('message_id')
+            .notNull()
+            .references(() => messages.id, { onDelete: 'cascade' }),
+        oldContent: text('old_content').notNull(),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => [index('message_edits_history_message_id_idx').on(table.messageId)]
 );
 
 export const blockedUsers = app.table(
@@ -278,6 +313,34 @@ export const reports = app.table(
     ]
 );
 
+export const messageReports = app.table(
+    'message_reports',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        reporterId: uuid('reporter_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        offenderId: uuid('offender_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        messageId: uuid('message_id')
+            .notNull()
+            .references(() => messages.id, { onDelete: 'cascade' }),
+        reason: text('reason').notNull(),
+        status: messageReportStatusEnum('status').notNull().default('pending'),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => [
+        index('message_reports_reporter_id_idx').on(table.reporterId),
+        index('message_reports_offender_id_idx').on(table.offenderId),
+        index('message_reports_message_id_idx').on(table.messageId),
+        index('message_reports_status_created_at_idx').on(table.status, table.createdAt),
+        index('message_reports_created_at_idx').on(table.createdAt),
+    ]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Pulse = typeof pulses.$inferSelect;
@@ -286,4 +349,5 @@ export type ChatThread = typeof chatThreads.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type LibraryItem = typeof libraryItems.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type MessageReport = typeof messageReports.$inferSelect;
 export type PulseInteraction = typeof pulseInteractions.$inferSelect;
