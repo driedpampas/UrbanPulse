@@ -300,8 +300,7 @@ async function triggerPasswordChangeEmail(email: string, resetToken: string): Pr
 
 async function triggerAuthMailerRequest(payload: AuthMailerRequestPayload): Promise<void> {
     if (!AUTH_MAILER_URL) {
-        console.warn('AUTH_MAILER_URL is not configured. Auth mailer dispatch skipped.');
-        return;
+        throw new Error('AUTH_MAILER_URL is not configured.');
     }
 
     const response = await fetch(AUTH_MAILER_URL, {
