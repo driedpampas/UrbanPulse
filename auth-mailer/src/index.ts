@@ -276,6 +276,16 @@ async function sendVerificationEmail(env: Env, payload: AuthMailerMsg): Promise<
     throw new Error('No configured email provider. Set RESEND_API_KEY or SEND_EMAIL binding.');
 }
 
+function isNonRetriableDeliveryError(error: unknown): boolean {
+    const message = String((error as { message?: unknown } | null)?.message ?? error).toLowerCase();
+
+    return (
+        message.includes('destination address is not a verified address') ||
+        message.includes('invalid email') ||
+        message.includes('mailbox does not exist')
+    );
+}
+
 export default {
     async fetch(request, env, ctx) {
         if (request.method !== 'POST') {
@@ -347,6 +357,12 @@ export default {
                 msg.ack();
             } catch (error) {
                 console.error(`Failed to send verification email to ${msg.body.email}:`, error);
+
+                if (isNonRetriableDeliveryError(error)) {
+                    msg.ack();
+                    continue;
+                }
+
                 msg.retry();
             }
         }
