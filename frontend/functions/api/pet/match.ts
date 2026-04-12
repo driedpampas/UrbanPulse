@@ -14,7 +14,13 @@ interface MatchRequest {
     candidates: PetPulse[];
 }
 
-export const onRequestPost = async (context: any) => {
+interface AiMatch {
+    id: string;
+    confidence: number;
+    reason: string;
+}
+
+export const onRequestPost = async (context: { request: Request; env: { AI: unknown } }) => {
     const { request, env } = context;
 
     if (!env.AI) {
@@ -48,9 +54,7 @@ ID: ${source.id}
 Content: ${source.content}
 
 CANDIDATE REPORTS:
-${candidates
-    .map((c) => `ID: ${c.id}\nContent: ${c.content}\n---`)
-    .join('\n')}
+${candidates.map((c) => `ID: ${c.id}\nContent: ${c.content}\n---`).join('\n')}
 
 Identify matches where the physical description (species, breed, colors, size, markings) suggests it is the same animal.
 `,
@@ -71,9 +75,18 @@ Identify matches where the physical description (species, breed, colors, size, m
                                 items: {
                                     type: 'object',
                                     properties: {
-                                        id: { type: 'string', description: 'The ID of the candidate pet' },
-                                        confidence: { type: 'number', description: '0-100 match confidence' },
-                                        reason: { type: 'string', description: 'Brief reasoning for the match' },
+                                        id: {
+                                            type: 'string',
+                                            description: 'The ID of the candidate pet',
+                                        },
+                                        confidence: {
+                                            type: 'number',
+                                            description: '0-100 match confidence',
+                                        },
+                                        reason: {
+                                            type: 'string',
+                                            description: 'Brief reasoning for the match',
+                                        },
                                     },
                                     required: ['id', 'confidence', 'reason'],
                                 },
@@ -87,13 +100,16 @@ Identify matches where the physical description (species, breed, colors, size, m
 
         // Filter by 70% threshold as per user request
         if (response && typeof response === 'object' && 'matches' in response) {
-            const filteredMatches = (response.matches as any[]).filter(m => m.confidence >= 70);
+            const filteredMatches = (response.matches as AiMatch[]).filter(
+                (m) => m.confidence >= 70
+            );
             return Response.json({ matches: filteredMatches });
         }
 
         return Response.json({ matches: [] });
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return new Response(JSON.stringify({ error: errorMessage }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
         });

@@ -1,6 +1,6 @@
 import { List, Map as MapIcon, PawPrint, Plus, SlidersHorizontal } from 'lucide-preact';
-import { useLocation } from 'wouter';
 import { memo } from 'preact/compat';
+import { useLocation } from 'wouter';
 import type { DashboardView } from '../../hooks/useDashboardViewState';
 import { cn } from '../../lib/utils';
 import { HoverButton } from '../ui/HoverButton';
@@ -53,8 +53,10 @@ function DashboardToolbarComponent({
                     type="button"
                     onClick={() => setLocation('/pet-match')}
                     style="display:flex;align-items:center;gap:6px;padding:0 10px;height:34px;background:var(--warning-subtle);color:var(--warning);border:1px solid var(--warning-border);border-radius:10px;font-size:12px;font-weight:700;"
-                    onMouseEnter={(e) => (e.target as HTMLElement).style.filter = 'var(--hover-brightness)'}
-                    onMouseLeave={(e) => (e.target as HTMLElement).style.filter = 'none'}
+                    onMouseEnter={(e) =>
+                        ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
+                    }
+                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     <PawPrint size={14} />
                     Pet Guardian

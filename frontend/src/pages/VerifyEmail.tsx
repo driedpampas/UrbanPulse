@@ -61,7 +61,7 @@ export function VerifyEmail() {
                     setState('error');
                     setMessage(
                         payload?.error ||
-                        'Verification link is invalid or expired. Request a fresh email and try again.'
+                            'Verification link is invalid or expired. Request a fresh email and try again.'
                     );
                     return;
                 }
