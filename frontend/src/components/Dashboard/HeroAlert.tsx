@@ -11,22 +11,46 @@ export function HeroAlert() {
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
+    const [isForeground, setIsForeground] = useState(() => {
+        if (typeof document === 'undefined') {
+            return true;
+        }
+
+        return document.visibilityState === 'visible' && document.hasFocus();
+    });
+
+    useEffect(() => {
+        if (typeof document === 'undefined' || typeof window === 'undefined') {
+            return;
+        }
+
+        const refresh = () => {
+            setIsForeground(document.visibilityState === 'visible' && document.hasFocus());
+        };
+
+        refresh();
+        document.addEventListener('visibilitychange', refresh);
+        window.addEventListener('focus', refresh);
+        window.addEventListener('blur', refresh);
+
+        return () => {
+            document.removeEventListener('visibilitychange', refresh);
+            window.removeEventListener('focus', refresh);
+            window.removeEventListener('blur', refresh);
+        };
+    }, []);
 
     useEffect(() => {
         const handleEvent = (event: any) => {
             if (event.event === 'hero.alert') {
+                if (!isForeground) {
+                    return;
+                }
+
                 setActiveAlert(event.pulse);
                 setMatchedResources(
                     Array.isArray(event.matchedResources) ? event.matchedResources : []
                 );
-
-                // System notification if permitted
-                if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                    new Notification('HERO ALERT!', {
-                        body: `Someone needs your skills! ${event.pulse.content.slice(0, 100)}${event.pulse.content.length > 100 ? '...' : ''}`,
-                        icon: '/logo192.png',
-                    });
-                }
 
                 // Auto-hide after 15 seconds
                 setTimeout(() => {
@@ -38,7 +62,7 @@ export function HeroAlert() {
 
         connectWebSocket(handleEvent);
         return () => disconnectWebSocket(handleEvent);
-    }, []);
+    }, [isForeground]);
 
     const requestNotificationPermission = async () => {
         if (typeof Notification === 'undefined') return;
