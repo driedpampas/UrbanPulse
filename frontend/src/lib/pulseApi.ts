@@ -98,6 +98,7 @@ const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
     skill: 2,
     item: 1,
     update: 1,
+    pet: 2,
 };
 
 const wsHandlers = new Set<PulseSocketHandler>();
@@ -135,7 +136,8 @@ function normalizePulseType(value: string): Pulse['type'] {
         normalized === 'emergency' ||
         normalized === 'skill' ||
         normalized === 'item' ||
-        normalized === 'update'
+        normalized === 'update' ||
+        normalized === 'pet'
     ) {
         return normalized;
     }

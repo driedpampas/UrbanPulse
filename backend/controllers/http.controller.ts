@@ -65,6 +65,7 @@ const DEFAULT_PULSE_URGENCY: Record<PulseType, number> = {
     skill: 2,
     item: 1,
     need: 4,
+    pet: 2,
 };
 
 type HttpRoutes = NonNullable<Parameters<typeof bun.serve>[0]['routes']>;
