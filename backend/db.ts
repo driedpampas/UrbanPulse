@@ -34,6 +34,9 @@ function createSqlRunner(client: {
 const sql = createSqlRunner(db);
 
 const SEARCH_LIMIT = 50;
+const PULSE_CONFIRMATION_THRESHOLD = 3;
+const TRUST_SCORE_SUCCESS_THRESHOLD = 3;
+const TRUST_SCORE_INCREMENT = 1;
 
 export interface Location {
     lat?: number | null;
@@ -2932,35 +2935,46 @@ export async function confirmPulse(
     return await sql.begin(async (tx) => {
         await ensureSchema();
 
-        // 1. Check if user already confirmed or is author
-        const [pulse] = await tx`
-            SELECT author_id, urgency_level
+        // 1. Check if user is author
+        const [pulse] = (await tx`
+            SELECT author_id::text AS author_id
             FROM app.pulses
-            WHERE id = ${pulseId}
-        `;
+            WHERE id = ${pulseId}::uuid
+            LIMIT 1
+        `) as Array<{ author_id: string }>;
 
         if (!pulse) return { success: false, alreadyConfirmed: false };
         if (pulse.author_id === userId) return { success: false, alreadyConfirmed: false };
 
-        const [existing] = await tx`
-            SELECT 1 FROM app.pulse_confirmations
-            WHERE pulse_id = ${pulseId} AND user_id = ${userId}
-        `;
-
-        if (existing) return { success: false, alreadyConfirmed: true };
-
-        // 2. Record confirmation
-        await tx`
+        // 2. Record confirmation (idempotent on duplicate confirm)
+        const [inserted] = await tx`
             INSERT INTO app.pulse_confirmations (pulse_id, user_id)
-            VALUES (${pulseId}, ${userId})
+            VALUES (${pulseId}::uuid, ${userId}::uuid)
+            ON CONFLICT (pulse_id, user_id) DO NOTHING
+            RETURNING 1 AS inserted
         `;
 
-        // 3. Increment pulse count
-        await tx`
+        if (!inserted) {
+            return { success: false, alreadyConfirmed: true };
+        }
+
+        // 3. Increment confirmation count and auto-verify once threshold is met.
+        const [updatedPulse] = await tx`
             UPDATE app.pulses
-            SET confirmation_count = COALESCE(confirmation_count, 0) + 1
-            WHERE id = ${pulseId}
+            SET
+                confirmation_count = COALESCE(confirmation_count, 0) + 1,
+                is_verified_info = CASE
+                    WHEN COALESCE(confirmation_count, 0) + 1 >= ${PULSE_CONFIRMATION_THRESHOLD}
+                        THEN true
+                    ELSE COALESCE(is_verified_info, false)
+                END
+            WHERE id = ${pulseId}::uuid
+            RETURNING id::text AS id
         `;
+
+        if (!updatedPulse) {
+            return { success: false, alreadyConfirmed: false };
+        }
 
         return { success: true, alreadyConfirmed: false };
     });
@@ -3104,8 +3118,58 @@ export async function selectPulseInteractionsAsAdmin(pulseId: string): Promise<P
     return rows.map((row) => mapPulseInteractionRow(row));
 }
 
-function trustAwardForEmergency(isEmergency: boolean): number {
-    return isEmergency ? 4 : 1;
+async function applyTrustProgressionForInteraction(
+    tx: SqlRunner,
+    helperId: string,
+    interactionId: string
+): Promise<{ successfulCount: number; trustAwarded: number; trustScore: number }> {
+    const [successfulCountRow] = (await tx`
+        SELECT COUNT(*)::int AS successful_count
+        FROM app.pulse_interactions
+        WHERE helper_id = ${helperId}::uuid
+          AND status = 'successful'
+    `) as Array<{ successful_count: number }>;
+
+    const successfulCount = Number(successfulCountRow?.successful_count ?? 0);
+    const trustAwarded =
+        successfulCount > 0 && successfulCount % TRUST_SCORE_SUCCESS_THRESHOLD === 0
+            ? TRUST_SCORE_INCREMENT
+            : 0;
+
+    await tx`
+        UPDATE app.pulse_interactions
+        SET trust_awarded = ${trustAwarded}
+        WHERE id = ${interactionId}::uuid
+          AND helper_id = ${helperId}::uuid
+    `;
+
+    if (trustAwarded > 0) {
+        const [updatedTrust] = (await tx`
+            UPDATE app.users
+            SET trust_score = COALESCE(trust_score, 0) + ${trustAwarded}
+            WHERE id = ${helperId}::uuid
+            RETURNING COALESCE(trust_score, 0)::int AS trust_score
+        `) as Array<{ trust_score: number }>;
+
+        return {
+            successfulCount,
+            trustAwarded,
+            trustScore: Number(updatedTrust?.trust_score ?? 0),
+        };
+    }
+
+    const [existingTrust] = (await tx`
+        SELECT COALESCE(trust_score, 0)::int AS trust_score
+        FROM app.users
+        WHERE id = ${helperId}::uuid
+        LIMIT 1
+    `) as Array<{ trust_score: number }>;
+
+    return {
+        successfulCount,
+        trustAwarded,
+        trustScore: Number(existingTrust?.trust_score ?? 0),
+    };
 }
 
 export async function confirmPulseInteraction(params: {
@@ -3117,6 +3181,9 @@ export async function confirmPulseInteraction(params: {
     solved?: boolean;
     nonRequestType?: boolean;
     interaction?: PulseInteraction;
+    helperSuccessfulCount?: number;
+    helperTrustScore?: number;
+    trustIncremented?: boolean;
 }> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
@@ -3169,14 +3236,11 @@ export async function confirmPulseInteraction(params: {
             return { success: false, nonRequestType: true };
         }
 
-        const trustAward = trustAwardForEmergency(Boolean(interaction.pulse_is_emergency));
-
         const [updated] = (await tx`
             UPDATE app.pulse_interactions
             SET
                 status = 'successful',
-                confirmed_at = now(),
-                trust_awarded = ${trustAward}
+                confirmed_at = now()
             WHERE id = ${params.interactionId}::uuid
               AND pulse_id = ${params.pulseId}::uuid
               AND author_id = ${params.authorId}::uuid
@@ -3195,18 +3259,25 @@ export async function confirmPulseInteraction(params: {
             return { success: false };
         }
 
-        await tx`
-            UPDATE app.users
-            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
-            WHERE id = ${updated.helper_id}::uuid
-        `;
+        const trustProgress = await applyTrustProgressionForInteraction(
+            tx,
+            updated.helper_id,
+            updated.id
+        );
 
         const mappedInteraction = mapPulseInteractionRow({
             ...updated,
+            trust_awarded: trustProgress.trustAwarded,
             helper_name: interaction.helper_name ?? null,
         });
 
-        return { success: true, interaction: mappedInteraction };
+        return {
+            success: true,
+            interaction: mappedInteraction,
+            helperSuccessfulCount: trustProgress.successfulCount,
+            helperTrustScore: trustProgress.trustScore,
+            trustIncremented: trustProgress.trustAwarded > 0,
+        };
     });
 }
 
@@ -3218,6 +3289,9 @@ export async function confirmPulseInteractionAsAdmin(params: {
     solved?: boolean;
     nonRequestType?: boolean;
     interaction?: PulseInteraction;
+    helperSuccessfulCount?: number;
+    helperTrustScore?: number;
+    trustIncremented?: boolean;
 }> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
@@ -3269,14 +3343,11 @@ export async function confirmPulseInteractionAsAdmin(params: {
             return { success: false, nonRequestType: true };
         }
 
-        const trustAward = trustAwardForEmergency(Boolean(interaction.pulse_is_emergency));
-
         const [updated] = (await tx`
             UPDATE app.pulse_interactions
             SET
                 status = 'successful',
-                confirmed_at = now(),
-                trust_awarded = ${trustAward}
+                confirmed_at = now()
             WHERE id = ${params.interactionId}::uuid
               AND pulse_id = ${params.pulseId}::uuid
             RETURNING
@@ -3294,19 +3365,123 @@ export async function confirmPulseInteractionAsAdmin(params: {
             return { success: false };
         }
 
-        await tx`
-            UPDATE app.users
-            SET trust_score = COALESCE(trust_score, 0) + ${trustAward}
-            WHERE id = ${updated.helper_id}::uuid
-        `;
+        const trustProgress = await applyTrustProgressionForInteraction(
+            tx,
+            updated.helper_id,
+            updated.id
+        );
 
         const mappedInteraction = mapPulseInteractionRow({
             ...updated,
+            trust_awarded: trustProgress.trustAwarded,
             helper_name: interaction.helper_name ?? null,
         });
 
-        return { success: true, interaction: mappedInteraction };
+        return {
+            success: true,
+            interaction: mappedInteraction,
+            helperSuccessfulCount: trustProgress.successfulCount,
+            helperTrustScore: trustProgress.trustScore,
+            trustIncremented: trustProgress.trustAwarded > 0,
+        };
     });
+}
+
+export async function submitInteractionFeedback(params: {
+    interactionId: string;
+    actorId: string;
+    positive: boolean;
+}): Promise<{
+    success: boolean;
+    notFound?: boolean;
+    forbidden?: boolean;
+    solved?: boolean;
+    nonRequestType?: boolean;
+    positiveRequired?: boolean;
+    interaction?: PulseInteraction;
+    helperSuccessfulCount?: number;
+    helperTrustScore?: number;
+    trustIncremented?: boolean;
+}> {
+    await ensureSchema();
+
+    if (!params.positive) {
+        return { success: false, positiveRequired: true };
+    }
+
+    const [interaction] = (await sql`
+        SELECT
+            id::text AS id,
+            pulse_id::text AS pulse_id,
+            author_id::text AS author_id
+        FROM app.pulse_interactions
+        WHERE id = ${params.interactionId}::uuid
+        LIMIT 1
+    `) as Array<{ id: string; pulse_id: string; author_id: string }>;
+
+    if (!interaction) {
+        return { success: false, notFound: true };
+    }
+
+    if (interaction.author_id === params.actorId) {
+        const result = await confirmPulseInteraction({
+            pulseId: interaction.pulse_id,
+            interactionId: interaction.id,
+            authorId: params.actorId,
+        });
+
+        if (!result.success && result.solved) {
+            return { success: false, solved: true };
+        }
+
+        if (!result.success && result.nonRequestType) {
+            return { success: false, nonRequestType: true };
+        }
+
+        if (!result.success) {
+            return { success: false };
+        }
+
+        return {
+            success: true,
+            interaction: result.interaction,
+            helperSuccessfulCount: result.helperSuccessfulCount,
+            helperTrustScore: result.helperTrustScore,
+            trustIncremented: result.trustIncremented,
+        };
+    }
+
+    const actorRole = (await selectUserRole(params.actorId))?.toLowerCase() ?? '';
+    const isAdminActor = actorRole === 'admin' || actorRole === 'mod';
+
+    if (!isAdminActor) {
+        return { success: false, forbidden: true };
+    }
+
+    const result = await confirmPulseInteractionAsAdmin({
+        pulseId: interaction.pulse_id,
+        interactionId: interaction.id,
+    });
+
+    if (!result.success && result.solved) {
+        return { success: false, solved: true };
+    }
+
+    if (!result.success && result.nonRequestType) {
+        return { success: false, nonRequestType: true };
+    }
+
+    if (!result.success) {
+        return { success: false };
+    }
+
+    return {
+        success: true,
+        interaction: result.interaction,
+        helperSuccessfulCount: result.helperSuccessfulCount,
+        helperTrustScore: result.helperTrustScore,
+        trustIncremented: result.trustIncremented,
+    };
 }
 
 export async function markPulseSolved(

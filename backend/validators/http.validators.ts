@@ -57,6 +57,10 @@ export const pulseMatchSchema = z.strictObject({
         .optional(),
 });
 
+export const interactionFeedbackSchema = z.strictObject({
+    positive: z.literal(true),
+});
+
 export const pulseListQuerySchema = z.strictObject({
     limit: z.coerce.number().optional(),
     offset: z.coerce.number().optional(),
@@ -237,6 +241,7 @@ export type UpdatePassBody = z.infer<typeof updatePassSchema>;
 export type SearchUsersQuery = z.infer<typeof searchUsersSchema>;
 export type CreatePulseBody = z.infer<typeof createPulseSchema>;
 export type PulseMatchBody = z.infer<typeof pulseMatchSchema>;
+export type InteractionFeedbackBody = z.infer<typeof interactionFeedbackSchema>;
 export type PulseListQuery = z.infer<typeof pulseListQuerySchema>;
 export type ResourceCatalogQuery = z.infer<typeof resourceCatalogQuerySchema>;
 export type CreateChatBody = z.infer<typeof createChatSchema>;

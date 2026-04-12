@@ -25,6 +25,7 @@ import type {
     CreateMessageBody,
     CreatePulseBody,
     DeleteMessageBody,
+    InteractionFeedbackBody,
     LoginUserBody,
     PulseListQuery,
     PulseMatchBody,
@@ -47,6 +48,7 @@ import {
     createPulseSchema,
     createReportSchema,
     deleteMessageSchema,
+    interactionFeedbackSchema,
     loginUserSchema,
     messageNotificationPayloadSchema,
     passwordConfirmSchema,
@@ -1387,6 +1389,70 @@ export const httpRoutes: HttpRoutes = {
                         );
 
                         return withCors(Response.json({ interactions }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/interactions/:id/feedback': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const body: InteractionFeedbackBody = await req
+                            .json()
+                            .then((raw) => interactionFeedbackSchema.parse(raw));
+
+                        const result = await db.submitInteractionFeedback({
+                            interactionId: req.params.id as string,
+                            actorId: payload.id,
+                            positive: body.positive,
+                        });
+
+                        if (!result.success && result.notFound) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!result.success && result.forbidden) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        if (!result.success && result.positiveRequired) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        if (!result.success && result.solved) {
+                            return withCors(
+                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
+                        if (!result.success && result.nonRequestType) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Feedback is only available for help interactions on need pulses',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.success || !result.interaction) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    interaction: result.interaction,
+                                    trustIncremented: Boolean(result.trustIncremented),
+                                    successfulInteractions: result.helperSuccessfulCount ?? null,
+                                    trustScore: result.helperTrustScore ?? null,
+                                },
+                                { status: 200 }
+                            )
+                        );
                     })
                 )
             ),
