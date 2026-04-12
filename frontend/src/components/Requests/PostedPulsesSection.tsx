@@ -94,11 +94,6 @@ function PostedPulsesSectionComponent({
                                     {solvingPulseId === pulse.id ? 'Solving...' : 'Mark solved'}
                                 </HoverButton>
                             )}
-                            {!canManageActions && (
-                                <span style="font-size:11px;color:var(--text-tertiary);font-style:italic;">
-                                    Success and solve actions are handled by admins/mods.
-                                </span>
-                            )}
                             <HoverButton
                                 type="button"
                                 onClick={() => void onTogglePulseDetails(pulse.id)}
@@ -158,7 +153,7 @@ function PostedPulsesSectionComponent({
                                             </HoverButton>
                                         ) : interaction.status === 'accepted' ? (
                                             <span style="font-size:11px;font-weight:600;color:var(--text-tertiary);white-space:nowrap;">
-                                                Admin only
+                                                Awaiting confirmation
                                             </span>
                                         ) : (
                                             <span style="font-size:11px;font-weight:700;color:var(--success);white-space:nowrap;">

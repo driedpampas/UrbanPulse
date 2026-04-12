@@ -2023,15 +2023,38 @@ export const httpRoutes: HttpRoutes = {
     '/api/pulses/:id/interactions/:interactionId/confirm': {
         POST: async (req) =>
             validate(req, async () =>
-                authorize(req, async () =>
+                authorize(req, async (session) =>
                     caught(async () => {
+                        const payload = session as JwtPayload;
+                        const result = await db.confirmPulseInteraction({
+                            pulseId: req.params.id as string,
+                            interactionId: req.params.interactionId as string,
+                            authorId: payload.id,
+                        });
+
+                        if (!result.success && result.solved) {
+                            return withCors(
+                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
+                        if (!result.success && result.nonRequestType) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulse interactions can be marked successful',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.success || !result.interaction) {
+                            return withCors(BAD_REQUEST);
+                        }
+
                         return withCors(
-                            Response.json(
-                                {
-                                    error: 'This action is only available in Admin Dashboard > Requests.',
-                                },
-                                { status: 403 }
-                            )
+                            Response.json({ interaction: result.interaction }, { status: 200 })
                         );
                     })
                 )
@@ -2040,15 +2063,28 @@ export const httpRoutes: HttpRoutes = {
     '/api/pulses/:id/solve': {
         POST: async (req) =>
             validate(req, async () =>
-                authorize(req, async () =>
+                authorize(req, async (session) =>
                     caught(async () => {
+                        const payload = session as JwtPayload;
+                        const result = await db.markPulseSolved(req.params.id as string, payload.id);
+
+                        if (!result.pulse && result.noSuccessfulInteractions) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'A pulse can only be marked solved after at least one successful interaction',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.pulse) {
+                            return withCors(NOT_FOUND);
+                        }
+
                         return withCors(
-                            Response.json(
-                                {
-                                    error: 'This action is only available in Admin Dashboard > Requests.',
-                                },
-                                { status: 403 }
-                            )
+                            Response.json({ pulse: result.pulse }, { status: 200 })
                         );
                     })
                 )

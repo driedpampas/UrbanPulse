@@ -2722,8 +2722,14 @@ export async function insertUser(
     verificationToken: string
 ) {
     return await sql`
-    INSERT INTO app.users (email, display_name, password_hash, verification_token)
-    VALUES (${email}, ${displayname}, ${hashedPass}, ${verificationToken})
+    INSERT INTO app.users (email, display_name, password_hash, verification_token, location)
+    VALUES (
+        ${email},
+        ${displayname},
+        ${hashedPass},
+        ${verificationToken},
+        ST_SetSRID(ST_MakePoint(27.5889, 47.1569), 4326)::geography
+    )
     RETURNING id, role, is_email_verified
     `;
 }

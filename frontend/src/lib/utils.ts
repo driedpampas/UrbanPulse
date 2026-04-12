@@ -6,8 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const DEFAULT_PULSE_CENTER = {
-    lat: 40.7128,
-    lng: -74.006,
+    lat: 47.1569,
+    lng: 27.5889,
 };
 
 export function isUsableCoordinates(lat: number, lng: number): boolean {
