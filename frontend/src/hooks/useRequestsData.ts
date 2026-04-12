@@ -85,25 +85,20 @@ export function useRequestsData() {
 
             setConfirmingInteractionId(interactionId);
             try {
-                const updated = await confirmPulseInteraction(pulseId, interactionId);
+                await confirmPulseInteraction(pulseId, interactionId);
+
+                const [freshInteractions, freshMyPulses, freshAccepted] = await Promise.all([
+                    fetchPulseInteractions(pulseId),
+                    fetchMyPostedPulses(50, 0),
+                    fetchAcceptedPulseInteractions(50, 0),
+                ]);
 
                 setInteractionsByPulse((current) => ({
                     ...current,
-                    [pulseId]: (current[pulseId] ?? []).map((interaction) =>
-                        interaction.id === interactionId ? updated : interaction
-                    ),
+                    [pulseId]: freshInteractions,
                 }));
-
-                setMyPulses((current) =>
-                    current.map((pulse) =>
-                        pulse.id === pulseId
-                            ? {
-                                  ...pulse,
-                                  successfulCount: pulse.successfulCount + 1,
-                              }
-                            : pulse
-                    )
-                );
+                setMyPulses(freshMyPulses);
+                setAcceptedByMe(freshAccepted);
             } catch (apiError) {
                 alert(apiError instanceof Error ? apiError.message : 'Could not confirm helper.');
             } finally {

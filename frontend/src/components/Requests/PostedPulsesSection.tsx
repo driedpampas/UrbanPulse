@@ -1,6 +1,8 @@
 import { CheckCircle, Clock, UserCheck, Users } from 'lucide-preact';
 import { memo } from 'preact/compat';
+import { useState } from 'preact/hooks';
 import type { AuthorPulseRequest, PulseInteraction } from '../../types';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { HoverButton } from '../ui/HoverButton';
 import { timeAgo } from './requests.utils';
 
@@ -27,6 +29,12 @@ function PostedPulsesSectionComponent({
     onConfirmHelper,
     onMarkPulseSolved,
 }: Props) {
+    const [confirmSolvePulseId, setConfirmSolvePulseId] = useState<string | null>(null);
+    const confirmSolvePulse =
+        confirmSolvePulseId !== null
+            ? myPulses.find((pulse) => pulse.id === confirmSolvePulseId) ?? null
+            : null;
+
     return (
         <section class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;align-items:center;gap:7px;">
@@ -74,7 +82,7 @@ function PostedPulsesSectionComponent({
                             {!pulse.isSolved && (
                                 <HoverButton
                                     type="button"
-                                    onClick={() => void onMarkPulseSolved(pulse.id)}
+                                    onClick={() => setConfirmSolvePulseId(pulse.id)}
                                     disabled={solvingPulseId === pulse.id}
                                     class="btn-ghost"
                                     style="height:26px;padding:0 8px;font-size:11px;"
@@ -151,6 +159,28 @@ function PostedPulsesSectionComponent({
                     </article>
                 );
             })}
+
+            <ConfirmDialog
+                open={confirmSolvePulseId !== null}
+                title="Mark pulse as solved"
+                message={
+                    confirmSolvePulse
+                        ? `Mark this pulse as solved? This will close the request and disable further success confirmations.\n\n"${confirmSolvePulse.content}"`
+                        : 'Mark this pulse as solved? This will close the request and disable further success confirmations.'
+                }
+                confirmLabel="Mark Solved"
+                destructive={false}
+                busy={Boolean(confirmSolvePulseId && solvingPulseId === confirmSolvePulseId)}
+                onCancel={() => setConfirmSolvePulseId(null)}
+                onConfirm={async () => {
+                    if (!confirmSolvePulseId) {
+                        return;
+                    }
+
+                    await onMarkPulseSolved(confirmSolvePulseId);
+                    setConfirmSolvePulseId(null);
+                }}
+            />
         </section>
     );
 }
