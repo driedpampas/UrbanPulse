@@ -1,4 +1,4 @@
-import { Ban, CheckCircle, Shield, Trash2 } from 'lucide-preact';
+import { Ban, ShieldCheck, ShieldX, Slash, Trash2 } from 'lucide-preact';
 import { memo, useState } from 'preact/compat';
 import type { User } from '../../types';
 import { HoverButton } from '../ui/HoverButton';
@@ -18,6 +18,7 @@ type Props = {
 function UserRowComponent({ user, onSetRole, onDelete }: Props) {
     const role = user.role?.toLowerCase() ?? 'resident';
     const [busy, setBusy] = useState(false);
+    const [showActions, setShowActions] = useState(false);
     const isAdmin = role === 'admin';
     const isMod = role === 'mod';
 
@@ -25,6 +26,7 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
         setBusy(true);
         try {
             await onSetRole(user.id, nextRole);
+            setShowActions(false);
         } finally {
             setBusy(false);
         }
@@ -65,47 +67,77 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                     </p>
                 </div>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;">
-                <HoverButton
-                    type="button"
-                    disabled={busy || isAdmin}
-                    onClick={() => void setRole('admin')}
-                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--accent-subtle);color:var(--accent);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Promote to admin"
-                    title="Promote to admin"
-                >
-                    <Shield size={14} />
-                </HoverButton>
-                <HoverButton
-                    type="button"
-                    disabled={busy || isAdmin || isMod}
-                    onClick={() => void setRole('mod')}
-                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--warning-subtle);color:var(--warning);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Promote to mod"
-                    title="Promote to mod"
-                >
-                    <Shield size={14} />
-                </HoverButton>
-                <HoverButton
-                    type="button"
-                    disabled={busy || isAdmin || role === 'resident'}
-                    onClick={() => void setRole('resident')}
-                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--bg-muted);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Demote user"
-                    title="Demote user"
-                >
-                    <CheckCircle size={14} />
-                </HoverButton>
-                <HoverButton
-                    type="button"
-                    disabled={busy || isAdmin}
-                    onClick={() => void setRole('banned')}
-                    style="width:34px;height:34px;border-radius:10px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
-                    aria-label="Ban user"
-                    title="Ban user"
-                >
-                    <Ban size={14} />
-                </HoverButton>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;align-items:center;">
+                {showActions ? (
+                    <div style="display:flex;gap:4px;align-items:center;background:var(--bg-muted);padding:4px;border-radius:10px;border:1px solid var(--border);" class="animate-fade-in">
+                        {role !== 'admin' && (
+                            <HoverButton
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void setRole('admin')}
+                                style="width:32px;height:32px;border-radius:8px;border:none;background:var(--accent-subtle);color:var(--accent);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                                aria-label="Make Admin"
+                                title="Make Admin"
+                            >
+                                <ShieldCheck size={14} />
+                            </HoverButton>
+                        )}
+                        {role !== 'mod' && (
+                            <HoverButton
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void setRole('mod')}
+                                style="width:32px;height:32px;border-radius:8px;border:none;background:var(--warning-subtle);color:var(--warning);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                                aria-label={isAdmin ? "Demote to Mod" : "Make Mod"}
+                                title={isAdmin ? "Demote to Mod" : "Make Mod"}
+                            >
+                                {isAdmin ? <ShieldX size={14} /> : <ShieldCheck size={14} />}
+                            </HoverButton>
+                        )}
+                        {role !== 'resident' && (
+                            <HoverButton
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void setRole('resident')}
+                                style="width:32px;height:32px;border-radius:8px;border:none;background:var(--bg-subtle);color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                                aria-label="Demote to Resident"
+                                title="Demote to Resident"
+                            >
+                                <ShieldX size={14} />
+                            </HoverButton>
+                        )}
+                        {role !== 'banned' && (
+                            <HoverButton
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void setRole('banned')}
+                                style="width:32px;height:32px;border-radius:8px;border:none;background:var(--danger-subtle);color:var(--danger);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"
+                                aria-label="Ban User"
+                                title="Ban User"
+                            >
+                                <Slash size={14} />
+                            </HoverButton>
+                        )}
+                        <HoverButton
+                            type="button"
+                            onClick={() => setShowActions(false)}
+                            style="width:32px;height:32px;border-radius:8px;border:none;background:none;color:var(--text-tertiary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;"
+                            aria-label="Cancel"
+                        >
+                            ×
+                        </HoverButton>
+                    </div>
+                ) : (
+                    <HoverButton
+                        type="button"
+                        onClick={() => setShowActions(true)}
+                        style="height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;"
+                    >
+                        <ShieldCheck size={14} />
+                        Manage Role
+                    </HoverButton>
+                )}
+
                 <HoverButton
                     type="button"
                     disabled={busy}

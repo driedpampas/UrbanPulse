@@ -11,6 +11,9 @@ import {
     Pencil,
     Save,
     ShieldCheck,
+    ShieldOff,
+    ShieldX,
+    Slash,
     Trash2,
     X,
 } from 'lucide-preact';
@@ -140,6 +143,7 @@ export function Profile() {
         destructive?: boolean;
         onConfirm: () => Promise<void>;
     }>(null);
+    const [showRoleOptions, setShowRoleOptions] = useState(false);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
     const targetRole = user?.role?.toLowerCase() ?? 'resident';
     const [mapError, setMapError] = useState<string | null>(null);
@@ -380,11 +384,11 @@ export function Profile() {
 
     const requestBlockToggle = () => {
         setConfirmAction({
-            title: blocked ? 'Unban user' : 'Ban user',
+            title: blocked ? 'Unblock user' : 'Block user',
             message: blocked
-                ? `Remove the ban for ${user?.name ?? 'this user'}?`
-                : `Ban ${user?.name ?? 'this user'} from the platform?`,
-            confirmLabel: blocked ? 'Unban' : 'Ban',
+                ? `Remove the block for ${user?.name ?? 'this user'}?`
+                : `Block ${user?.name ?? 'this user'}? They won't be able to message you or see your detailed activity.`,
+            confirmLabel: blocked ? 'Unblock' : 'Block',
             destructive: !blocked,
             onConfirm: handleToggleBlock,
         });
@@ -429,6 +433,10 @@ export function Profile() {
         setActionBusy(true);
         try {
             await updateAdminUserRole(selectedUserId, nextRole);
+            // Refresh user state
+            const updatedUser = await fetchUserById(selectedUserId);
+            if (updatedUser) setUser(updatedUser);
+            setShowRoleOptions(false);
         } catch (error) {
             console.error(error);
             window.alert('Could not update user role.');
@@ -580,84 +588,130 @@ export function Profile() {
                 </div>
 
                 {!isOwnProfile && (
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-                        <HoverButton
-                            type="button"
-                            class="btn-primary"
-                            onClick={handleMessageUser}
-                            disabled={actionBusy}
-                            style="flex:1 1 150px;height:36px;"
-                        >
-                            <MessageSquare size={14} />
-                            Message
-                        </HoverButton>
-                        <HoverButton
-                            type="button"
-                            class="btn-ghost"
-                            onClick={requestBlockToggle}
-                            disabled={actionBusy}
-                            style="flex:1 1 110px;height:36px;color:var(--danger);border-color:var(--danger-muted);"
-                        >
-                            <Ban size={14} />
-                            {blocked ? 'Unblock' : 'Ban'}
-                        </HoverButton>
-                        <HoverButton
-                            type="button"
-                            class="btn-ghost"
-                            onClick={() => setShowReportUserModal(true)}
-                            disabled={actionBusy}
-                            style="flex:1 1 110px;height:36px;color:var(--warning);border-color:var(--warning-muted);"
-                        >
-                            <Flag size={14} />
-                            Report
-                        </HoverButton>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <p style={S.label}>Personal Actions</p>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                            <HoverButton
+                                type="button"
+                                class="btn-primary"
+                                onClick={handleMessageUser}
+                                disabled={actionBusy}
+                                style="flex:1 1 150px;height:36px;"
+                            >
+                                <MessageSquare size={14} />
+                                Message
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                class="btn-ghost"
+                                onClick={requestBlockToggle}
+                                disabled={actionBusy}
+                                style="flex:1 1 110px;height:36px;color:var(--danger);border-color:var(--danger-muted);"
+                            >
+                                <ShieldOff size={14} />
+                                {blocked ? 'Unblock' : 'Block'}
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                class="btn-ghost"
+                                onClick={() => setShowReportUserModal(true)}
+                                disabled={actionBusy}
+                                style="flex:1 1 110px;height:36px;color:var(--warning);border-color:var(--warning-muted);"
+                            >
+                                <Flag size={14} />
+                                Report
+                            </HoverButton>
+                        </div>
                     </div>
                 )}
 
                 {isAdmin && !isOwnProfile && (
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-                        <HoverButton
-                            type="button"
-                            class="btn-ghost"
-                            onClick={() =>
-                                requestRoleChange(targetRole === 'admin' ? 'resident' : 'admin')
-                            }
-                            disabled={actionBusy || targetRole === 'admin'}
-                            style="height:36px;flex:1 1 120px;color:var(--accent);border-color:var(--accent-muted);"
-                        >
-                            <ShieldCheck size={14} />
-                            {targetRole === 'admin' ? 'Demote' : 'Promote'}
-                        </HoverButton>
-                        <HoverButton
-                            type="button"
-                            class="btn-ghost"
-                            onClick={() => requestRoleChange('mod')}
-                            disabled={actionBusy || targetRole === 'admin'}
-                            style="height:36px;flex:1 1 120px;color:var(--warning);border-color:var(--warning-muted);"
-                        >
-                            <ShieldCheck size={14} />
-                            Promote Mod
-                        </HoverButton>
-                        <HoverButton
-                            type="button"
-                            class="btn-ghost"
-                            onClick={() => requestRoleChange('banned')}
-                            disabled={actionBusy || targetRole === 'admin'}
-                            style="height:36px;flex:1 1 120px;color:var(--danger);border-color:var(--danger-muted);"
-                        >
-                            <Ban size={14} />
-                            Ban
-                        </HoverButton>
-                        <HoverButton
-                            type="button"
-                            class="btn-ghost"
-                            onClick={handleDeleteProfile}
-                            disabled={actionBusy}
-                            style="height:36px;flex:1 1 120px;color:var(--danger);border-color:var(--danger-muted);"
-                        >
-                            <Trash2 size={14} />
-                            Delete
-                        </HoverButton>
+                    <div
+                        style="margin-top:10px;display:flex;flex-direction:column;gap:8px;background:var(--danger-subtle);padding:14px;border-radius:12px;border:1px solid var(--danger-muted);position:relative;"
+                        class="animate-slide-up"
+                    >
+                        <p style={`${S.label}color:var(--danger);opacity:0.8;`}>Admin Control Panel</p>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                            <HoverButton
+                                id="manage-role-btn"
+                                type="button"
+                                class={showRoleOptions ? 'btn-primary' : 'btn-ghost'}
+                                onClick={() => setShowRoleOptions(!showRoleOptions)}
+                                disabled={actionBusy}
+                                style="height:36px;flex:1 1 120px;color:var(--accent);border-color:var(--accent-muted);"
+                            >
+                                <ShieldCheck size={14} />
+                                {showRoleOptions ? 'Close Menu' : 'Manage User Role'}
+                            </HoverButton>
+
+                            <HoverButton
+                                type="button"
+                                class="btn-ghost"
+                                onClick={handleDeleteProfile}
+                                disabled={actionBusy}
+                                style="height:36px;flex:1 1 120px;color:var(--danger);border-color:var(--danger-muted);"
+                            >
+                                <Trash2 size={14} />
+                                Delete Account
+                            </HoverButton>
+                        </div>
+
+                        {showRoleOptions && (
+                            <div
+                                style="display:flex;flex-direction:column;gap:6px;margin-top:4px;padding-top:10px;border-top:1px solid var(--danger-muted);"
+                                class="animate-fade-in"
+                            >
+                                <p style="font-size:11px;font-weight:700;color:var(--danger);opacity:0.6;text-transform:uppercase;">
+                                    Available Role Actions
+                                </p>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                    {targetRole !== 'admin' && (
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-ghost"
+                                            onClick={() => requestRoleChange('admin')}
+                                            style="height:32px;font-size:12px;color:var(--accent);border-color:var(--accent-muted);"
+                                        >
+                                            <ShieldCheck size={13} />
+                                            Make Admin
+                                        </HoverButton>
+                                    )}
+                                    {targetRole !== 'mod' && (
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-ghost"
+                                            onClick={() => requestRoleChange('mod')}
+                                            style="height:32px;font-size:12px;color:var(--warning);border-color:var(--warning-muted);"
+                                        >
+                                            <ShieldCheck size={13} />
+                                            {targetRole === 'admin' ? 'Demote to Mod' : 'Make Mod'}
+                                        </HoverButton>
+                                    )}
+                                    {targetRole !== 'resident' && (
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-ghost"
+                                            onClick={() => requestRoleChange('resident')}
+                                            style="height:32px;font-size:12px;color:var(--text-secondary);border-color:var(--border);"
+                                        >
+                                            <ShieldX size={13} />
+                                            Demote to Resident
+                                        </HoverButton>
+                                    )}
+                                    {targetRole !== 'banned' && (
+                                        <HoverButton
+                                            type="button"
+                                            class="btn-ghost"
+                                            onClick={() => requestRoleChange('banned')}
+                                            style="height:32px;font-size:12px;color:var(--danger);border-color:var(--danger-muted);"
+                                        >
+                                            <Slash size={13} />
+                                            Ban User
+                                        </HoverButton>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
