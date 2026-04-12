@@ -48,7 +48,7 @@ export interface Timerange {
     end: string;
 }
 
-export const PULSE_TYPE_VALUES = ['update', 'emergency', 'skill', 'item', 'need'] as const;
+export const PULSE_TYPE_VALUES = ['update', 'emergency', 'skill', 'item', 'pet', 'need'] as const;
 
 export type PulseType = (typeof PULSE_TYPE_VALUES)[number];
 
@@ -1369,7 +1369,7 @@ async function ensureSchema() {
                 ALTER TABLE app.pulses
                 ADD CONSTRAINT pulses_pulse_type_check CHECK (
                     LOWER(pulse_type) = ANY (
-                        ARRAY['update', 'emergency', 'skill', 'item', 'need']
+                        ARRAY['update', 'emergency', 'skill', 'item', 'pet', 'need']
                     )
                 )
             `;
@@ -1420,7 +1420,8 @@ export async function selectPulses(
     lat?: number | null,
     lng?: number | null,
     radius?: number | null,
-    offset = 0
+    offset = 0,
+    type?: PulseType
 ): Promise<PulseFeedItem[]> {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
     const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
@@ -1444,14 +1445,15 @@ export async function selectPulses(
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
     WHERE (
-        ${lat}::double precision IS NULL OR 
+        (${lat}::double precision IS NULL OR 
         ${lng}::double precision IS NULL OR 
         ${radius}::double precision IS NULL OR
         ST_DWithin(
             pulses.location,
             ST_SetSRID(ST_MakePoint(${lng}::double precision, ${lat}::double precision), 4326)::geography,
             ${radius}::double precision
-        )
+        ))
+        AND (${type}::text IS NULL OR LOWER(pulses.pulse_type) = LOWER(${type}::text))
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}

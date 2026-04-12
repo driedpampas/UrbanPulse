@@ -1796,11 +1796,14 @@ function ChatView({
                                                     </span>
                                                 </div>
                                                 {isEditingMessage ? (
-                                                    <div
+                                                    <form
                                                         class="stack-v gap-sm"
-                                                        role="form"
                                                         aria-label="Edit message"
                                                         onClick={(event) => event.stopPropagation()}
+                                                        onSubmit={(event) => {
+                                                            event.preventDefault();
+                                                            void handleSaveMessageEdit(msg);
+                                                        }}
                                                         onKeyDown={(event) => {
                                                             if (event.key === 'Escape') {
                                                                 handleCancelMessageEdit();
@@ -1865,7 +1868,7 @@ function ChatView({
                                                                 {editError}
                                                             </p>
                                                         )}
-                                                    </div>
+                                                    </form>
                                                 ) : (
                                                     <>
                                                         {(msg.replyToId || msg.replyTo) && (

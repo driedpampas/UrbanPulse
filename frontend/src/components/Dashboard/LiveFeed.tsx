@@ -9,6 +9,7 @@ import {
     MapPin,
     MessageSquare,
     Package,
+    PawPrint,
     Plus,
     Send,
     Trash2,
@@ -50,6 +51,7 @@ const TYPE_MAP: Record<string, TypeDef> = {
     emergency: { icon: AlertTriangle, label: 'Emergency', cssPrefix: 'emergency' },
     skill: { icon: Wrench, label: 'Skill', cssPrefix: 'skill' },
     item: { icon: Package, label: 'Item', cssPrefix: 'item' },
+    pet: { icon: PawPrint, label: 'Pet', cssPrefix: 'emergency' },
     update: { icon: MessageSquare, label: 'Update', cssPrefix: 'update' },
 };
 

@@ -88,6 +88,7 @@ const DEFAULT_PULSE_URGENCY: Record<PulseType, number> = {
     skill: 2,
     item: 1,
     need: 4,
+    pet: 2,
 };
 
 const BACKEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -1613,12 +1614,15 @@ export const httpRoutes: HttpRoutes = {
                         ? Number(url.searchParams.get('radius'))
                         : null;
 
+                    const type = url.searchParams.get('type') as PulseType | null;
+
                     const pulses = await db.selectPulses(
                         Number.isFinite(requestedLimit) ? requestedLimit : 50,
                         lat,
                         lng,
                         radius,
-                        Number.isFinite(offset) ? offset : 0
+                        Number.isFinite(offset) ? offset : 0,
+                        type || undefined
                     );
 
                     return withCors(Response.json(pulses, { status: 200 }));

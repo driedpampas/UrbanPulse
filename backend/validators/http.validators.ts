@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { UserSearchParams } from '../db';
 
-const PULSE_TYPES = ['need', 'emergency', 'skill', 'item', 'update'] as const;
-const PULSE_TYPE_ALIASES = ['Need', 'Emergency', 'Skill', 'Item', 'Update'] as const;
+const PULSE_TYPES = ['need', 'emergency', 'skill', 'item', 'update', 'pet'] as const;
+const PULSE_TYPE_ALIASES = ['Need', 'Emergency', 'Skill', 'Item', 'Update', 'Pet'] as const;
 
 export const PROFILE_PICTURE_MAX_BYTES = 350 * 1024;
 export const PROFILE_PICTURE_ALLOWED_MIME_TYPES = [

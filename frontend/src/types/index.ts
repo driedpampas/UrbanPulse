@@ -32,7 +32,7 @@ export interface Pulse {
     userId: string;
     userName: string;
     userAvatar: string;
-    type: 'update' | 'emergency' | 'skill' | 'item' | 'need';
+    type: 'update' | 'emergency' | 'skill' | 'item' | 'pet' | 'need';
     content: string;
     timestamp: number;
     lat: number;
