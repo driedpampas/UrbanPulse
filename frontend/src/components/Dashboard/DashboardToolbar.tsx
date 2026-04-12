@@ -24,7 +24,7 @@ function DashboardToolbarComponent({
     onOpenPostForm,
 }: Props) {
     return (
-        <div class="stack-v gap-md pt-3 sm:flex-row sm:items-end sm:justify-between">
+        <div class="stack-v gap-md pt-3 sm:flex-row sm:items-start sm:justify-start">
             <div class="stack-v gap-md sm:flex-row sm:items-center sm:flex-wrap">
                 <div class="tab-switcher w-fit max-w-full">
                     <HoverButton
@@ -76,7 +76,7 @@ function DashboardToolbarComponent({
             </div>
 
             {!showFilters && (
-                <div class="stack-v items-start sm:items-end gap-[1px]">
+                <div class="stack-v items-start gap-[1px] sm:pl-2">
                     <span class="text-[11px] text-[var(--text-tertiary)] leading-none whitespace-nowrap">
                         {radius}m radius
                     </span>
