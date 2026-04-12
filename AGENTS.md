@@ -2,6 +2,7 @@
 
 - If `bun` is not found on the system `PATH`, use `~/.bun/bin/bun` as the executable path.
 - In JS and TS projects, use `bun` all the time, unless there is no `bun.lock` file.
+- Before finishing and handing off, always run `bun run build` to ensure builds will succeed.
 
 ## UI & Theme Rules
 

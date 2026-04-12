@@ -1,3 +1,4 @@
+import {
     AlertCircle,
     ArrowLeft,
     ArrowRight,
@@ -41,6 +42,7 @@ export function Auth() {
     const [showCPw, setShowCPw] = useState(false);
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
+    const [errors, setErrors] = useState<FormErrors>({});
 
     const validate = () => {
         const e: FormErrors = {};
@@ -108,14 +110,6 @@ export function Auth() {
             setLoading(false);
         }
     };
-
-
-    const pwWrap = { position: 'relative' as const };
-    const eyeBtn = `
-		position:absolute;right:0;top:0;bottom:0;width:38px;
-		display:flex;align-items:center;justify-content:center;
-		background:none;border:none;cursor:pointer;color:var(--text-tertiary);
-	`;
 
     return (
         <div class="page-shell bg-[var(--bg)]">
@@ -352,7 +346,5 @@ export function Auth() {
                 </div>
             </div>
         </div>
-    );
-}
     );
 }
