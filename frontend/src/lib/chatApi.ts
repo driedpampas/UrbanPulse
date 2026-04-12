@@ -381,12 +381,24 @@ async function fetchChatMessages(threadId: string): Promise<BackendChatMessage[]
 export async function fetchChats(): Promise<ChatThread[]> {
     const summaries = await request<BackendChatSummary[]>('/chats', { method: 'GET' });
 
-    const threads = await Promise.all(
+    const threadResults = await Promise.allSettled(
         summaries.map(async (summary) => {
-            const messages = await fetchChatMessages(summary.id);
-            return normalizeChat(summary, normalizeThreadMessages(summary, messages));
+            try {
+                const messages = await fetchChatMessages(summary.id);
+                return normalizeChat(summary, normalizeThreadMessages(summary, messages));
+            } catch {
+                // Keep thread visible even if message history fetch fails.
+                return normalizeChat(summary, []);
+            }
         })
     );
+
+    const threads = threadResults
+        .filter(
+            (result): result is PromiseFulfilledResult<ChatThread> =>
+                result.status === 'fulfilled'
+        )
+        .map((result) => result.value);
 
     return threads.sort((left, right) => {
         const rightTimestamp =
