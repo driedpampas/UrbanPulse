@@ -1132,6 +1132,83 @@ async function ensureSchema() {
             `;
         }
 
+        const pulseVerifiedInfoCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_verified_info'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseVerifiedInfoCol.length === 0) {
+            await tx`
+                ALTER TABLE app.pulses
+                ADD COLUMN is_verified_info boolean
+            `;
+        }
+
+        if (pulseVerifiedInfoCol[0]?.is_generated === 'ALWAYS') {
+            await tx`
+                ALTER TABLE app.pulses
+                ALTER COLUMN is_verified_info DROP EXPRESSION
+            `;
+        }
+
+        const pulseConfirmationCountCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'confirmation_count'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseConfirmationCountCol.length === 0) {
+            await tx`
+                ALTER TABLE app.pulses
+                ADD COLUMN confirmation_count integer
+            `;
+        }
+
+        if (pulseConfirmationCountCol[0]?.is_generated === 'ALWAYS') {
+            throw new Error(
+                'Unsupported app.pulses schema: confirmation_count must be writable and cannot be a generated column.'
+            );
+        }
+
+        await tx`
+            UPDATE app.pulses
+            SET confirmation_count = COALESCE(confirmation_count, 0)
+            WHERE confirmation_count IS NULL
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN confirmation_count SET DEFAULT 0
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN confirmation_count SET NOT NULL
+        `;
+
+        await tx`
+            UPDATE app.pulses
+            SET is_verified_info = CASE
+                WHEN COALESCE(confirmation_count, 0) >= ${PULSE_CONFIRMATION_THRESHOLD}
+                    THEN true
+                ELSE COALESCE(is_verified_info, false)
+            END
+            WHERE is_verified_info IS NULL OR COALESCE(confirmation_count, 0) >= ${PULSE_CONFIRMATION_THRESHOLD}
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_verified_info SET DEFAULT false
+        `;
+
+        await tx`
+            ALTER TABLE app.pulses
+            ALTER COLUMN is_verified_info SET NOT NULL
+        `;
+
         const pulseEmergencyCol = await tx`
             SELECT 1 FROM information_schema.columns
             WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_emergency'
@@ -1142,6 +1219,19 @@ async function ensureSchema() {
                 ALTER TABLE app.pulses
                 ADD COLUMN is_emergency boolean
             `;
+        }
+
+        const pulseEmergencyGeneratedCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_emergency'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseEmergencyGeneratedCol[0]?.is_generated === 'ALWAYS') {
+            throw new Error(
+                'Unsupported app.pulses schema: is_emergency must be writable and cannot be a generated column.'
+            );
         }
 
         await tx`
@@ -1173,6 +1263,19 @@ async function ensureSchema() {
                 ALTER TABLE app.pulses
                 ADD COLUMN is_solved boolean
             `;
+        }
+
+        const pulseSolvedGeneratedCol = (await tx`
+            SELECT is_generated
+            FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_solved'
+            LIMIT 1
+        `) as Array<{ is_generated: string }>;
+
+        if (pulseSolvedGeneratedCol[0]?.is_generated === 'ALWAYS') {
+            throw new Error(
+                'Unsupported app.pulses schema: is_solved must be writable and cannot be a generated column.'
+            );
         }
 
         await tx`

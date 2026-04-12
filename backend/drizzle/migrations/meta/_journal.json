@@ -50,6 +50,13 @@
       "when": 1776000762414,
       "tag": "0006_wealthy_blacklash",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776002993669,
+      "tag": "0007_exact_molecule_man",
+      "breakpoints": true
     }
   ]
 }
