@@ -1,13 +1,5 @@
 import { readStoredAuthSession } from './auth';
-import type {
-    AdminFlag,
-    ChatMessage,
-    ChatThread,
-    LibraryItem,
-    PetMatch,
-    Pulse,
-    User,
-} from './types';
+import type { AdminFlag, ChatMessage, ChatThread, LibraryItem, Pulse, User } from './types';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -91,7 +83,7 @@ const mockUsers: User[] = [
         id: 'u5',
         name: 'Sam Taylor',
         avatar: AVATARS[4],
-        bio: 'Pet sitter extraordinaire 🐕',
+        bio: 'Community volunteer and local organizer',
         trustScore: 65,
         verified: false,
         lat: 40.71,
@@ -152,20 +144,6 @@ const mockPulses: Pulse[] = [
         lng: -74.008,
         verified: false,
         confirmations: 0,
-    },
-    {
-        id: 'p4',
-        userId: 'u5',
-        userName: 'Sam Taylor',
-        userAvatar: AVATARS[4],
-        type: 'pet',
-        content:
-            '🐕 Found a golden retriever near Central Park entrance — no collar. Please share!',
-        timestamp: Date.now() - 900000,
-        lat: 40.71,
-        lng: -74.007,
-        verified: false,
-        confirmations: 2,
     },
     {
         id: 'p5',
@@ -327,57 +305,6 @@ const mockChats: ChatThread[] = [
     },
 ];
 
-const mockPetMatches: PetMatch[] = [
-    {
-        id: 'pet1',
-        reportType: 'lost',
-        species: 'Dog',
-        breed: 'Golden Retriever',
-        color: 'Gold',
-        markings: 'White patch on chest, red collar',
-        photo: '',
-        location: 'Central Park entrance',
-        timestamp: Date.now() - 7200000,
-    },
-    {
-        id: 'pet2',
-        reportType: 'found',
-        species: 'Dog',
-        breed: 'Golden Retriever',
-        color: 'Gold/Cream',
-        markings: 'Light patch on chest, no collar',
-        photo: '',
-        location: 'Near Oak St deli',
-        timestamp: Date.now() - 3600000,
-        matchConfidence: 91,
-        matchedWith: 'pet1',
-    },
-    {
-        id: 'pet3',
-        reportType: 'lost',
-        species: 'Cat',
-        breed: 'Tabby',
-        color: 'Orange/Brown',
-        markings: 'Striped, green eyes, notched left ear',
-        photo: '',
-        location: 'Elm Street apartments',
-        timestamp: Date.now() - 86400000,
-    },
-    {
-        id: 'pet4',
-        reportType: 'found',
-        species: 'Cat',
-        breed: 'Tabby',
-        color: 'Brown/Orange',
-        markings: 'Striped pattern, green eyes',
-        photo: '',
-        location: 'Oak St deli area',
-        timestamp: Date.now() - 2000000,
-        matchConfidence: 78,
-        matchedWith: 'pet3',
-    },
-];
-
 const mockFlags: AdminFlag[] = [
     {
         id: 'f1',
@@ -487,11 +414,6 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
     const thread = mockChats.find((c) => c.id === threadId);
     if (thread) thread.messages.push(msg);
     return msg;
-}
-
-export async function fetchPetMatches(): Promise<PetMatch[]> {
-    await delay(400);
-    return [...mockPetMatches];
 }
 
 export async function fetchFlags(): Promise<AdminFlag[]> {

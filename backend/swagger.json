@@ -27,9 +27,7 @@
     "paths": {
         "/api/auth/register": {
             "post": {
-                "tags": [
-                    "Authentication"
-                ],
+                "tags": ["Authentication"],
                 "summary": "Register a new neighbor",
                 "description": "Creates a new user account and returns a session token.",
                 "requestBody": {
@@ -38,11 +36,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "email",
-                                    "password",
-                                    "displayName"
-                                ],
+                                "required": ["email", "password", "displayName"],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -113,9 +107,7 @@
         },
         "/api/auth/login": {
             "post": {
-                "tags": [
-                    "Authentication"
-                ],
+                "tags": ["Authentication"],
                 "summary": "Login an existing neighbor",
                 "description": "Authenticates a user and returns a session token.",
                 "requestBody": {
@@ -124,10 +116,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "email",
-                                    "password"
-                                ],
+                                "required": ["email", "password"],
                                 "properties": {
                                     "email": {
                                         "type": "string",
@@ -190,9 +179,7 @@
         },
         "/api/user": {
             "patch": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Update existing user",
                 "description": "Updates the existing user, identified with the session token, with the provided parameters.",
                 "security": [
@@ -252,10 +239,7 @@
                                     },
                                     "quietDays": {
                                         "type": "array",
-                                        "example": [
-                                            0,
-                                            6
-                                        ],
+                                        "example": [0, 6],
                                         "items": {
                                             "type": "integer",
                                             "minimum": 0,
@@ -272,7 +256,7 @@
                                         "example": [
                                             "first aid",
                                             "portable generator",
-                                            "pet transport"
+                                            "wheelchair access"
                                         ],
                                         "nullable": true
                                     }
@@ -300,9 +284,7 @@
                 }
             },
             "get": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Get current user profile",
                 "description": "Returns the profile of the authenticated user.",
                 "security": [
@@ -383,10 +365,7 @@
                                                 "minimum": 0,
                                                 "maximum": 6
                                             },
-                                            "example": [
-                                                0,
-                                                6
-                                            ]
+                                            "example": [0, 6]
                                         },
                                         "skills_and_resources": {
                                             "type": "array",
@@ -394,10 +373,7 @@
                                                 "type": "string"
                                             },
                                             "nullable": true,
-                                            "example": [
-                                                "first aid",
-                                                "portable generator"
-                                            ]
+                                            "example": ["first aid", "portable generator"]
                                         },
                                         "bio": {
                                             "type": "string",
@@ -421,9 +397,7 @@
                 }
             },
             "delete": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Delete authenticated user",
                 "description": "Deletes the currently authenticated user account.",
                 "security": [
@@ -447,9 +421,7 @@
         },
         "/api/auth/password": {
             "patch": {
-                "tags": [
-                    "Authentication"
-                ],
+                "tags": ["Authentication"],
                 "summary": "Update user password",
                 "description": "Updates the user's password, identified with the session token, with the provided parameters.",
                 "security": [
@@ -464,10 +436,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "newPassword",
-                                    "oldPassword"
-                                ],
+                                "required": ["newPassword", "oldPassword"],
                                 "properties": {
                                     "newPassword": {
                                         "type": "string",
@@ -501,9 +470,7 @@
         },
         "/api/pulse": {
             "get": {
-                "tags": [
-                    "Pulse"
-                ],
+                "tags": ["Pulse"],
                 "summary": "List pulses",
                 "description": "Returns the most recent pulses for the live feed.",
                 "security": [],
@@ -583,8 +550,7 @@
                                                     "emergency",
                                                     "skill",
                                                     "item",
-                                                    "need",
-                                                    "pet"
+                                                    "need"
                                                 ]
                                             },
                                             "content": {
@@ -623,9 +589,7 @@
                 }
             },
             "post": {
-                "tags": [
-                    "Pulse"
-                ],
+                "tags": ["Pulse"],
                 "summary": "Create a new pulse",
                 "description": "Creates a new pulse with the provided content and location. The author is the current logged in user",
                 "security": [
@@ -640,11 +604,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "type",
-                                    "content",
-                                    "location"
-                                ],
+                                "required": ["type", "content", "location"],
                                 "properties": {
                                     "type": {
                                         "type": "string",
@@ -653,13 +613,11 @@
                                             "emergency",
                                             "skill",
                                             "item",
-                                            "pet",
                                             "update",
                                             "Need",
                                             "Emergency",
                                             "Skill",
                                             "Item",
-                                            "Pet",
                                             "Update"
                                         ]
                                     },
@@ -712,14 +670,7 @@
                                         },
                                         "type": {
                                             "type": "string",
-                                            "enum": [
-                                                "update",
-                                                "emergency",
-                                                "skill",
-                                                "item",
-                                                "need",
-                                                "pet"
-                                            ]
+                                            "enum": ["update", "emergency", "skill", "item", "need"]
                                         },
                                         "content": {
                                             "type": "string"
@@ -764,9 +715,7 @@
         },
         "/api/pulse/{id}": {
             "delete": {
-                "tags": [
-                    "Pulse"
-                ],
+                "tags": ["Pulse"],
                 "summary": "Delete a pulse",
                 "description": "Deletes a pulse if the current user is the author, a moderator, or an admin.",
                 "security": [
@@ -806,10 +755,7 @@
         },
         "/api/pulse/live": {
             "get": {
-                "tags": [
-                    "Pulse",
-                    "Chats"
-                ],
+                "tags": ["Pulse", "Chats"],
                 "summary": "Pulse and chat websocket",
                 "description": "Upgrades the connection to WebSocket. Pulse events are broadcast automatically. For chat events, send JSON messages to subscribe or unsubscribe from thread topics.\n\nSubscribe payload: { \"action\": \"chat.subscribe\", \"threadId\": \"<uuid>\", \"token\": \"<jwt>\" }\nUnsubscribe payload: { \"action\": \"chat.unsubscribe\", \"threadId\": \"<uuid>\" }\n\nServer acknowledgements: chat.subscribed, chat.unsubscribed, chat.error. Chat messages are published as event: message.created.",
                 "responses": {
@@ -827,9 +773,7 @@
         },
         "/api/chats": {
             "get": {
-                "tags": [
-                    "Chats"
-                ],
+                "tags": ["Chats"],
                 "summary": "List your chats",
                 "description": "Returns the authenticated user's chat threads with participant metadata.",
                 "security": [
@@ -889,9 +833,7 @@
                 }
             },
             "post": {
-                "tags": [
-                    "Chats"
-                ],
+                "tags": ["Chats"],
                 "summary": "Create a chat",
                 "description": "Creates either a direct chat or a group chat. The authenticated user is always added as a participant.",
                 "security": [
@@ -906,10 +848,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "isGroup",
-                                    "participantIds"
-                                ],
+                                "required": ["isGroup", "participantIds"],
                                 "properties": {
                                     "isGroup": {
                                         "type": "boolean",
@@ -923,9 +862,7 @@
                                             "type": "string",
                                             "format": "uuid"
                                         },
-                                        "example": [
-                                            "fbc4c2f8-22f9-445f-9fc2-4072393fcb17"
-                                        ]
+                                        "example": ["fbc4c2f8-22f9-445f-9fc2-4072393fcb17"]
                                     }
                                 }
                             }
@@ -987,9 +924,7 @@
         },
         "/api/chats/{id}": {
             "get": {
-                "tags": [
-                    "Chats"
-                ],
+                "tags": ["Chats"],
                 "summary": "Get a chat",
                 "description": "Returns chat participants and metadata for a thread if the user is a participant.",
                 "security": [
@@ -1061,9 +996,7 @@
         },
         "/api/chats/{id}/messages": {
             "get": {
-                "tags": [
-                    "Chats"
-                ],
+                "tags": ["Chats"],
                 "summary": "Get chat messages",
                 "description": "Returns all messages from a chat thread if the requester is a participant.",
                 "security": [
@@ -1129,9 +1062,7 @@
                 }
             },
             "post": {
-                "tags": [
-                    "Chats"
-                ],
+                "tags": ["Chats"],
                 "summary": "Post a message",
                 "description": "Creates a new message in a chat thread.",
                 "security": [
@@ -1157,9 +1088,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "content"
-                                ],
+                                "required": ["content"],
                                 "properties": {
                                     "content": {
                                         "type": "string",
@@ -1218,9 +1147,7 @@
                 }
             },
             "delete": {
-                "tags": [
-                    "Chats"
-                ],
+                "tags": ["Chats"],
                 "summary": "Delete a message",
                 "description": "Deletes a message if the requester is the sender, moderator, or admin.",
                 "security": [
@@ -1246,9 +1173,7 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": [
-                                    "messageId"
-                                ],
+                                "required": ["messageId"],
                                 "properties": {
                                     "messageId": {
                                         "type": "string",
@@ -1283,9 +1208,7 @@
         },
         "/api/users": {
             "get": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Search users",
                 "description": "Searches users with optional filters. Parameters that accept multiple values can be repeated.",
                 "parameters": [
@@ -1321,10 +1244,7 @@
                         "description": "Set to true to match any listed skill/resource, false to require all.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },
@@ -1384,10 +1304,7 @@
                         "in": "query",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },
@@ -1535,9 +1452,7 @@
                 }
             },
             "delete": {
-                "tags": [
-                    "User"
-                ],
+                "tags": ["User"],
                 "summary": "Delete users (admin)",
                 "description": "Deletes users that match the provided optional filters. This endpoint is restricted to admin users.",
                 "security": [
@@ -1579,10 +1494,7 @@
                         "description": "Set to true to match any listed skill/resource, false to require all.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },
@@ -1642,10 +1554,7 @@
                         "in": "query",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "true",
-                                "false"
-                            ]
+                            "enum": ["true", "false"]
                         },
                         "example": "true"
                     },

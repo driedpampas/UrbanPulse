@@ -1,11 +1,10 @@
 import {
-    AlertTriangle,
+    type AlertTriangle,
     Check,
     Loader2,
     MapPin,
     MessageSquare,
     Plus,
-    PawPrint,
     Send,
     X,
 } from 'lucide-preact';
@@ -19,7 +18,6 @@ import { HoverButton } from '../ui/HoverButton';
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
     { val: 'need', label: 'Need', icon: Plus, css: 'item' },
-    { val: 'pet', label: 'Pet alert', icon: PawPrint, css: 'pet' },
 ];
 
 const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['need'];
@@ -311,9 +309,7 @@ export function NeedPostingForm({ onClose }: Props) {
                     </div>
 
                     {canMarkEmergency && (
-                        <label
-                            style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;"
-                        >
+                        <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;">
                             <input
                                 type="checkbox"
                                 checked={isEmergency}

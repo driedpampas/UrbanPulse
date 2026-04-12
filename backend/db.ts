@@ -45,7 +45,7 @@ export interface Timerange {
     end: string;
 }
 
-export const PULSE_TYPE_VALUES = ['update', 'emergency', 'skill', 'item', 'pet', 'need'] as const;
+export const PULSE_TYPE_VALUES = ['update', 'emergency', 'skill', 'item', 'need'] as const;
 
 export type PulseType = (typeof PULSE_TYPE_VALUES)[number];
 
@@ -346,12 +346,12 @@ type ChatSummaryRow = {
     is_group: boolean;
     timestamp: number | string | Date;
     participants:
-    | Array<{
-        userId: string;
-        displayName: string | null;
-        roles: string[];
-    }>
-    | unknown;
+        | Array<{
+              userId: string;
+              displayName: string | null;
+              roles: string[];
+          }>
+        | unknown;
     owner_id: string | null;
 };
 export interface Report {
@@ -557,7 +557,10 @@ const WEEKDAY_INDEX: Record<string, number> = {
     sat: 6,
 };
 
-function getLocalQuietWindowContext(now: Date, timezone?: string | null): {
+function getLocalQuietWindowContext(
+    now: Date,
+    timezone?: string | null
+): {
     day: number;
     minuteOfDay: number;
 } {
@@ -934,7 +937,9 @@ async function ensureSchema() {
 
         if (
             pulseTypeConstraint.length === 0 ||
-            !String(pulseTypeConstraint[0]?.constraint_def ?? '').toLowerCase().includes('need')
+            !String(pulseTypeConstraint[0]?.constraint_def ?? '')
+                .toLowerCase()
+                .includes('need')
         ) {
             await tx`
                 ALTER TABLE app.pulses
@@ -945,7 +950,7 @@ async function ensureSchema() {
                 ALTER TABLE app.pulses
                 ADD CONSTRAINT pulses_pulse_type_check CHECK (
                     LOWER(pulse_type) = ANY (
-                        ARRAY['update', 'emergency', 'skill', 'item', 'pet', 'need']
+                        ARRAY['update', 'emergency', 'skill', 'item', 'need']
                     )
                 )
             `;
@@ -2130,21 +2135,21 @@ export async function updateUserRole(id: string, role: string): Promise<boolean>
     }
 
     const isRoleConstraintViolation = (error: unknown): boolean => {
-        const value = error as
-            | {
+        const value = error as {
+            code?: unknown;
+            message?: unknown;
+            constraint?: unknown;
+            cause?: {
                 code?: unknown;
                 message?: unknown;
                 constraint?: unknown;
-                cause?: {
-                    code?: unknown;
-                    message?: unknown;
-                    constraint?: unknown;
-                };
-            }
-            | null;
+            };
+        } | null;
 
         const code = String(value?.code ?? value?.cause?.code ?? '');
-        const constraint = String(value?.constraint ?? value?.cause?.constraint ?? '').toLowerCase();
+        const constraint = String(
+            value?.constraint ?? value?.cause?.constraint ?? ''
+        ).toLowerCase();
         const message = String(value?.message ?? value?.cause?.message ?? '').toLowerCase();
 
         if (code === '23514') {

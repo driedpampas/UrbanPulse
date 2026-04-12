@@ -65,7 +65,6 @@ const DEFAULT_PULSE_URGENCY: Record<PulseType, number> = {
     skill: 2,
     item: 1,
     need: 4,
-    pet: 3,
 };
 
 type HttpRoutes = NonNullable<Parameters<typeof bun.serve>[0]['routes']>;
@@ -379,9 +378,9 @@ export const httpRoutes: HttpRoutes = {
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                            lat: url.searchParams.get('lat'),
-                                            lng: url.searchParams.get('lng'),
-                                        }
+                                              lat: url.searchParams.get('lat'),
+                                              lng: url.searchParams.get('lng'),
+                                          }
                                         : null,
                                 availableDays: url.searchParams.getAll('available_days'),
                                 availableHours: url.searchParams.getAll('available_hours'),
@@ -466,9 +465,9 @@ export const httpRoutes: HttpRoutes = {
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                        lat: url.searchParams.get('lat'),
-                                        lng: url.searchParams.get('lng'),
-                                    }
+                                          lat: url.searchParams.get('lat'),
+                                          lng: url.searchParams.get('lng'),
+                                      }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -978,11 +977,12 @@ export const httpRoutes: HttpRoutes = {
 
                             const payload = session as JwtPayload;
                             const requestedType = body.type.toLowerCase() as PulseType;
-                            const isEmergency = Boolean(body.isEmergency) || requestedType === 'emergency';
+                            const isEmergency =
+                                Boolean(body.isEmergency) || requestedType === 'emergency';
                             const pulseType: PulseType =
                                 requestedType === 'emergency' ||
-                                    requestedType === 'skill' ||
-                                    requestedType === 'item'
+                                requestedType === 'skill' ||
+                                requestedType === 'item'
                                     ? 'need'
                                     : requestedType;
                             const urgencyLevel =
@@ -993,8 +993,8 @@ export const httpRoutes: HttpRoutes = {
                             const selectedResources =
                                 pulseType === 'need'
                                     ? (body.selectedResources ?? body.requiredSkills ?? [])
-                                        .map((value) => value.trim())
-                                        .filter((value) => value.length > 0)
+                                          .map((value) => value.trim())
+                                          .filter((value) => value.length > 0)
                                     : [];
                             const fullUser = await db.selectFullUser(payload.id);
                             const requesterTimezone =

@@ -4,9 +4,9 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { type ChatSocketEvent, connectChatWebSocket, disconnectChatWebSocket } from './lib/chatApi';
 import { isActiveChatThread, markThreadUnread } from './lib/chatNotifications';
 import {
-    type PulseSocketEvent,
     connectWebSocket as connectPulseWebSocket,
     disconnectWebSocket as disconnectPulseWebSocket,
+    type PulseSocketEvent,
 } from './lib/pulseApi';
 import { ThemeProvider } from './lib/theme';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -14,7 +14,6 @@ import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { Library } from './pages/Library';
 import { Messages } from './pages/Messages';
-import { PetMatch } from './pages/PetMatch';
 import { Profile } from './pages/Profile';
 import { Requests } from './pages/Requests';
 import './index.css';
@@ -69,7 +68,6 @@ function AppRoutes() {
             <Route path="/messages" component={Messages} />
             <Route path="/requests" component={Requests} />
             <Route path="/profile" component={Profile} />
-            <Route path="/pets" component={PetMatch} />
             <Route path="/auth">
                 <RouteRedirect to="/" />
             </Route>
@@ -202,9 +200,7 @@ function ChatNotificationsBridge() {
     }, [isAuthenticated, isForeground, location]);
 
     return (
-        <div
-            style="position:fixed;top:12px;right:12px;z-index:140;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(360px, calc(100vw - 24px));"
-        >
+        <div style="position:fixed;top:12px;right:12px;z-index:140;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:min(360px, calc(100vw - 24px));">
             {toasts.map((toast) => (
                 <div
                     key={toast.id}

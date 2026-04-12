@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { UserSearchParams } from '../db';
 
-const PULSE_TYPES = ['need', 'emergency', 'skill', 'item', 'pet', 'update'] as const;
-const PULSE_TYPE_ALIASES = ['Need', 'Emergency', 'Skill', 'Item', 'Pet', 'Update'] as const;
+const PULSE_TYPES = ['need', 'emergency', 'skill', 'item', 'update'] as const;
+const PULSE_TYPE_ALIASES = ['Need', 'Emergency', 'Skill', 'Item', 'Update'] as const;
 
 export const registerUserSchema = z.strictObject({
     email: z.string().email(),
@@ -263,15 +263,15 @@ export function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         radius: query.radius !== null && query.radius !== undefined ? String(query.radius) : null,
         location: query.location
             ? {
-                lat:
-                    query.location.lat !== null && query.location.lat !== undefined
-                        ? String(query.location.lat)
-                        : null,
-                lng:
-                    query.location.lng !== null && query.location.lng !== undefined
-                        ? String(query.location.lng)
-                        : null,
-            }
+                  lat:
+                      query.location.lat !== null && query.location.lat !== undefined
+                          ? String(query.location.lat)
+                          : null,
+                  lng:
+                      query.location.lng !== null && query.location.lng !== undefined
+                          ? String(query.location.lng)
+                          : null,
+              }
             : null,
         availableHours:
             query.availableHours && query.availableHours.length > 0 ? query.availableHours : null,

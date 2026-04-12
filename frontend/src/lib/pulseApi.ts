@@ -97,7 +97,6 @@ const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
     emergency: 5,
     skill: 2,
     item: 1,
-    pet: 3,
     update: 1,
 };
 
@@ -136,7 +135,6 @@ function normalizePulseType(value: string): Pulse['type'] {
         normalized === 'emergency' ||
         normalized === 'skill' ||
         normalized === 'item' ||
-        normalized === 'pet' ||
         normalized === 'update'
     ) {
         return normalized;
@@ -289,11 +287,11 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
     try {
         const parsed = JSON.parse(rawMessage) as
             | {
-                event?: string;
-                pulse?: BackendPulse;
-                pulseId?: string;
-                matchedResources?: string[];
-            }
+                  event?: string;
+                  pulse?: BackendPulse;
+                  pulseId?: string;
+                  matchedResources?: string[];
+              }
             | BackendPulse;
 
         if (
@@ -479,10 +477,7 @@ export async function fetchAdminPulses(limit = 25, offset = 0): Promise<Pulse[]>
     return data.pulses.map(mapBackendPulse);
 }
 
-export async function fetchAdminRequests(
-    limit = 50,
-    offset = 0
-): Promise<AuthorPulseRequest[]> {
+export async function fetchAdminRequests(limit = 50, offset = 0): Promise<AuthorPulseRequest[]> {
     const data = await request<{ requests: BackendAuthorPulseRequest[] }>(
         `/admin/requests?limit=${limit}&offset=${offset}`,
         { method: 'GET' }

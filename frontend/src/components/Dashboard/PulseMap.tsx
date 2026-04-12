@@ -37,7 +37,6 @@ const typeColors: Record<string, string> = {
     skill: '#8b5cf6',
     item: '#10b981',
     emergency: '#ef4444',
-    pet: '#ec4899',
     update: '#64748b',
 };
 
@@ -390,8 +389,6 @@ export function PulseMap({
                                 '#8b5cf6',
                                 'item',
                                 '#10b981',
-                                'pet',
-                                '#ec4899',
                                 '#0ea5e9',
                             ],
                             'circle-opacity': 0.28,

@@ -1,12 +1,4 @@
-import {
-    BookOpen,
-    ClipboardList,
-    Home,
-    MessageCircle,
-    PawPrint,
-    ShieldCheck,
-    User,
-} from 'lucide-preact';
+import { BookOpen, ClipboardList, Home, MessageCircle, ShieldCheck, User } from 'lucide-preact';
 import { useLocation } from 'wouter';
 import { useAuth } from '../../lib/auth';
 import { useUnreadChatCount } from '../../lib/chatNotifications';
@@ -17,7 +9,6 @@ const tabs = [
     { path: '/library', icon: BookOpen, label: 'Library' },
     { path: '/messages', icon: MessageCircle, label: 'Chat' },
     { path: '/requests', icon: ClipboardList, label: 'Requests' },
-    { path: '/pets', icon: PawPrint, label: 'Pets' },
     { path: '/profile', icon: User, label: 'Profile' },
 ];
 

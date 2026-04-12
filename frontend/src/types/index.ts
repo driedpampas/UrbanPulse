@@ -27,7 +27,7 @@ export interface Pulse {
     userId: string;
     userName: string;
     userAvatar: string;
-    type: 'update' | 'emergency' | 'skill' | 'item' | 'need' | 'pet';
+    type: 'update' | 'emergency' | 'skill' | 'item' | 'need';
     content: string;
     timestamp: number;
     lat: number;
@@ -127,20 +127,6 @@ export interface LibraryItem {
     tags: string[];
     available: boolean;
     createdAt?: number;
-}
-
-export interface PetMatch {
-    id: string;
-    reportType: 'lost' | 'found';
-    species: string;
-    breed: string;
-    color: string;
-    markings: string;
-    photo: string;
-    location: string;
-    timestamp: number;
-    matchConfidence?: number;
-    matchedWith?: string;
 }
 
 export interface AdminFlag {

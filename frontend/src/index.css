@@ -56,9 +56,6 @@
     --type-item-text: #047857;
     --type-item-bg: #f0fdf4;
     --type-item-border: #a7f3d0;
-    --type-pet-text: #be185d;
-    --type-pet-bg: #fdf2f8;
-    --type-pet-border: #fbcfe8;
     --type-update-text: #374151;
     --type-update-bg: #f9fafb;
     --type-update-border: #e5e7eb;
@@ -111,9 +108,6 @@
     --type-item-text: #6ee7b7;
     --type-item-bg: rgba(110, 231, 183, 0.08);
     --type-item-border: rgba(110, 231, 183, 0.2);
-    --type-pet-text: #f9a8d4;
-    --type-pet-bg: rgba(249, 168, 212, 0.08);
-    --type-pet-border: rgba(249, 168, 212, 0.2);
     --type-update-text: #9ca3af;
     --type-update-bg: rgba(156, 163, 175, 0.06);
     --type-update-border: rgba(156, 163, 175, 0.15);
