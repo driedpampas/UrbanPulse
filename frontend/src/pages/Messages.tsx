@@ -25,6 +25,7 @@ import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { HoverButton } from '../components/ui/HoverButton';
+import { UserAvatar } from '../components/ui/UserAvatar';
 import { readStoredAuthSession } from '../lib/auth';
 import {
     addGroupChatParticipants,
@@ -65,8 +66,8 @@ function timeAgo(ts: number) {
     return `${Math.floor(d / 86400000)}d`;
 }
 
-function avatarUrl(seed: string) {
-    return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+function avatarFallback(seed: string) {
+    return `/default-cat-avatar.svg?seed=${encodeURIComponent(seed)}`;
 }
 
 function upsertMessageById(
@@ -318,7 +319,7 @@ export function Messages() {
                     return;
                 }
 
-                void refreshThread(event.threadId).catch(() => {});
+                void refreshThread(event.threadId).catch(() => { });
                 return;
             }
 
@@ -326,7 +327,7 @@ export function Messages() {
                 return;
             }
 
-            void refreshThread(event.threadId).catch(() => {});
+            void refreshThread(event.threadId).catch(() => { });
         };
 
         connectChatWebSocket(handleRefresh);
@@ -362,9 +363,9 @@ export function Messages() {
                     event.event === 'notification.message' && event.senderName
                         ? event.senderName
                         : senderIndex >= 0
-                          ? thread.participantNames[senderIndex] ||
+                            ? thread.participantNames[senderIndex] ||
                             `Neighbor ${event.message.senderId.slice(0, 6)}`
-                          : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                            : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
                 const mappedMessage: ChatMessage = {
                     id: event.message.id,
@@ -554,13 +555,18 @@ export function Messages() {
                                             <Users size={17} />
                                         </div>
                                     ) : (
-                                        <img
-                                            src={avatarUrl(
+                                        <UserAvatar
+                                            userId={
+                                                thread.participants.find(
+                                                    (p) => p !== currentUserId
+                                                ) || thread.participants[0]
+                                            }
+                                            fallbackSrc={avatarFallback(
                                                 thread.participants.find(
                                                     (p) => p !== currentUserId
                                                 ) || thread.participants[0]
                                             )}
-                                            alt=""
+                                            alt={`${displayName} profile picture`}
                                             style="width:100%;height:100%;object-fit:cover;"
                                         />
                                     )}
@@ -704,9 +710,10 @@ export function Messages() {
                                         style="padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;width:100%;transition:background 0.15s;"
                                     >
                                         <div style="width:36px;height:36px;border-radius:8px;flex-shrink:0;overflow:hidden;background:var(--bg-muted);border:1px solid var(--border);">
-                                            <img
-                                                src={user.avatar || avatarUrl(user.name)}
-                                                alt=""
+                                            <UserAvatar
+                                                userId={user.id}
+                                                fallbackSrc={user.avatar || avatarFallback(user.name)}
+                                                alt={`${user.name} profile picture`}
                                                 style="width:100%;height:100%;object-fit:cover;"
                                             />
                                         </div>
@@ -1126,7 +1133,7 @@ function ChatView({
                     return;
                 }
 
-                void onThreadRefresh(thread.id).catch(() => {});
+                void onThreadRefresh(thread.id).catch(() => { });
                 return;
             }
 
@@ -1147,11 +1154,11 @@ function ChatView({
             const senderName = isMe
                 ? currentUserName
                 : event.event === 'notification.message' && event.senderName
-                  ? event.senderName
-                  : senderIndex >= 0
-                    ? thread.participantNames[senderIndex] ||
-                      `Neighbor ${event.message.senderId.slice(0, 6)}`
-                    : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                    ? event.senderName
+                    : senderIndex >= 0
+                        ? thread.participantNames[senderIndex] ||
+                        `Neighbor ${event.message.senderId.slice(0, 6)}`
+                        : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
             const mappedMessage: ChatMessage = {
                 id: event.message.id,
@@ -1437,9 +1444,7 @@ function ChatView({
         highlightMessageById(message.replyToId);
     };
 
-    const getAvatarUrl = (userId: string) => {
-        return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(userId)}&scale=80`;
-    };
+    const getAvatarUrl = (userId: string) => avatarFallback(userId);
 
     const openProfile = (userId: string) => {
         setLocation(`/profile?userId=${encodeURIComponent(userId)}`);
@@ -1556,12 +1561,16 @@ function ChatView({
                             <Users size={15} />
                         </div>
                     ) : (
-                        <img
-                            src={avatarUrl(
+                        <UserAvatar
+                            userId={
                                 thread.participants.find((p) => p !== currentUserId) ||
-                                    thread.participants[0]
+                                thread.participants[0]
+                            }
+                            fallbackSrc={avatarFallback(
+                                thread.participants.find((p) => p !== currentUserId) ||
+                                thread.participants[0]
                             )}
-                            alt=""
+                            alt={`${chatTitle} profile picture`}
                             style="width:100%;height:100%;object-fit:cover;"
                         />
                     )}
@@ -1721,10 +1730,11 @@ function ChatView({
                                         >
                                             {!isMe && (
                                                 <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-subtle)] shadow-sm">
-                                                    <img
-                                                        src={getAvatarUrl(msg.senderId)}
-                                                        alt={msg.senderName}
-                                                        class="w-full h-full object-cover"
+                                                    <UserAvatar
+                                                        userId={msg.senderId}
+                                                        fallbackSrc={getAvatarUrl(msg.senderId)}
+                                                        alt={`${msg.senderName} profile picture`}
+                                                        className="w-full h-full object-cover"
                                                     />
                                                 </div>
                                             )}
@@ -1747,11 +1757,10 @@ function ChatView({
                                                         msg.id
                                                     );
                                                 }}
-                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${
-                                                    isMe
+                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${isMe
                                                         ? 'bg-[var(--accent)] text-white rounded-br-none shadow-md'
                                                         : 'bg-[var(--surface-raised)] text-[var(--text)] border border-[var(--border)] rounded-bl-none shadow-sm'
-                                                }`}
+                                                    }`}
                                                 style={`max-width:${wideChatView ? 'min(85%, 900px)' : '80%'}; cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'}`}
                                             >
                                                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
@@ -1886,7 +1895,7 @@ function ChatView({
                                                                     {msg.replyTo?.isUnavailable
                                                                         ? 'Original message unavailable'
                                                                         : msg.replyTo?.snippet ||
-                                                                          'Original message unavailable'}
+                                                                        'Original message unavailable'}
                                                                 </span>
                                                             </HoverButton>
                                                         )}
@@ -2020,34 +2029,34 @@ function ChatView({
                                                                         currentUserId
                                                                     ]?.includes('admin') ??
                                                                         false)))) && (
-                                                            <>
-                                                                <div class="h-px bg-[var(--border)] mx-1" />
-                                                                <HoverButton
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setContextMenuMessageId(
-                                                                            null
-                                                                        );
-                                                                        setContextMenuPosition(
-                                                                            null
-                                                                        );
-                                                                        handleDeleteMessage(
-                                                                            msg,
-                                                                            'everyone'
-                                                                        );
-                                                                    }}
-                                                                    disabled={
-                                                                        deletingMessageId !== null
-                                                                    }
-                                                                    role="menuitem"
-                                                                    key="delete-everyone"
-                                                                    class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--danger)] stack-h gap-sm text-left hover:bg-[var(--danger-subtle)] transition-colors"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                    Delete for everyone
-                                                                </HoverButton>
-                                                            </>
-                                                        )}
+                                                                <>
+                                                                    <div class="h-px bg-[var(--border)] mx-1" />
+                                                                    <HoverButton
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setContextMenuMessageId(
+                                                                                null
+                                                                            );
+                                                                            setContextMenuPosition(
+                                                                                null
+                                                                            );
+                                                                            handleDeleteMessage(
+                                                                                msg,
+                                                                                'everyone'
+                                                                            );
+                                                                        }}
+                                                                        disabled={
+                                                                            deletingMessageId !== null
+                                                                        }
+                                                                        role="menuitem"
+                                                                        key="delete-everyone"
+                                                                        class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--danger)] stack-h gap-sm text-left hover:bg-[var(--danger-subtle)] transition-colors"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                        Delete for everyone
+                                                                    </HoverButton>
+                                                                </>
+                                                            )}
                                                     </div>
                                                 </>
                                             )}
@@ -2119,8 +2128,8 @@ function ChatView({
                                         isBlockedConversation
                                             ? 'You have blocked this user'
                                             : connectionStatus !== 'connected' || !threadSubscribed
-                                              ? 'Connecting…'
-                                              : 'Message…'
+                                                ? 'Connecting…'
+                                                : 'Message…'
                                     }
                                     style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                                     onFocus={(e) => {
@@ -2220,9 +2229,10 @@ function ChatView({
                                                                 aria-label={`Open ${participant.name}'s profile`}
                                                                 style={`width:42px;height:42px;border-radius:14px;overflow:hidden;border:2px solid var(--surface);background:var(--bg-muted);margin-left:${index === 0 ? 0 : -10}px;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,0.12);padding:0;`}
                                                             >
-                                                                <img
-                                                                    src={participant.avatar}
-                                                                    alt=""
+                                                                <UserAvatar
+                                                                    userId={participant.id}
+                                                                    fallbackSrc={participant.avatar}
+                                                                    alt={`${participant.name} profile picture`}
                                                                     style="width:100%;height:100%;object-fit:cover;"
                                                                 />
                                                             </HoverButton>
@@ -2244,15 +2254,16 @@ function ChatView({
                                                     aria-label="Open profile"
                                                     style="width:72px;height:72px;border-radius:22px;overflow:hidden;border:2px solid var(--border);background:var(--bg-muted);padding:0;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,0.14);"
                                                 >
-                                                    <img
-                                                        src={
+                                                    <UserAvatar
+                                                        userId={directCounterpartId || thread.participants[0]}
+                                                        fallbackSrc={
                                                             directCounterpartProfile?.avatar ||
-                                                            avatarUrl(
+                                                            avatarFallback(
                                                                 directCounterpartId ||
-                                                                    thread.participants[0]
+                                                                thread.participants[0]
                                                             )
                                                         }
-                                                        alt=""
+                                                        alt={`${chatTitle} profile picture`}
                                                         style="width:100%;height:100%;object-fit:cover;"
                                                     />
                                                 </HoverButton>
@@ -2344,12 +2355,12 @@ function ChatView({
                                                     background:${color};cursor:pointer;transition:transform 0.1s;
                                                 `}
                                                     onMouseEnter={(e) =>
-                                                        (e.currentTarget.style.transform =
-                                                            'scale(1.1)')
+                                                    (e.currentTarget.style.transform =
+                                                        'scale(1.1)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                        (e.currentTarget.style.transform =
-                                                            'scale(1)')
+                                                    (e.currentTarget.style.transform =
+                                                        'scale(1)')
                                                     }
                                                     aria-label={`Select color ${color}`}
                                                 />
@@ -2499,9 +2510,10 @@ function ChatView({
                                                     style="background:none;border:none;padding:0;display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;text-align:left;"
                                                 >
                                                     <div style="width:40px;height:40px;border-radius:14px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:var(--bg-muted);box-shadow:inset 0 1px 0 rgba(255,255,255,0.3);">
-                                                        <img
-                                                            src={avatar}
-                                                            alt=""
+                                                        <UserAvatar
+                                                            userId={participantId}
+                                                            fallbackSrc={avatar}
+                                                            alt={`${name} profile picture`}
                                                             style="width:100%;height:100%;object-fit:cover;"
                                                         />
                                                     </div>

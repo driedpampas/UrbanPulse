@@ -3,6 +3,7 @@ import { memo, useState } from 'preact/compat';
 import { Link } from 'wouter';
 import type { User } from '../../types';
 import { HoverButton } from '../ui/HoverButton';
+import { UserAvatar } from '../ui/UserAvatar';
 
 const surfaceCard =
     'border:1px solid var(--border);background:var(--surface);border-radius:12px;box-shadow:var(--shadow-sm);';
@@ -47,9 +48,10 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                 style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;text-decoration:none;"
             >
                 <div style="width:40px;height:40px;border-radius:12px;overflow:hidden;background:var(--bg-muted);flex-shrink:0;">
-                    <img
-                        src={user.avatar}
-                        alt=""
+                    <UserAvatar
+                        userId={user.id}
+                        fallbackSrc={user.avatar}
+                        alt={`${user.name} profile picture`}
                         style="width:100%;height:100%;object-fit:cover;"
                     />
                 </div>

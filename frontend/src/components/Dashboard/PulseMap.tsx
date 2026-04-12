@@ -11,6 +11,7 @@ import {
 import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
 import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
+import { UserAvatar } from '../ui/UserAvatar';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const MAPBOX_STYLE_ID = 'mapbox/light-v11';
@@ -67,12 +68,6 @@ function ensureMapboxToken(token: string) {
     if (!token) {
         throw new Error(
             'Missing VITE_MAPBOX_TOKEN. Set a public Mapbox token before loading the map.'
-        );
-    }
-
-    if (!token.startsWith('pk.')) {
-        throw new Error(
-            'Invalid Mapbox token. Browser apps must use a public token that starts with "pk.".'
         );
     }
 }
@@ -545,9 +540,8 @@ export function PulseMap({
 
     return (
         <div
-            class={`mx-4 mt-3 rounded-2xl overflow-hidden glass flex flex-col relative ${
-                expanded ? 'flex-1 min-h-[50dvh]' : ''
-            }`}
+            class={`mx-4 mt-3 rounded-2xl overflow-hidden glass flex flex-col relative ${expanded ? 'flex-1 min-h-[50dvh]' : ''
+                }`}
         >
             <div class="absolute left-4 top-4 z-20 rounded-2xl border border-border/70 bg-white/90 px-3 py-2 text-[11px] font-medium text-text-secondary shadow-lg backdrop-blur-sm">
                 Heatmap shows pulse density and urgency
@@ -564,9 +558,8 @@ export function PulseMap({
             )}
             {!mapLoaded && (
                 <div
-                    class={`flex items-center justify-center bg-surface-dim/30 ${
-                        expanded ? 'min-h-[50dvh] flex-1' : 'h-52'
-                    }`}
+                    class={`flex items-center justify-center bg-surface-dim/30 ${expanded ? 'min-h-[50dvh] flex-1' : 'h-52'
+                        }`}
                 >
                     <div class="animate-pulse text-text-secondary text-sm">Loading map…</div>
                 </div>
@@ -595,9 +588,8 @@ function MapOfflineFallback({
 }) {
     return (
         <div
-            class={`mx-4 mt-3 rounded-2xl glass p-5 animate-fade-up ${
-                expanded ? 'flex-1 min-h-[50dvh]' : ''
-            }`}
+            class={`mx-4 mt-3 rounded-2xl glass p-5 animate-fade-up ${expanded ? 'flex-1 min-h-[50dvh]' : ''
+                }`}
         >
             <div class="flex items-center gap-3 mb-4">
                 <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -632,10 +624,11 @@ function MapOfflineFallback({
                             key={pulse.id}
                             class="flex items-center gap-3 text-sm p-2 rounded-xl bg-surface-dim/40"
                         >
-                            <img
-                                src={pulse.userAvatar}
-                                alt=""
-                                class="w-9 h-9 rounded-full bg-white shrink-0"
+                            <UserAvatar
+                                userId={pulse.userId}
+                                fallbackSrc={pulse.userAvatar}
+                                alt={`${pulse.userName} profile picture`}
+                                className="w-9 h-9 rounded-full bg-white shrink-0"
                             />
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between gap-2">
