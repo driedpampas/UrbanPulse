@@ -131,6 +131,14 @@ function getThreadDisplayName(thread: ChatThread, currentUserId: string, fallbac
     return thread.name || names.join(', ') || fallback;
 }
 
+function getSelectedThreadIdFromUrl() {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    return new URLSearchParams(window.location.search).get('threadId');
+}
+
 export function Messages() {
     const [location, setLocation] = useLocation();
     const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -151,10 +159,25 @@ export function Messages() {
     const currentUserId = currentUser?.id ?? 'me';
     const composeSearchLimit = 50;
     const historyNormalizedThreadIdRef = useRef<string | null>(null);
-    const selectedThreadId =
-        typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('threadId')
-            : null;
+    const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
+        getSelectedThreadIdFromUrl()
+    );
+
+    useEffect(() => {
+        const syncSelectedThread = () => {
+            setSelectedThreadId(getSelectedThreadIdFromUrl());
+        };
+
+        syncSelectedThread();
+        window.addEventListener('popstate', syncSelectedThread);
+        return () => {
+            window.removeEventListener('popstate', syncSelectedThread);
+        };
+    }, []);
+
+    useEffect(() => {
+        setSelectedThreadId(getSelectedThreadIdFromUrl());
+    }, [location]);
 
     useEffect(() => {
         if (!selectedThreadId) {
@@ -341,12 +364,14 @@ export function Messages() {
     const openThread = (thread: ChatThread) => {
         markThreadRead(thread.id);
         setLocation(`/messages?threadId=${encodeURIComponent(thread.id)}`);
+        setSelectedThreadId(thread.id);
         setActiveThread(thread);
     };
 
     const handleBackToThreadList = () => {
         // Keep in-app back deterministic: always return to list route.
         setLocation('/messages');
+        setSelectedThreadId(null);
         setActiveThread(null);
     };
 
