@@ -51,7 +51,7 @@ function PostedPulsesSectionComponent({
             {myPulses.map((pulse) => {
                 const expanded = expandedPulseId === pulse.id;
                 const interactions = interactionsByPulse[pulse.id] ?? [];
-                const canSolvePulse = pulse.type !== 'update';
+                const canSolvePulse = pulse.type !== 'update' && pulse.successfulCount > 0;
                 const canConfirmInteraction = pulse.type === 'need' && !pulse.isSolved;
 
                 return (

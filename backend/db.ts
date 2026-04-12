@@ -2932,21 +2932,41 @@ export async function confirmPulseInteraction(params: {
 export async function markPulseSolved(
     pulseId: string,
     authorId: string
-): Promise<PulseFeedItem | null> {
+): Promise<{ pulse: PulseFeedItem | null; noSuccessfulInteractions?: boolean }> {
     const [updated] = (await sql`
         UPDATE app.pulses
         SET is_solved = true
         WHERE id = ${pulseId}::uuid
           AND author_id = ${authorId}::uuid
           AND LOWER(COALESCE(pulse_type, 'update')) <> 'update'
+          AND EXISTS (
+              SELECT 1
+              FROM app.pulse_interactions AS pi
+              WHERE pi.pulse_id = app.pulses.id
+                AND pi.author_id = ${authorId}::uuid
+                AND pi.status = 'successful'
+          )
         RETURNING id::text AS id
     `) as Array<{ id: string }>;
 
     if (!updated) {
-        return null;
+        const [ownPulse] = (await sql`
+            SELECT id::text AS id
+            FROM app.pulses
+            WHERE id = ${pulseId}::uuid
+              AND author_id = ${authorId}::uuid
+              AND LOWER(COALESCE(pulse_type, 'update')) <> 'update'
+            LIMIT 1
+        `) as Array<{ id: string }>;
+
+        if (!ownPulse) {
+            return { pulse: null };
+        }
+
+        return { pulse: null, noSuccessfulInteractions: true };
     }
 
-    return await selectPulseById(updated.id);
+    return { pulse: await selectPulseById(updated.id) };
 }
 
 export async function selectAcceptedInteractionsForHelper(

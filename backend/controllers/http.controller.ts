@@ -1155,13 +1155,24 @@ export const httpRoutes: HttpRoutes = {
                 authorize(req, async (session) =>
                     caught(async () => {
                         const payload = session as JwtPayload;
-                        const pulse = await db.markPulseSolved(req.params.id as string, payload.id);
+                        const result = await db.markPulseSolved(req.params.id as string, payload.id);
 
-                        if (!pulse) {
+                        if (!result.pulse && result.noSuccessfulInteractions) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'A pulse can only be marked solved after at least one successful interaction',
+                                    },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
+                        if (!result.pulse) {
                             return withCors(FORBIDDEN);
                         }
 
-                        return withCors(Response.json({ pulse }, { status: 200 }));
+                        return withCors(Response.json({ pulse: result.pulse }, { status: 200 }));
                     })
                 )
             ),
