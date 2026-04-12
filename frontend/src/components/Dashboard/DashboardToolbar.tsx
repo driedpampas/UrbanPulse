@@ -47,7 +47,7 @@ function DashboardToolbarComponent({
                     </HoverButton>
                 </div>
 
-                <div class="stack-h gap-xs">
+                <div class="stack-h gap-md">
                     <HoverButton
                         type="button"
                         id="toggle-filters-btn"

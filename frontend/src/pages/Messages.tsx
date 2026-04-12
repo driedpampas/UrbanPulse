@@ -1891,35 +1891,37 @@ function ChatView({
                                                 )}
                                             </HoverButton>
 
-                                            <HoverButton
-                                                type="button"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    handleStartReply(msg);
-                                                }}
-                                                aria-label={`Reply to message from ${msg.senderName}`}
-                                                title="Reply"
-                                                class="message-reply-trigger"
-                                                disabled={savingEditMessageId !== null}
-                                                style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
-                                            >
-                                                <Reply size={12} />
-                                            </HoverButton>
-
-                                            {!isMe && (
+                                            <div class="stack-v gap-xs">
                                                 <HoverButton
                                                     type="button"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
-                                                        setReportingMessage(msg);
+                                                        handleStartReply(msg);
                                                     }}
-                                                    aria-label={`Report message from ${msg.senderName}`}
-                                                    title="Report message"
+                                                    aria-label={`Reply to message from ${msg.senderName}`}
+                                                    title="Reply"
+                                                    class="message-reply-trigger"
+                                                    disabled={savingEditMessageId !== null}
                                                     style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
                                                 >
-                                                    <Flag size={12} />
+                                                    <Reply size={12} />
                                                 </HoverButton>
-                                            )}
+
+                                                {!isMe && (
+                                                    <HoverButton
+                                                        type="button"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setReportingMessage(msg);
+                                                        }}
+                                                        aria-label={`Report message from ${msg.senderName}`}
+                                                        title="Report message"
+                                                        style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
+                                                    >
+                                                        <Flag size={12} />
+                                                    </HoverButton>
+                                                )}
+                                            </div>
 
                                             {isContextMenuOpen && contextMenuPosition && (
                                                 <>

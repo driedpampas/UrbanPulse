@@ -68,7 +68,9 @@ export function Dashboard() {
                         </div>
                     </div>
                 )}
-                <WeatherAlert />
+                <div class="mx-4">
+                    <WeatherAlert />
+                </div>
                 <HeroAlert />
                 {view === 'feed' ? (
                     <LiveFeed radiusFilter={radius} pulseLimit={limit} />
