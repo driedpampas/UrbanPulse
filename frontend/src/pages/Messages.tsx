@@ -76,7 +76,8 @@ function upsertMessageById(
     const existingIndex = messages.findIndex((message) => message.id === incoming.id);
 
     if (existingIndex >= 0) {
-        const existing = messages[existingIndex]!;
+        const existing = messages[existingIndex];
+        if (!existing) return { messages, changed: false };
         const unchanged =
             existing.senderId === incoming.senderId &&
             existing.senderName === incoming.senderName &&
@@ -352,7 +353,10 @@ export function Messages() {
                     return prev;
                 }
 
-                const thread = prev[index]!;
+                const thread = prev[index];
+                if (!thread) {
+                    return prev;
+                }
                 const senderIndex = thread.participants.indexOf(event.message?.senderId);
                 const senderName =
                     event.event === 'notification.message' && event.senderName
@@ -609,15 +613,14 @@ export function Messages() {
                         aria-hidden="true"
                     />
                     <div class="sheet-content animate-slide-up">
-                        {/* Sheet header */}
-                        <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0;">
-                            <div>
-                                <p style="margin:0;font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.01em;">
+                        <div class="px-5 py-4 border-b border-[var(--border)] flex items-start justify-between gap-3 shrink-0">
+                            <div class="stack-v gap-xs">
+                                <p class="text-base font-bold text-[var(--text)] tracking-tight m-0">
                                     {composeMode === 'group'
                                         ? 'Create Group Chat'
                                         : 'New conversation'}
                                 </p>
-                                <p style="margin:3px 0 0;font-size:12px;color:var(--text-secondary);">
+                                <p class="text-xs text-[var(--text-secondary)] m-0">
                                     {composeMode === 'group'
                                         ? 'Select neighbors to add to the group.'
                                         : 'Search a neighbor to start chatting.'}
@@ -625,45 +628,39 @@ export function Messages() {
                             </div>
                             <HoverButton
                                 type="button"
-                                class="btn-icon"
+                                class="btn-icon !h-8 !w-8 !text-[var(--text-tertiary)] hover:!text-[var(--text-secondary)]"
                                 onClick={resetCompose}
                                 aria-label="Close"
-                                style="color:var(--text-secondary);"
                             >
                                 <X size={15} />
                             </HoverButton>
                         </div>
 
-                        <div style="padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-                            <div style="display:flex;gap:8px;margin-bottom:10px;">
+                        <div class="p-4 border-b border-[var(--border)] shrink-0 bg-[var(--bg-subtle)]/30">
+                            <div class="stack-h gap-sm mb-3">
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost"
+                                    class={`btn-ghost !h-7 !px-3 !text-[11px] !font-bold !uppercase !tracking-wider ${composeMode === 'direct' ? '!bg-[var(--accent-subtle)] !text-[var(--accent)] !border-[var(--accent)]/20' : ''}`}
                                     onClick={() => setComposeMode('direct')}
-                                    style={`height:30px;padding:0 10px;font-size:12px;${composeMode === 'direct' ? 'background:var(--accent-subtle);color:var(--accent);' : ''}`}
                                 >
                                     Direct
                                 </HoverButton>
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost"
+                                    class={`btn-ghost !h-7 !px-3 !text-[11px] !font-bold !uppercase !tracking-wider ${composeMode === 'group' ? '!bg-[var(--accent-subtle)] !text-[var(--accent)] !border-[var(--accent)]/20' : ''}`}
                                     onClick={() => setComposeMode('group')}
-                                    style={`height:30px;padding:0 10px;font-size:12px;${composeMode === 'group' ? 'background:var(--accent-subtle);color:var(--accent);' : ''}`}
                                 >
                                     Group
                                 </HoverButton>
                             </div>
-                            <div style="display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);">
-                                <Search
-                                    size={13}
-                                    style="color:var(--text-tertiary);flex-shrink:0;"
-                                />
+                            <div class="stack-h gap-sm px-3 h-11 border border-[var(--border)] rounded-xl bg-[var(--surface)] focus-within:border-[var(--accent)] transition-colors shadow-sm">
+                                <Search size={14} class="text-[var(--text-tertiary)] shrink-0" />
                                 <input
                                     id="chat-user-search"
                                     value={query}
                                     onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
                                     placeholder="Search by name…"
-                                    style="flex:1;border:none;outline:none;background:transparent;color:var(--text);font-size:13px;font-family:inherit;"
+                                    class="flex-1 border-none outline-none bg-transparent text-[var(--text)] text-sm font-medium"
                                 />
                             </div>
                             {composeError && (
@@ -1073,7 +1070,11 @@ function ChatView({
                 );
 
                 setMessages((prev) => {
-                    const next = removeMessageById(prev, event.messageId!);
+                    const messageId = event.messageId;
+                    if (!messageId) {
+                        return prev;
+                    }
+                    const next = removeMessageById(prev, messageId);
                     if (next.length === prev.length) {
                         return prev;
                     }
@@ -1697,282 +1698,249 @@ function ChatView({
                                         key={msg.id}
                                         className="message-row"
                                         ref={(element) => setMessageElementRef(msg.id, element)}
-                                        style={`display:flex;gap:10px;align-items:flex-end;justify-content:${isMe ? 'flex-end' : 'flex-start'};position:relative;border-radius:12px;padding:2px 4px;transition:box-shadow 0.2s ease,background 0.2s ease;${isHighlightedMessage ? 'box-shadow:0 0 0 1.5px var(--accent);background:var(--accent-subtle);' : ''}`}
                                     >
-                                        {!isMe && (
-                                            <div style="width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1.5px solid var(--border);background:var(--bg-subtle);">
-                                                <img
-                                                    src={getAvatarUrl(msg.senderId)}
-                                                    alt={msg.senderName}
-                                                    style="width:100%;height:100%;object-fit:cover;"
-                                                />
-                                            </div>
-                                        )}
-                                        <HoverButton
-                                            type="button"
-                                            onClick={(e) => {
-                                                if (isEditingMessage) {
-                                                    return;
-                                                }
-
-                                                handleContextMenu(e as any, msg.id);
-                                            }}
-                                            onContextMenu={(e) => {
-                                                if (isEditingMessage) {
-                                                    e.preventDefault();
-                                                    return;
-                                                }
-
-                                                handleContextMenu(e as any, msg.id);
-                                            }}
-                                            style={`
-                                                max-width:${wideChatView ? 'min(85%, 900px)' : '78%'};padding:10px 13px;border-radius:14px;font-size:13px;line-height:1.55;position:relative;border:none;cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'};text-align:left;background:none;color:inherit;display:flex;flex-direction:column;
-                                                ${
-                                                    isMe
-                                                        ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;'
-                                                        : 'background:var(--surface-raised);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;'
-                                                }
-                                            `}
+                                        <div
+                                            class={`stack-h gap-sm items-end relative rounded-xl p-1 transition-all ${isMe ? 'justify-end' : 'justify-start'} ${isHighlightedMessage ? 'shadow-[0_0_0_2px_var(--accent)] bg-[var(--accent-subtle)]' : ''}`}
                                         >
-                                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
-                                                {!isMe ? (
-                                                    <HoverButton
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setLocation(
-                                                                `/profile?userId=${encodeURIComponent(msg.senderId)}`
-                                                            )
-                                                        }
-                                                        style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;"
-                                                    >
-                                                        {msg.senderName}
-                                                    </HoverButton>
-                                                ) : (
-                                                    <span style="font-size:11px;font-weight:600;opacity:0.8;">
-                                                        You
-                                                    </span>
-                                                )}
-                                                <span
-                                                    style={`font-size:11px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.7);' : 'color:var(--text-tertiary);'}`}
-                                                >
-                                                    <Clock size={9} />
-                                                    {timeAgo(msg.timestamp)}
-                                                    {msg.isEdited && (
-                                                        <span
-                                                            style={`margin-left:4px;opacity:${isMe ? 0.72 : 0.62};font-size:10px;`}
-                                                        >
-                                                            (edited)
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </div>
-                                            {isEditingMessage ? (
-                                                <div
-                                                    style="display:flex;flex-direction:column;gap:8px;"
-                                                    onClick={(event) => event.stopPropagation()}
-                                                    onContextMenu={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                >
-                                                    <input
-                                                        value={editDraft}
-                                                        onInput={(event) => {
-                                                            setEditDraft(
-                                                                (event.target as HTMLInputElement)
-                                                                    .value
-                                                            );
-                                                            if (editError) {
-                                                                setEditError(null);
-                                                            }
-                                                        }}
-                                                        onKeyDown={(event) => {
-                                                            if (
-                                                                event.key === 'Enter' &&
-                                                                !event.repeat
-                                                            ) {
-                                                                event.preventDefault();
-                                                                void handleSaveMessageEdit(msg);
-                                                            }
-                                                        }}
-                                                        maxLength={5000}
-                                                        style={`width:100%;padding:8px 10px;border-radius:8px;border:1px solid ${isMe ? 'rgba(255,255,255,0.45)' : 'var(--border)'};background:${isMe ? 'rgba(15,23,42,0.2)' : 'var(--bg-subtle)'};color:inherit;font-size:13px;outline:none;`}
+                                            {!isMe && (
+                                                <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-subtle)] shadow-sm">
+                                                    <img
+                                                        src={getAvatarUrl(msg.senderId)}
+                                                        alt={msg.senderName}
+                                                        class="w-full h-full object-cover"
                                                     />
-                                                    <div style="display:flex;justify-content:flex-end;gap:8px;">
-                                                        <HoverButton
-                                                            type="button"
-                                                            onClick={handleCancelMessageEdit}
-                                                            disabled={
-                                                                savingEditMessageId === msg.id
-                                                            }
-                                                            style={`height:28px;padding:0 10px;border-radius:7px;font-size:11px;font-weight:600;border:1px solid ${isMe ? 'rgba(255,255,255,0.35)' : 'var(--border)'};background:${isMe ? 'rgba(255,255,255,0.08)' : 'var(--bg-subtle)'};color:inherit;`}
-                                                        >
-                                                            Cancel
-                                                        </HoverButton>
+                                                </div>
+                                            )}
+                                            <HoverButton
+                                                type="button"
+                                                onClick={(e: MouseEvent) => {
+                                                    if (isEditingMessage) {
+                                                        return;
+                                                    }
+
+                                                    handleContextMenu(
+                                                        e as unknown as MouseEvent,
+                                                        msg.id
+                                                    );
+                                                }}
+                                                onContextMenu={(e: MouseEvent) => {
+                                                    if (isEditingMessage) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+
+                                                    handleContextMenu(
+                                                        e as unknown as MouseEvent,
+                                                        msg.id
+                                                    );
+                                                }}
+                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${
+                                                    isMe
+                                                        ? 'bg-[var(--accent)] text-white rounded-br-none shadow-md'
+                                                        : 'bg-[var(--surface-raised)] text-[var(--text)] border border-[var(--border)] rounded-bl-none shadow-sm'
+                                                }`}
+                                                style={`max-width:${wideChatView ? 'min(85%, 900px)' : '80%'}; cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'}`}
+                                            >
+                                                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+                                                    {!isMe ? (
                                                         <HoverButton
                                                             type="button"
                                                             onClick={() =>
-                                                                void handleSaveMessageEdit(msg)
+                                                                setLocation(
+                                                                    `/profile?userId=${encodeURIComponent(msg.senderId)}`
+                                                                )
                                                             }
-                                                            disabled={
-                                                                !editDraft.trim() ||
-                                                                savingEditMessageId === msg.id
-                                                            }
-                                                            style={`height:28px;padding:0 11px;border-radius:7px;font-size:11px;font-weight:700;border:1px solid transparent;background:${isMe ? '#fff' : 'var(--accent)'};color:${isMe ? 'var(--accent)' : '#fff'};`}
+                                                            style="font-size:11px;font-weight:700;color:var(--accent);margin:0;padding:0;background:none;border:none;cursor:pointer;"
                                                         >
-                                                            {savingEditMessageId === msg.id
-                                                                ? 'Saving…'
-                                                                : 'Save'}
+                                                            {msg.senderName}
                                                         </HoverButton>
-                                                    </div>
-                                                    {editError && (
-                                                        <p
-                                                            style={`margin:0;font-size:11px;line-height:1.35;color:${isMe ? 'rgba(255,255,255,0.86)' : 'var(--danger)'};`}
-                                                        >
-                                                            {editError}
-                                                        </p>
+                                                    ) : (
+                                                        <span style="font-size:11px;font-weight:600;opacity:0.8;">
+                                                            You
+                                                        </span>
                                                     )}
+                                                    <span
+                                                        style={`font-size:11px;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:3px;${isMe ? 'color:rgba(255,255,255,0.7);' : 'color:var(--text-tertiary);'}`}
+                                                    >
+                                                        <Clock size={9} />
+                                                        {timeAgo(msg.timestamp)}
+                                                        {msg.isEdited && (
+                                                            <span
+                                                                style={`margin-left:4px;opacity:${isMe ? 0.72 : 0.62};font-size:10px;`}
+                                                            >
+                                                                (edited)
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <>
-                                                    {(msg.replyToId || msg.replyTo) && (
-                                                        <HoverButton
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                handleReplySnippetClick(msg);
+                                                {isEditingMessage ? (
+                                                    <div
+                                                        class="stack-v gap-sm"
+                                                        role="form"
+                                                        aria-label="Edit message"
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Escape') {
+                                                                handleCancelMessageEdit();
+                                                            }
+                                                        }}
+                                                    >
+                                                        <input
+                                                            value={editDraft}
+                                                            onInput={(event) => {
+                                                                setEditDraft(
+                                                                    (
+                                                                        event.target as HTMLInputElement
+                                                                    ).value
+                                                                );
+                                                                if (editError) {
+                                                                    setEditError(null);
+                                                                }
                                                             }}
-                                                            onContextMenu={(event) => {
-                                                                event.stopPropagation();
+                                                            onKeyDown={(event) => {
+                                                                if (
+                                                                    event.key === 'Enter' &&
+                                                                    !event.repeat
+                                                                ) {
+                                                                    event.preventDefault();
+                                                                    void handleSaveMessageEdit(msg);
+                                                                }
                                                             }}
-                                                            disabled={!msg.replyToId}
-                                                            aria-label="Open replied message"
-                                                            style={`margin:0 0 6px;padding:7px 9px;border-radius:8px;border-left:2px solid ${isMe ? 'rgba(255,255,255,0.65)' : 'var(--accent)'};background:${isMe ? 'rgba(255,255,255,0.14)' : 'var(--bg-subtle)'};opacity:0.9;display:flex;flex-direction:column;gap:2px;text-align:left;cursor:${msg.replyToId ? 'pointer' : 'default'};`}
-                                                        >
-                                                            <span
-                                                                style={`font-size:10px;font-weight:700;${isMe ? 'color:rgba(255,255,255,0.88);' : 'color:var(--text-secondary);'}`}
+                                                            maxLength={5000}
+                                                            style={`width:100%;padding:8px 10px;border-radius:8px;border:1px solid ${isMe ? 'rgba(255,255,255,0.45)' : 'var(--border)'};background:${isMe ? 'rgba(15,23,42,0.2)' : 'var(--bg-subtle)'};color:inherit;font-size:13px;outline:none;`}
+                                                        />
+                                                        <div style="display:flex;justify-content:flex-end;gap:8px;">
+                                                            <HoverButton
+                                                                type="button"
+                                                                onClick={handleCancelMessageEdit}
+                                                                disabled={
+                                                                    savingEditMessageId === msg.id
+                                                                }
+                                                                style={`height:28px;padding:0 10px;border-radius:7px;font-size:11px;font-weight:600;border:1px solid ${isMe ? 'rgba(255,255,255,0.35)' : 'var(--border)'};background:${isMe ? 'rgba(255,255,255,0.08)' : 'var(--bg-subtle)'};color:inherit;`}
                                                             >
-                                                                Replying to{' '}
-                                                                {msg.replyTo?.senderName ||
-                                                                    'Unknown user'}
-                                                            </span>
-                                                            <span
-                                                                style={`font-size:11px;line-height:1.35;word-break:break-word;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
+                                                                Cancel
+                                                            </HoverButton>
+                                                            <HoverButton
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    void handleSaveMessageEdit(msg)
+                                                                }
+                                                                disabled={
+                                                                    !editDraft.trim() ||
+                                                                    savingEditMessageId === msg.id
+                                                                }
+                                                                style={`height:28px;padding:0 11px;border-radius:7px;font-size:11px;font-weight:700;border:1px solid transparent;background:${isMe ? '#fff' : 'var(--accent)'};color:${isMe ? 'var(--accent)' : '#fff'};`}
                                                             >
-                                                                {msg.replyTo?.isUnavailable
-                                                                    ? 'Original message unavailable'
-                                                                    : msg.replyTo?.snippet ||
-                                                                      'Original message unavailable'}
-                                                            </span>
-                                                        </HoverButton>
-                                                    )}
-                                                    <p style="margin:0;word-break:break-word;">
-                                                        {msg.content}
-                                                    </p>
-                                                </>
-                                            )}
-                                        </HoverButton>
+                                                                {savingEditMessageId === msg.id
+                                                                    ? 'Saving…'
+                                                                    : 'Save'}
+                                                            </HoverButton>
+                                                        </div>
+                                                        {editError && (
+                                                            <p
+                                                                style={`margin:0;font-size:11px;line-height:1.35;color:${isMe ? 'rgba(255,255,255,0.86)' : 'var(--danger)'};`}
+                                                            >
+                                                                {editError}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        {(msg.replyToId || msg.replyTo) && (
+                                                            <HoverButton
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    handleReplySnippetClick(msg);
+                                                                }}
+                                                                onContextMenu={(event) => {
+                                                                    event.stopPropagation();
+                                                                }}
+                                                                disabled={!msg.replyToId}
+                                                                aria-label="Open replied message"
+                                                                style={`margin:0 0 6px;padding:7px 9px;border-radius:8px;border-left:2px solid ${isMe ? 'rgba(255,255,255,0.65)' : 'var(--accent)'};background:${isMe ? 'rgba(255,255,255,0.14)' : 'var(--bg-subtle)'};opacity:0.9;display:flex;flex-direction:column;gap:2px;text-align:left;cursor:${msg.replyToId ? 'pointer' : 'default'};`}
+                                                            >
+                                                                <span
+                                                                    style={`font-size:10px;font-weight:700;${isMe ? 'color:rgba(255,255,255,0.88);' : 'color:var(--text-secondary);'}`}
+                                                                >
+                                                                    Replying to{' '}
+                                                                    {msg.replyTo?.senderName ||
+                                                                        'Unknown user'}
+                                                                </span>
+                                                                <span
+                                                                    style={`font-size:11px;line-height:1.35;word-break:break-word;${isMe ? 'color:rgba(255,255,255,0.78);' : 'color:var(--text-tertiary);'}`}
+                                                                >
+                                                                    {msg.replyTo?.isUnavailable
+                                                                        ? 'Original message unavailable'
+                                                                        : msg.replyTo?.snippet ||
+                                                                          'Original message unavailable'}
+                                                                </span>
+                                                            </HoverButton>
+                                                        )}
+                                                        <p style="margin:0;word-break:break-word;">
+                                                            {msg.content}
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </HoverButton>
 
-                                        <HoverButton
-                                            type="button"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                handleStartReply(msg);
-                                            }}
-                                            aria-label={`Reply to message from ${msg.senderName}`}
-                                            title="Reply"
-                                            class="message-reply-trigger"
-                                            disabled={savingEditMessageId !== null}
-                                            style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
-                                        >
-                                            <Reply size={12} />
-                                        </HoverButton>
-
-                                        {!isMe && (
                                             <HoverButton
                                                 type="button"
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    setReportingMessage(msg);
+                                                    handleStartReply(msg);
                                                 }}
-                                                aria-label={`Report message from ${msg.senderName}`}
-                                                title="Report message"
+                                                aria-label={`Reply to message from ${msg.senderName}`}
+                                                title="Reply"
+                                                class="message-reply-trigger"
+                                                disabled={savingEditMessageId !== null}
                                                 style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
                                             >
-                                                <Flag size={12} />
+                                                <Reply size={12} />
                                             </HoverButton>
-                                        )}
 
-                                        {isContextMenuOpen && contextMenuPosition && (
-                                            <>
+                                            {!isMe && (
                                                 <HoverButton
                                                     type="button"
-                                                    aria-label="Close menu"
-                                                    style="position:fixed;inset:0;z-index:49;background:none;border:none;padding:0;width:100%;height:100%;cursor:default;"
-                                                    onClick={() => {
-                                                        setContextMenuMessageId(null);
-                                                        setContextMenuPosition(null);
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        setReportingMessage(msg);
                                                     }}
-                                                    onContextMenu={(e) => {
-                                                        e.preventDefault();
-                                                        setContextMenuMessageId(null);
-                                                        setContextMenuPosition(null);
-                                                    }}
-                                                />
-                                                <div
-                                                    style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
-                                                    role="menu"
+                                                    aria-label={`Report message from ${msg.senderName}`}
+                                                    title="Report message"
+                                                    style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
                                                 >
+                                                    <Flag size={12} />
+                                                </HoverButton>
+                                            )}
+
+                                            {isContextMenuOpen && contextMenuPosition && (
+                                                <>
                                                     <HoverButton
                                                         type="button"
-                                                        onClick={() =>
-                                                            void handleCopyMessage(msg.content)
-                                                        }
-                                                        role="menuitem"
-                                                        key="copy-text"
-                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                        onMouseEnter={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'var(--bg-muted)';
+                                                        aria-label="Close menu"
+                                                        style="position:fixed;inset:0;z-index:49;background:none;border:none;padding:0;width:100%;height:100%;cursor:default;"
+                                                        onClick={() => {
+                                                            setContextMenuMessageId(null);
+                                                            setContextMenuPosition(null);
                                                         }}
-                                                        onMouseLeave={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'none';
+                                                        onContextMenu={(e) => {
+                                                            e.preventDefault();
+                                                            setContextMenuMessageId(null);
+                                                            setContextMenuPosition(null);
                                                         }}
+                                                    />
+                                                    <div
+                                                        style={`position:fixed;left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;z-index:50;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(15,23,42,0.3);overflow:hidden;min-width:160px;`}
+                                                        role="menu"
                                                     >
-                                                        <Copy size={14} />
-                                                        Copy text
-                                                    </HoverButton>
-                                                    <HoverButton
-                                                        type="button"
-                                                        onClick={() => handleStartReply(msg)}
-                                                        role="menuitem"
-                                                        key="reply-message"
-                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                        onMouseEnter={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'var(--bg-muted)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'none';
-                                                        }}
-                                                    >
-                                                        <Reply size={14} />
-                                                        Reply
-                                                    </HoverButton>
-                                                    {isMe && (
                                                         <HoverButton
                                                             type="button"
                                                             onClick={() =>
-                                                                handleStartMessageEdit(msg)
+                                                                void handleCopyMessage(msg.content)
                                                             }
-                                                            disabled={savingEditMessageId !== null}
                                                             role="menuitem"
-                                                            key="edit-message"
+                                                            key="copy-text"
                                                             style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
                                                             onMouseEnter={(e) => {
                                                                 (
@@ -1986,81 +1954,47 @@ function ChatView({
                                                                 ).style.background = 'none';
                                                             }}
                                                         >
-                                                            <Pencil size={14} />
-                                                            Edit message
+                                                            <Copy size={14} />
+                                                            Copy text
                                                         </HoverButton>
-                                                    )}
-                                                    <div style="height:1px;background:var(--border);" />
-                                                    <HoverButton
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleDeleteMessage(msg, 'me')
-                                                        }
-                                                        disabled={deletingMessageId !== null}
-                                                        role="menuitem"
-                                                        key="delete-me"
-                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                        onMouseEnter={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'var(--bg-muted)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'none';
-                                                        }}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                        Delete for me
-                                                    </HoverButton>
-                                                    <HoverButton
-                                                        type="button"
-                                                        onClick={() => setReportingMessage(msg)}
-                                                        role="menuitem"
-                                                        key="report-message"
-                                                        style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
-                                                        onMouseEnter={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'var(--bg-muted)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            (
-                                                                e.currentTarget as HTMLElement
-                                                            ).style.background = 'none';
-                                                        }}
-                                                    >
-                                                        <Flag size={14} />
-                                                        Report message
-                                                    </HoverButton>
-                                                    {(isMe ||
-                                                        (thread.isGroup &&
-                                                            (thread.ownerId === currentUserId ||
-                                                                thread.participantRoles?.[
-                                                                    currentUserId
-                                                                ]?.includes('admin')))) && (
-                                                        <>
-                                                            <div style="height:1px;background:var(--border);" />
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() => handleStartReply(msg)}
+                                                            role="menuitem"
+                                                            key="reply-message"
+                                                            style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                            onMouseEnter={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background =
+                                                                    'var(--bg-muted)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background = 'none';
+                                                            }}
+                                                        >
+                                                            <Reply size={14} />
+                                                            Reply
+                                                        </HoverButton>
+                                                        {isMe && (
                                                             <HoverButton
                                                                 type="button"
                                                                 onClick={() =>
-                                                                    handleDeleteMessage(
-                                                                        msg,
-                                                                        'everyone'
-                                                                    )
+                                                                    handleStartMessageEdit(msg)
                                                                 }
                                                                 disabled={
-                                                                    deletingMessageId !== null
+                                                                    savingEditMessageId !== null
                                                                 }
                                                                 role="menuitem"
-                                                                key="delete-everyone"
-                                                                style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                                key="edit-message"
+                                                                style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
                                                                 onMouseEnter={(e) => {
                                                                     (
                                                                         e.currentTarget as HTMLElement
                                                                     ).style.background =
-                                                                        'var(--danger-subtle)';
+                                                                        'var(--bg-muted)';
                                                                 }}
                                                                 onMouseLeave={(e) => {
                                                                     (
@@ -2068,14 +2002,99 @@ function ChatView({
                                                                     ).style.background = 'none';
                                                                 }}
                                                             >
-                                                                <Trash2 size={14} />
-                                                                Delete for everyone
+                                                                <Pencil size={14} />
+                                                                Edit message
                                                             </HoverButton>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </>
-                                        )}
+                                                        )}
+                                                        <div style="height:1px;background:var(--border);" />
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleDeleteMessage(msg, 'me')
+                                                            }
+                                                            disabled={deletingMessageId !== null}
+                                                            role="menuitem"
+                                                            key="delete-me"
+                                                            style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                            onMouseEnter={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background =
+                                                                    'var(--bg-muted)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background = 'none';
+                                                            }}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            Delete for me
+                                                        </HoverButton>
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() => setReportingMessage(msg)}
+                                                            role="menuitem"
+                                                            key="report-message"
+                                                            style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                            onMouseEnter={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background =
+                                                                    'var(--bg-muted)';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                (
+                                                                    e.currentTarget as HTMLElement
+                                                                ).style.background = 'none';
+                                                            }}
+                                                        >
+                                                            <Flag size={14} />
+                                                            Report message
+                                                        </HoverButton>
+                                                        {(isMe ||
+                                                            (thread.isGroup &&
+                                                                (thread.ownerId === currentUserId ||
+                                                                    thread.participantRoles?.[
+                                                                        currentUserId
+                                                                    ]?.includes('admin')))) && (
+                                                            <>
+                                                                <div style="height:1px;background:var(--border);" />
+                                                                <HoverButton
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        handleDeleteMessage(
+                                                                            msg,
+                                                                            'everyone'
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        deletingMessageId !== null
+                                                                    }
+                                                                    role="menuitem"
+                                                                    key="delete-everyone"
+                                                                    style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:var(--danger);display:flex;align-items:center;gap:10px;text-align:left;transition:background 0.15s;"
+                                                                    onMouseEnter={(e) => {
+                                                                        (
+                                                                            e.currentTarget as HTMLElement
+                                                                        ).style.background =
+                                                                            'var(--danger-subtle)';
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        (
+                                                                            e.currentTarget as HTMLElement
+                                                                        ).style.background = 'none';
+                                                                    }}
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Delete for everyone
+                                                                </HoverButton>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}

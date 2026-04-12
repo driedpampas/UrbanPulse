@@ -114,15 +114,16 @@ export function Auth() {
     };
 
     return (
-        <div class="page-shell bg-[var(--bg)]">
+        <div class="page-shell bg-[var(--bg)] min-h-screen">
             {/* Header / Logo */}
-            <div class="stack-h flex-between app-container px-5 py-4">
-                <div class="flex-1" />
-                <p class="text-base font-bold tracking-tight text-[var(--text)]">UrbanPulse</p>
+            <div class="stack-h flex-between w-full app-container px-6 py-5">
+                <div class="flex-1">
+                    <p class="text-sm font-bold tracking-tight text-[var(--text)]">UrbanPulse</p>
+                </div>
                 <div class="flex-1 flex justify-end">
                     <HoverButton
                         type="button"
-                        class="btn-icon"
+                        class="btn-icon !bg-transparent !border-none"
                         onClick={toggle}
                         aria-label="Toggle theme"
                     >
@@ -147,21 +148,24 @@ export function Auth() {
                         </p>
                     </div>
 
-                    <div class="section animate-slide-up shadow-lg" style="animation-delay: 0.1s;">
+                    <div
+                        class="section animate-slide-up shadow-xl border-[var(--border)]"
+                        style="animation-delay: 0.1s;"
+                    >
                         {mode !== 'forgot-password' && (
-                            <div class="section-header bg-[var(--bg-subtle)] !p-1.5">
-                                <div class="tab-switcher w-full !border-none !bg-transparent">
+                            <div class="p-1.5 border-b border-[var(--border)] bg-[var(--bg-subtle)]/50">
+                                <div class="tab-switcher w-full !border-none !bg-transparent !p-0">
                                     {(['login', 'register'] as AuthMode[]).map((m) => (
                                         <HoverButton
                                             key={m}
                                             type="button"
                                             onClick={() => reset(m)}
-                                            class={`tab-btn h-9 flex-1 justify-center ${mode === m ? 'active' : ''}`}
+                                            class={`tab-btn h-10 flex-1 justify-center ${mode === m ? 'active' : ''}`}
                                         >
                                             {m === 'login' ? (
-                                                <LogIn size={14} />
+                                                <LogIn size={15} />
                                             ) : (
-                                                <UserPlus size={14} />
+                                                <UserPlus size={15} />
                                             )}
                                             {m === 'login' ? 'Sign In' : 'Register'}
                                         </HoverButton>
@@ -372,8 +376,8 @@ export function Auth() {
                     )}
 
                     {/* Version Tag */}
-                    <div class="text-center">
-                        <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-40">
+                    <div class="mt-12 text-center">
+                        <span class="text-[10px] text-[var(--text-tertiary)] font-bold uppercase tracking-[0.15em] opacity-40">
                             Version {__COMMIT_HASH__}
                         </span>
                     </div>

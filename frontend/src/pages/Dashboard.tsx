@@ -9,6 +9,7 @@ import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
 import { useAuth } from '../lib/auth';
+import { cn } from '../lib/utils';
 
 export function Dashboard() {
     const { session } = useAuth();
@@ -30,7 +31,7 @@ export function Dashboard() {
 
     return (
         <AppLayout title="UrbanPulse" headerRight={null}>
-            <div class="stack-v" style={view === 'map' ? 'flex:1;' : ''}>
+            <div class={cn('stack-v', view === 'map' && 'flex-1')}>
                 <DashboardToolbar
                     view={view}
                     showFilters={showFilters}
@@ -72,7 +73,7 @@ export function Dashboard() {
                 {view === 'feed' ? (
                     <LiveFeed radiusFilter={radius} pulseLimit={limit} />
                 ) : (
-                    <div class="stack-v" style="margin-top:12px;flex:1;min-height:55dvh;">
+                    <div class="stack-v mt-3 flex-1 min-h-[55dvh]">
                         <PulseMap expanded radiusFilter={radius} pulseLimit={limit} />
                     </div>
                 )}

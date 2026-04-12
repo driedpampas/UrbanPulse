@@ -159,7 +159,9 @@ export function Profile() {
         const loadUser = async () => {
             const loadedUser = isOwnProfile
                 ? await fetchCurrentUser()
-                : await fetchUserById(selectedUserId!);
+                : selectedUserId
+                  ? await fetchUserById(selectedUserId)
+                  : null;
 
             if (!loadedUser) {
                 setUser(null);
@@ -511,13 +513,11 @@ export function Profile() {
                 {/* Identity card */}
                 <div class="section animate-slide-up">
                     <div class="section-header">
-                        <p class="label-caps" style="margin:0;">
-                            IDENTITY
-                        </p>
+                        <p class="label-caps !m-0">IDENTITY</p>
                     </div>
-                    <div class="section-body stack-h gap-md" style="align-items:flex-start;">
-                        <img src={user.avatar} alt="" class="avatar avatar-lg" />
-                        <div style="flex:1;min-width:0;">
+                    <div class="section-body !p-5 stack-h gap-lg" style="align-items:flex-start;">
+                        <img src={user.avatar} alt="" class="avatar avatar-lg shadow-sm" />
+                        <div class="stack-v gap-xs flex-1 min-w-0">
                             {editing ? (
                                 <input
                                     value={draft.name ?? ''}
@@ -542,7 +542,7 @@ export function Profile() {
                                     )}
                                 </>
                             )}
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                            <div class="stack-h gap-sm mt-1.5 flex-wrap">
                                 <TrustBadge score={user.trustScore} verified={user.verified} />
                                 {user.role && <RoleBadge role={user.role} />}
                             </div>
@@ -550,8 +550,8 @@ export function Profile() {
                     </div>
 
                     {/* Bio row */}
-                    <div class="px-4 pb-4">
-                        <p class="label-caps">Bio</p>
+                    <div class="section-body !px-5 !pb-5 !pt-0">
+                        <p class="label-caps !mb-2">Bio</p>
                         {editing ? (
                             <textarea
                                 value={draft.bio ?? ''}
