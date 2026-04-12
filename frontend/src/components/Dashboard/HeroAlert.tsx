@@ -4,6 +4,8 @@ import { acceptPulseRequest, connectWebSocket, disconnectWebSocket } from '../..
 import type { Pulse } from '../../lib/types';
 import { HoverButton } from '../ui/HoverButton';
 
+const HERO_NOTIFICATION_PROMPT_DISMISSED_KEY = 'hero-notification-prompt-dismissed';
+
 export function HeroAlert() {
     const [activeAlert, setActiveAlert] = useState<Pulse | null>(null);
     const [matchedResources, setMatchedResources] = useState<string[]>([]);
@@ -11,6 +13,13 @@ export function HeroAlert() {
     const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>(
         typeof Notification !== 'undefined' ? Notification.permission : 'default'
     );
+    const [notificationPromptDismissed, setNotificationPromptDismissed] = useState(() => {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        return localStorage.getItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY) === 'true';
+    });
     const [isForeground, setIsForeground] = useState(() => {
         if (typeof document === 'undefined') {
             return true;
@@ -68,6 +77,17 @@ export function HeroAlert() {
         if (typeof Notification === 'undefined') return;
         const result = await Notification.requestPermission();
         setPermissionStatus(result);
+        if (result !== 'default') {
+            setNotificationPromptDismissed(false);
+            localStorage.removeItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY);
+        }
+    };
+
+    const dismissNotificationPrompt = () => {
+        setNotificationPromptDismissed(true);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(HERO_NOTIFICATION_PROMPT_DISMISSED_KEY, 'true');
+        }
     };
 
     const handleAcceptRequest = async () => {
@@ -93,28 +113,59 @@ export function HeroAlert() {
     };
 
     if (!activeAlert) {
-        if (permissionStatus === 'default' && typeof Notification !== 'undefined') {
+        if (
+            permissionStatus === 'default' &&
+            typeof Notification !== 'undefined' &&
+            !notificationPromptDismissed
+        ) {
             return (
-                <div style="position:fixed;bottom:24px;right:24px;z-index:90;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);border-left:4px solid var(--accent);animate-fade-in">
-                    <div style="flex:1">
+                <div style="position:fixed;bottom:24px;right:24px;z-index:90;display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);border-left:4px solid var(--accent);animate-fade-in;max-width:min(360px, calc(100vw - 24px));">
+                    <div style="flex:1;min-width:0;">
                         <p style="margin:0;font-size:12px;font-weight:600;color:var(--text);">
                             Enable Hero Notifications?
                         </p>
                         <p style="margin:2px 0 0;font-size:11px;color:var(--text-secondary);">
                             Get alerted instantly when your skills are needed.
                         </p>
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                            <HoverButton
+                                type="button"
+                                onClick={requestNotificationPermission}
+                                class="btn-primary"
+                                style="height:32px;padding:0 12px;font-size:11px;background:var(--accent);"
+                                onMouseEnter={(e) =>
+                                    ((e.target as HTMLElement).style.filter =
+                                        'var(--hover-brightness)')
+                                }
+                                onMouseLeave={(e) =>
+                                    ((e.target as HTMLElement).style.filter = 'none')
+                                }
+                            >
+                                Enable
+                            </HoverButton>
+                            <HoverButton
+                                type="button"
+                                onClick={dismissNotificationPrompt}
+                                class="btn-ghost"
+                                style="height:32px;padding:0 12px;font-size:11px;"
+                            >
+                                Not now
+                            </HoverButton>
+                        </div>
                     </div>
                     <HoverButton
                         type="button"
-                        onClick={requestNotificationPermission}
-                        class="btn-primary"
-                        style="height:32px;padding:0 12px;font-size:11px;background:var(--accent);"
+                        onClick={dismissNotificationPrompt}
+                        class="btn-icon"
+                        aria-label="Dismiss notification prompt"
+                        title="Dismiss"
+                        style="width:24px;height:24px;color:var(--text-secondary);flex-shrink:0;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }
                         onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                     >
-                        Enable
+                        <X size={14} />
                     </HoverButton>
                 </div>
             );
