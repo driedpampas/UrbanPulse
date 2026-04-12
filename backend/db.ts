@@ -2212,15 +2212,45 @@ export async function selectPendingUserDeletions(
 export async function purgeExpiredUserDeletions(now = Date.now()): Promise<number> {
     await ensureSchema();
 
-    const cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    const deleted = await sql`
-        DELETE FROM app.users
-        WHERE deletion_requested_at IS NOT NULL
-          AND deletion_requested_at <= ${cutoff}
-        RETURNING id
-    `;
+    const cutoffIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    return deleted.length;
+    try {
+        const deleted = await sql`
+            DELETE FROM app.users
+            WHERE deletion_requested_at IS NOT NULL
+              AND deletion_requested_at <= ${cutoffIso}::timestamptz
+            RETURNING id
+        `;
+
+        return deleted.length;
+    } catch (error) {
+        const errorCode =
+            typeof error === 'object' && error !== null && 'code' in error
+                ? String((error as { code?: unknown }).code)
+                : null;
+
+        if (errorCode !== '42703') {
+            throw error;
+        }
+
+        await sql`
+            ALTER TABLE app.users
+            ADD COLUMN IF NOT EXISTS deletion_requested_at timestamptz
+        `;
+        await sql`
+            CREATE INDEX IF NOT EXISTS users_deletion_requested_at_idx
+            ON app.users (deletion_requested_at)
+        `;
+
+        const deleted = await sql`
+            DELETE FROM app.users
+            WHERE deletion_requested_at IS NOT NULL
+              AND deletion_requested_at <= ${cutoffIso}::timestamptz
+            RETURNING id
+        `;
+
+        return deleted.length;
+    }
 }
 
 export async function selectLibraryItems(
