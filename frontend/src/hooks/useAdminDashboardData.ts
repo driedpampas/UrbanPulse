@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import {
+    applyAdminMessageReportAction,
     cancelAdminUserDeletion,
     deleteAdminPulse,
     deleteAdminUser,
+    fetchAdminMessageReports,
     deleteLibraryItem,
     fetchAdminLibrary,
     fetchAdminOverview,
@@ -21,15 +23,24 @@ import {
 } from '../lib/apiClients';
 import type {
     AdminFlag,
+    AdminMessageReport,
     AdminOverview,
     AuthorPulseRequest,
     LibraryItem,
+    MessageReportAction,
     Pulse,
     PulseInteraction,
     User,
 } from '../types';
 
-export type AdminSection = 'overview' | 'users' | 'requests' | 'pulses' | 'library' | 'reports';
+export type AdminSection =
+    | 'overview'
+    | 'users'
+    | 'requests'
+    | 'pulses'
+    | 'library'
+    | 'reports'
+    | 'flaggedMessages';
 
 export function useAdminDashboardData() {
     const [section, setSection] = useState<AdminSection>('overview');
@@ -39,6 +50,7 @@ export function useAdminDashboardData() {
     const [pulses, setPulses] = useState<Pulse[]>([]);
     const [library, setLibrary] = useState<LibraryItem[]>([]);
     const [reports, setReports] = useState<AdminFlag[]>([]);
+    const [flaggedMessageReports, setFlaggedMessageReports] = useState<AdminMessageReport[]>([]);
     const [pendingDeletions, setPendingDeletions] = useState<
         Array<{ user: User; requestedAt: number; purgeAt: number }>
     >([]);
@@ -75,6 +87,7 @@ export function useAdminDashboardData() {
             fetchAdminPulses(),
             fetchAdminLibrary(),
             fetchAdminReports(),
+            fetchAdminMessageReports(),
             fetchAdminUserDeletions({ limit: USERS_BATCH, offset: 0 }),
         ])
             .then(
@@ -85,6 +98,7 @@ export function useAdminDashboardData() {
                     pulsesData,
                     libraryData,
                     reportsData,
+                    flaggedMessageReportsData,
                     deletionsData,
                 ]) => {
                     setOverview(overviewData);
@@ -93,6 +107,7 @@ export function useAdminDashboardData() {
                     setPulses(pulsesData);
                     setLibrary(libraryData);
                     setReports(reportsData);
+                    setFlaggedMessageReports(flaggedMessageReportsData);
                     setPendingDeletions(deletionsData);
                     setUsersOffset(usersData.length);
                     setUsersHasMore(usersData.length === USERS_BATCH);
@@ -262,6 +277,15 @@ export function useAdminDashboardData() {
         [loadData]
     );
 
+    const applyFlaggedMessageAction = useCallback(
+        async (reportId: string, action: MessageReportAction) => {
+            await applyAdminMessageReportAction(reportId, action);
+            const refreshed = await fetchAdminMessageReports();
+            setFlaggedMessageReports(refreshed);
+        },
+        []
+    );
+
     const toggleRequestDetails = useCallback(
         async (pulseId: string) => {
             if (expandedRequestId === pulseId) {
@@ -326,6 +350,7 @@ export function useAdminDashboardData() {
         pulses,
         library,
         reports,
+        flaggedMessageReports,
         pendingDeletions,
         pulseId,
         userSearch,
@@ -351,6 +376,7 @@ export function useAdminDashboardData() {
         cancelUserDeletion,
         removePulse,
         changeReportStatus,
+        applyFlaggedMessageAction,
         toggleRequestDetails,
         markRequestInteractionSuccessful,
         markRequestSolved,

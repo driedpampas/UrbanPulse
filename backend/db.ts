@@ -376,6 +376,26 @@ export interface Report {
     content: string;
 }
 
+export type MessageReportStatus = 'pending' | 'reviewed' | 'action_taken';
+export type MessageReportAction = 'ban_user' | 'delete_message' | 'dismiss';
+
+export interface AdminMessageReport {
+    id: string;
+    messageId: string;
+    messageContent: string;
+    reason: string;
+    status: MessageReportStatus;
+    timestamp: number;
+    reporter: {
+        id: string;
+        name: string;
+    };
+    offender: {
+        id: string;
+        name: string;
+    };
+}
+
 export interface ScheduledUserDeletion {
     user: User;
     requestedAt: number;
@@ -393,6 +413,19 @@ type ReportRow = {
     content: string;
 };
 
+type AdminMessageReportRow = {
+    id: string;
+    message_id: string;
+    message_content: string;
+    reason: string;
+    status: string;
+    created_at: number | string | Date;
+    reporter_id: string;
+    reporter_name: string;
+    offender_id: string;
+    offender_name: string;
+};
+
 function mapReportRow(row: ReportRow): Report {
     return {
         id: row.id,
@@ -403,6 +436,25 @@ function mapReportRow(row: ReportRow): Report {
         timestamp: Number(row.created_at),
         status: row.status as 'pending' | 'resolved' | 'dismissed',
         content: row.content,
+    };
+}
+
+function mapAdminMessageReportRow(row: AdminMessageReportRow): AdminMessageReport {
+    return {
+        id: row.id,
+        messageId: row.message_id,
+        messageContent: row.message_content,
+        reason: row.reason,
+        status: row.status as MessageReportStatus,
+        timestamp: Number(row.created_at),
+        reporter: {
+            id: row.reporter_id,
+            name: row.reporter_name,
+        },
+        offender: {
+            id: row.offender_id,
+            name: row.offender_name,
+        },
     };
 }
 
@@ -732,6 +784,61 @@ async function ensureSchema() {
                 )
             `;
         }
+
+        const messageReportStatusType = await tx`
+            SELECT 1
+            FROM pg_type AS t
+            JOIN pg_namespace AS n ON n.oid = t.typnamespace
+            WHERE t.typname = 'message_report_status'
+              AND n.nspname = 'app'
+            LIMIT 1
+        `;
+        if (messageReportStatusType.length === 0) {
+            await tx`
+                CREATE TYPE app.message_report_status AS ENUM ('pending', 'reviewed', 'action_taken')
+            `;
+        }
+
+        const messageReportsTable = await tx`
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'message_reports'
+            LIMIT 1
+        `;
+        if (messageReportsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.message_reports (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    reporter_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    offender_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    message_id uuid NOT NULL REFERENCES app.messages(id) ON DELETE CASCADE,
+                    reason text NOT NULL,
+                    status app.message_report_status NOT NULL DEFAULT 'pending',
+                    created_at timestamptz NOT NULL DEFAULT now()
+                )
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_reporter_id_idx
+            ON app.message_reports (reporter_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_offender_id_idx
+            ON app.message_reports (offender_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_message_id_idx
+            ON app.message_reports (message_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_status_created_at_idx
+            ON app.message_reports (status, created_at)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS message_reports_created_at_idx
+            ON app.message_reports (created_at)
+        `;
 
         // Check pulse_interactions table
         const interactionsTable = await tx`
@@ -1374,10 +1481,20 @@ export async function selectMessage(
         `;
 
         return (await tx`
-            SELECT id, thread_id, sender_id, content, message_type,
-            ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS "timestamp"
-            FROM app.messages
-            WHERE id = ${messageId};
+                        SELECT m.id, m.thread_id, m.sender_id, m.content, m.message_type,
+                        ROUND(EXTRACT(EPOCH FROM m.created_at) * 1000)::bigint AS "timestamp"
+                        FROM app.messages AS m
+                        JOIN app.chat_participants AS cp
+                            ON cp.thread_id = m.thread_id
+                         AND cp.user_id = ${currentUser}::uuid
+                        WHERE m.id = ${messageId}
+                            AND NOT EXISTS (
+                                    SELECT 1
+                                    FROM app.hidden_messages AS hidden
+                                    WHERE hidden.message_id = m.id
+                                        AND hidden.user_id = ${currentUser}::uuid
+                            )
+                        LIMIT 1;
         `) as MessageRow[];
     })) as MessageRow[];
 
@@ -3654,6 +3771,183 @@ export async function updateReportStatus(id: string, status: string): Promise<bo
     `;
 
     return Boolean(updated);
+}
+
+export async function insertMessageReport(params: {
+    reporterId: string;
+    offenderId: string;
+    messageId: string;
+    reason: string;
+}): Promise<AdminMessageReport> {
+    await ensureSchema();
+
+    const [row] = (await sql`
+        INSERT INTO app.message_reports (reporter_id, offender_id, message_id, reason)
+        VALUES (${params.reporterId}::uuid, ${params.offenderId}::uuid, ${params.messageId}::uuid, ${params.reason})
+        RETURNING id::text AS id,
+                  message_id::text AS message_id,
+                  reason,
+                  status::text AS status,
+                  ROUND(EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS created_at,
+                  reporter_id::text AS reporter_id,
+                  offender_id::text AS offender_id
+    `) as Array<{
+        id: string;
+        message_id: string;
+        reason: string;
+        status: string;
+        created_at: number | string | Date;
+        reporter_id: string;
+        offender_id: string;
+    }>;
+
+    const [details] = (await sql`
+        SELECT
+            m.content AS message_content,
+            COALESCE(NULLIF(reporter.display_name, ''), reporter.email, ${params.reporterId}) AS reporter_name,
+            COALESCE(NULLIF(offender.display_name, ''), offender.email, ${params.offenderId}) AS offender_name
+        FROM app.messages AS m
+        LEFT JOIN app.users AS reporter ON reporter.id = ${params.reporterId}::uuid
+        LEFT JOIN app.users AS offender ON offender.id = ${params.offenderId}::uuid
+        WHERE m.id = ${params.messageId}::uuid
+        LIMIT 1
+    `) as Array<{
+        message_content: string;
+        reporter_name: string;
+        offender_name: string;
+    }>;
+
+    return mapAdminMessageReportRow({
+        id: row!.id,
+        message_id: row!.message_id,
+        message_content: details?.message_content ?? '',
+        reason: row!.reason,
+        status: row!.status,
+        created_at: row!.created_at,
+        reporter_id: row!.reporter_id,
+        reporter_name: details?.reporter_name ?? `Neighbor ${params.reporterId.slice(0, 6)}`,
+        offender_id: row!.offender_id,
+        offender_name: details?.offender_name ?? `Neighbor ${params.offenderId.slice(0, 6)}`,
+    });
+}
+
+export async function selectAdminMessageReports(params?: {
+    limit?: number;
+    offset?: number;
+    status?: MessageReportStatus;
+}): Promise<AdminMessageReport[]> {
+    await ensureSchema();
+
+    const safeLimit = Number.isFinite(params?.limit)
+        ? Math.max(1, Math.min(Math.floor(params?.limit ?? 50), 100))
+        : 50;
+    const safeOffset = Number.isFinite(params?.offset)
+        ? Math.max(0, Math.floor(params?.offset ?? 0))
+        : 0;
+    const status = params?.status ?? 'pending';
+
+    const rows = (await sql`
+        SELECT
+            mr.id::text AS id,
+            mr.message_id::text AS message_id,
+            m.content AS message_content,
+            mr.reason,
+            mr.status::text AS status,
+            ROUND(EXTRACT(EPOCH FROM mr.created_at) * 1000)::bigint AS created_at,
+            mr.reporter_id::text AS reporter_id,
+            COALESCE(NULLIF(reporter.display_name, ''), reporter.email, mr.reporter_id::text) AS reporter_name,
+            mr.offender_id::text AS offender_id,
+            COALESCE(NULLIF(offender.display_name, ''), offender.email, mr.offender_id::text) AS offender_name
+        FROM app.message_reports AS mr
+        JOIN app.messages AS m ON m.id = mr.message_id
+        LEFT JOIN app.users AS reporter ON reporter.id = mr.reporter_id
+        LEFT JOIN app.users AS offender ON offender.id = mr.offender_id
+        WHERE mr.status = ${status}::app.message_report_status
+        ORDER BY mr.created_at DESC, mr.id DESC
+        LIMIT ${safeLimit}
+        OFFSET ${safeOffset}
+    `) as AdminMessageReportRow[];
+
+    return rows.map(mapAdminMessageReportRow);
+}
+
+export async function applyAdminMessageReportAction(params: {
+    reportId: string;
+    action: MessageReportAction;
+}): Promise<{
+    success: boolean;
+    notFound?: boolean;
+    invalidState?: boolean;
+}> {
+    await ensureSchema();
+
+    return await sql.begin(async (tx) => {
+        const [report] = (await tx`
+            SELECT id::text AS id,
+                   status::text AS status,
+                   offender_id::text AS offender_id,
+                   message_id::text AS message_id
+            FROM app.message_reports
+            WHERE id = ${params.reportId}::uuid
+            FOR UPDATE
+        `) as Array<{
+            id: string;
+            status: string;
+            offender_id: string;
+            message_id: string;
+        }>;
+
+        if (!report) {
+            return { success: false, notFound: true };
+        }
+
+        if (report.status !== 'pending') {
+            return { success: false, invalidState: true };
+        }
+
+        if (params.action === 'ban_user') {
+            await tx`
+                UPDATE app.users
+                SET role = 'banned'
+                WHERE id = ${report.offender_id}::uuid
+            `;
+
+            await tx`
+                UPDATE app.message_reports
+                SET status = 'action_taken'
+                WHERE id = ${report.id}::uuid
+            `;
+
+            return { success: true };
+        }
+
+        if (params.action === 'delete_message') {
+            await tx`
+                INSERT INTO app.hidden_messages (message_id, user_id)
+                SELECT m.id, cp.user_id
+                FROM app.messages AS m
+                JOIN app.chat_participants AS cp ON cp.thread_id = m.thread_id
+                WHERE m.id = ${report.message_id}::uuid
+                ON CONFLICT (message_id, user_id) DO NOTHING
+            `;
+
+            await tx`
+                UPDATE app.message_reports
+                SET status = 'action_taken'
+                WHERE id = ${report.id}::uuid
+            `;
+
+            return { success: true };
+        }
+
+        await tx`
+            UPDATE app.message_reports
+            SET status = 'reviewed'
+            WHERE id = ${report.id}::uuid
+        `;
+
+        return { success: true };
+    });
 }
 
 export async function deleteReport(id: string): Promise<boolean> {

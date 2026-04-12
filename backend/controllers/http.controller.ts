@@ -43,10 +43,13 @@ import {
     buildSearchParams,
     chatSocketMessageSchema,
     createChatSchema,
+    createMessageReportSchema,
     createLibraryItemSchema,
     createMessageSchema,
     createPulseSchema,
     createReportSchema,
+    adminMessageReportActionSchema,
+    adminMessageReportsQuerySchema,
     deleteMessageSchema,
     interactionFeedbackSchema,
     loginUserSchema,
@@ -1017,6 +1020,59 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
+    '/api/admin/reports/messages': {
+        GET: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const url = new URL(req.url);
+                        const query = adminMessageReportsQuerySchema.parse({
+                            status: url.searchParams.get('status') ?? undefined,
+                            limit: url.searchParams.get('limit') ?? undefined,
+                            offset: url.searchParams.get('offset') ?? undefined,
+                        });
+
+                        const reports = await db.selectAdminMessageReports({
+                            status: query.status ?? 'pending',
+                            limit: query.limit,
+                            offset: query.offset,
+                        });
+
+                        return withCors(Response.json({ reports }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/admin/reports/messages/:reportId/action': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const body = adminMessageReportActionSchema.parse(await req.json());
+                        const result = await db.applyAdminMessageReportAction({
+                            reportId: req.params.reportId as string,
+                            action: body.action,
+                        });
+
+                        if (!result.success && result.notFound) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (!result.success && result.invalidState) {
+                            return withCors(
+                                Response.json({ error: 'Report already processed.' }, { status: 409 })
+                            );
+                        }
+
+                        if (!result.success) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        return withCors(SUCCESS);
+                    })
+                )
+            ),
+    },
     '/api/admin/reports/:id/status': {
         PATCH: async (req) =>
             validate(req, async () =>
@@ -1033,20 +1089,38 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
-    '/api/messages/:id/report': {
+    '/api/messages/:messageId/report': {
         POST: async (req) =>
             validate(req, async () =>
                 authorize(req, async (session) =>
                     caught(async () => {
                         const payload = session as JwtPayload;
-                        const body = createReportSchema.parse(await req.json());
-                        const report = await db.insertReport({
+                        const body = createMessageReportSchema.parse(await req.json());
+                        const message = await db.selectMessage(
+                            req.params.messageId as string,
+                            payload.id
+                        );
+
+                        if (!message) {
+                            return withCors(NOT_FOUND);
+                        }
+
+                        if (message.senderId === payload.id) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'You cannot report your own message.' },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const report = await db.insertMessageReport({
                             reporterId: payload.id,
-                            targetId: req.params.id as string,
-                            targetType: 'message',
+                            offenderId: message.senderId,
+                            messageId: message.id,
                             reason: body.reason,
-                            content: body.content,
                         });
+
                         return withCors(Response.json(report, { status: 201 }));
                     })
                 )

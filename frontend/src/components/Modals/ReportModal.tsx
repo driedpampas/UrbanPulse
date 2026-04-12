@@ -1,6 +1,6 @@
 import { AlertTriangle, Send, X } from 'lucide-preact';
 import { useState } from 'preact/hooks';
-import { createReport } from '../../lib/reportsApi';
+import { createMessageReport, createReport } from '../../lib/reportsApi';
 import { HoverButton } from '../ui/HoverButton';
 
 const REASONS = ['Spam', 'Harassment', 'Inappropriate content', 'False information', 'Other'];
@@ -9,10 +9,14 @@ interface Props {
     targetId: string;
     targetType: 'pulse' | 'user' | 'message';
     contentSnippet: string;
+    offender?: {
+        id: string;
+        name: string;
+    };
     onClose: () => void;
 }
 
-export function ReportModal({ targetId, targetType, contentSnippet, onClose }: Props) {
+export function ReportModal({ targetId, targetType, contentSnippet, offender, onClose }: Props) {
     const [reason, setReason] = useState(REASONS[0]);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,12 +27,19 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
         setError(null);
 
         try {
-            await createReport({
-                targetId,
-                targetType,
-                reason: reason!,
-                content: contentSnippet,
-            });
+            if (targetType === 'message') {
+                await createMessageReport({
+                    messageId: targetId,
+                    reason,
+                });
+            } else {
+                await createReport({
+                    targetId,
+                    targetType,
+                    reason,
+                    content: contentSnippet,
+                });
+            }
             onClose();
             alert('Thank you. The report has been submitted to the moderators.');
         } catch (err) {
@@ -78,6 +89,11 @@ export function ReportModal({ targetId, targetType, contentSnippet, onClose }: P
                     <p style="margin:0;font-size:13px;color:var(--text-secondary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;">
                         "{contentSnippet}"
                     </p>
+                    {targetType === 'message' && offender && (
+                        <p style="margin:8px 0 0;font-size:12px;color:var(--text-tertiary);">
+                            Offender: {offender.name}
+                        </p>
+                    )}
                 </div>
 
                 <form onSubmit={handleSubmit} style="display:flex;flex-direction:column;gap:14px;">

@@ -226,6 +226,20 @@ export const createReportSchema = z.strictObject({
     content: z.string().nonempty(),
 });
 
+export const createMessageReportSchema = z.strictObject({
+    reason: z.string().nonempty().max(500),
+});
+
+export const adminMessageReportsQuerySchema = z.strictObject({
+    status: z.enum(['pending', 'reviewed', 'action_taken']).optional(),
+    limit: z.coerce.number().optional(),
+    offset: z.coerce.number().optional(),
+});
+
+export const adminMessageReportActionSchema = z.strictObject({
+    action: z.enum(['ban_user', 'delete_message', 'dismiss']),
+});
+
 export const updateReportStatusSchema = z.strictObject({
     status: z.enum(['resolved', 'dismissed']),
 });
@@ -251,6 +265,9 @@ export type AddChatParticipantsBody = z.infer<typeof addChatParticipantsSchema>;
 export type CreateLibraryItemBody = z.infer<typeof createLibraryItemSchema>;
 export type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 export type CreateReportBody = z.infer<typeof createReportSchema>;
+export type CreateMessageReportBody = z.infer<typeof createMessageReportSchema>;
+export type AdminMessageReportsQuery = z.infer<typeof adminMessageReportsQuerySchema>;
+export type AdminMessageReportActionBody = z.infer<typeof adminMessageReportActionSchema>;
 export type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
 
 export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned']);

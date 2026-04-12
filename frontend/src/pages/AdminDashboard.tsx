@@ -1,6 +1,7 @@
 import { Activity, CheckCircle, ClipboardList, Flag, LibraryBig, Search, UsersRound } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LibraryRow } from '../components/Admin/LibraryRow';
+import { MessageReportRow } from '../components/Admin/MessageReportRow';
 import { PulseRow } from '../components/Admin/PulseRow';
 import { ReportRow } from '../components/Admin/ReportRow';
 import { SectionButton } from '../components/Admin/SectionButton';
@@ -20,6 +21,7 @@ const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }
     { id: 'pulses', label: 'Pulses', icon: Search },
     { id: 'library', label: 'Library', icon: LibraryBig },
     { id: 'reports', label: 'Reports', icon: Flag },
+    { id: 'flaggedMessages', label: 'Flagged Messages', icon: Flag },
 ];
 
 const surfaceCard =
@@ -36,6 +38,7 @@ export function AdminDashboard() {
         pulses,
         library,
         reports,
+        flaggedMessageReports,
         pendingDeletions,
         pulseId,
         userSearch,
@@ -60,6 +63,7 @@ export function AdminDashboard() {
         cancelUserDeletion,
         removePulse,
         changeReportStatus,
+        applyFlaggedMessageAction,
         toggleRequestDetails,
         markRequestInteractionSuccessful,
         markRequestSolved,
@@ -544,6 +548,74 @@ export function AdminDashboard() {
                                                     destructive: status === 'dismissed',
                                                     onConfirm: async () => {
                                                         await changeReportStatus(id, status);
+                                                    },
+                                                });
+                                            }}
+                                        />
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {section === 'flaggedMessages' && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                {flaggedMessageReports.length === 0 ? (
+                                    <div
+                                        style={`${surfaceCard};padding:40px;text-align:center;color:var(--text-tertiary);`}
+                                    >
+                                        <Flag size={32} style="margin:0 auto 12px;opacity:0.3;" />
+                                        <p style="margin:0;font-size:14px;font-weight:600;">
+                                            No pending flagged messages
+                                        </p>
+                                    </div>
+                                ) : (
+                                    flaggedMessageReports.map((report) => (
+                                        <MessageReportRow
+                                            key={report.id}
+                                            report={report}
+                                            onAction={(reportId, action) => {
+                                                const labels = {
+                                                    delete_message: {
+                                                        title: 'Delete flagged message',
+                                                        message:
+                                                            'Hide this message for all thread participants and mark the report as action taken?',
+                                                        confirmLabel: 'Delete message',
+                                                        destructive: true,
+                                                    },
+                                                    ban_user: {
+                                                        title: 'Ban offender',
+                                                        message:
+                                                            'Ban the offender account and mark this report as action taken?',
+                                                        confirmLabel: 'Ban offender',
+                                                        destructive: true,
+                                                    },
+                                                    dismiss: {
+                                                        title: 'Dismiss flagged message',
+                                                        message:
+                                                            'Mark this flagged message report as reviewed without punitive action?',
+                                                        confirmLabel: 'Dismiss report',
+                                                        destructive: false,
+                                                    },
+                                                } as const;
+
+                                                const config = labels[action];
+                                                setConfirmation({
+                                                    title: config.title,
+                                                    message: config.message,
+                                                    confirmLabel: config.confirmLabel,
+                                                    destructive: config.destructive,
+                                                    onConfirm: async () => {
+                                                        await applyFlaggedMessageAction(
+                                                            reportId,
+                                                            action
+                                                        );
+                                                        showToast(
+                                                            action === 'dismiss'
+                                                                ? 'Flagged message dismissed.'
+                                                                : action === 'ban_user'
+                                                                  ? 'Offender banned and report updated.'
+                                                                  : 'Message hidden and report updated.'
+                                                        );
                                                     },
                                                 });
                                             }}

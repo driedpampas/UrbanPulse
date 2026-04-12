@@ -141,6 +141,26 @@ export interface AdminFlag {
     content: string;
 }
 
+export type MessageReportStatus = 'pending' | 'reviewed' | 'action_taken';
+export type MessageReportAction = 'ban_user' | 'delete_message' | 'dismiss';
+
+export interface AdminMessageReport {
+    id: string;
+    messageId: string;
+    messageContent: string;
+    reason: string;
+    status: MessageReportStatus;
+    timestamp: number;
+    reporter: {
+        id: string;
+        name: string;
+    };
+    offender: {
+        id: string;
+        name: string;
+    };
+}
+
 export interface AdminOverview {
     totalUsers: number;
     adminUsers: number;

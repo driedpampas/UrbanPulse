@@ -28,6 +28,12 @@ const timeMultirange = customType<{ data: unknown; driverData: unknown }>({
 
 export const app = pgSchema('app');
 
+export const messageReportStatusEnum = app.enum('message_report_status', [
+    'pending',
+    'reviewed',
+    'action_taken',
+]);
+
 export const users = app.table(
     'users',
     {
@@ -285,6 +291,34 @@ export const reports = app.table(
     ]
 );
 
+export const messageReports = app.table(
+    'message_reports',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        reporterId: uuid('reporter_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        offenderId: uuid('offender_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        messageId: uuid('message_id')
+            .notNull()
+            .references(() => messages.id, { onDelete: 'cascade' }),
+        reason: text('reason').notNull(),
+        status: messageReportStatusEnum('status').notNull().default('pending'),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+            .notNull()
+            .defaultNow(),
+    },
+    (table) => [
+        index('message_reports_reporter_id_idx').on(table.reporterId),
+        index('message_reports_offender_id_idx').on(table.offenderId),
+        index('message_reports_message_id_idx').on(table.messageId),
+        index('message_reports_status_created_at_idx').on(table.status, table.createdAt),
+        index('message_reports_created_at_idx').on(table.createdAt),
+    ]
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Pulse = typeof pulses.$inferSelect;
@@ -293,4 +327,5 @@ export type ChatThread = typeof chatThreads.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type LibraryItem = typeof libraryItems.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type MessageReport = typeof messageReports.$inferSelect;
 export type PulseInteraction = typeof pulseInteractions.$inferSelect;

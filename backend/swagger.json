@@ -1621,6 +1621,189 @@
                     }
                 }
             }
+        },
+        "/api/messages/{messageId}/report": {
+            "post": {
+                "tags": ["Chats", "Moderation"],
+                "summary": "Report a direct message",
+                "description": "Submits a moderation report for a direct message. Users cannot report their own messages.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "messageId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["reason"],
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "maxLength": 500,
+                                        "example": "Harassment"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Message report created"
+                    },
+                    "400": {
+                        "description": "Invalid request or self-report"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Message not found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
+        "/api/admin/reports/messages": {
+            "get": {
+                "tags": ["Moderation", "Admin"],
+                "summary": "List flagged message reports",
+                "description": "Returns message reports with joined message content and reporter/offender details. Defaults to pending status.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": ["pending", "reviewed", "action_taken"]
+                        },
+                        "example": "pending"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        },
+                        "example": 50
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "example": 0
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Flagged message reports fetched"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "400": {
+                        "description": "Invalid query"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
+        },
+        "/api/admin/reports/messages/{reportId}/action": {
+            "post": {
+                "tags": ["Moderation", "Admin"],
+                "summary": "Apply moderation action to a message report",
+                "description": "Executes a transactional moderation action for a pending message report.",
+                "security": [
+                    {
+                        "bearerAuth": [],
+                        "upiAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "reportId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["action"],
+                                "properties": {
+                                    "action": {
+                                        "type": "string",
+                                        "enum": ["ban_user", "delete_message", "dismiss"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Action applied"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Report not found"
+                    },
+                    "409": {
+                        "description": "Report already processed"
+                    },
+                    "400": {
+                        "description": "Invalid body"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                }
+            }
         }
     }
 }

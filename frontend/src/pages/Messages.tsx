@@ -1354,6 +1354,21 @@ function ChatView({
                                             </p>
                                         </HoverButton>
 
+                                        {!isMe && (
+                                            <HoverButton
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    setReportingMessage(msg);
+                                                }}
+                                                aria-label={`Report message from ${msg.senderName}`}
+                                                title="Report message"
+                                                style="width:24px;height:24px;border-radius:999px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text-tertiary);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;"
+                                            >
+                                                <Flag size={12} />
+                                            </HoverButton>
+                                        )}
+
                                         {isContextMenuOpen && contextMenuPosition && (
                                             <>
                                                 <HoverButton
@@ -2063,6 +2078,10 @@ function ChatView({
                     targetId={reportingMessage.id}
                     targetType="message"
                     contentSnippet={reportingMessage.content}
+                    offender={{
+                        id: reportingMessage.senderId,
+                        name: reportingMessage.senderName,
+                    }}
                     onClose={() => setReportingMessage(null)}
                 />
             )}
