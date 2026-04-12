@@ -522,9 +522,9 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const canDelete = (p: Pulse) =>
         Boolean(
             session &&
-                (session.user.id === p.userId ||
-                    session.user.role === 'admin' ||
-                    session.user.role === 'mod')
+            (session.user.id === p.userId ||
+                session.user.role === 'admin' ||
+                session.user.role === 'mod')
         );
 
     /* ── States ── */
@@ -610,13 +610,15 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                 const p = def.cssPrefix;
                 const canAcceptRequest = Boolean(
                     session &&
-                        session.user.id !== pulse.userId &&
-                        !acceptedPulseIds.has(pulse.id) &&
-                        !pulse.isSolved &&
-                        pulseCanBeAcceptedByUser(pulse, myResourceTokens)
+                    session.user.id !== pulse.userId &&
+                    !acceptedPulseIds.has(pulse.id) &&
+                    !pulse.isSolved &&
+                    pulseCanBeAcceptedByUser(pulse, myResourceTokens)
                 );
                 const hasAcceptedRequest = acceptedPulseIds.has(pulse.id);
                 const editCharactersLeft = PULSE_CONTENT_MAX - editContent.length;
+                const canMarkEmergency = pulse.type === 'need';
+                const showResourceSelector = pulse.type === 'need';
                 const parsedEditSkills = parseRequiredSkillsInput(editRequiredSkills);
 
                 return (
@@ -666,8 +668,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             }
                                             style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;padding:0;cursor:pointer;text-align:left;"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
@@ -711,12 +713,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                     title="Delete"
                                                     aria-label="Delete pulse"
                                                     onMouseEnter={(e) =>
-                                                        ((e.target as HTMLElement).style.filter =
-                                                            'var(--hover-brightness)')
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'var(--hover-brightness)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                        ((e.target as HTMLElement).style.filter =
-                                                            'none')
+                                                    ((e.target as HTMLElement).style.filter =
+                                                        'none')
                                                     }
                                                 >
                                                     <Trash2 size={11} />
@@ -729,36 +731,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                 {/* Content */}
                                 {isEditing ? (
                                     <div
-                                        style="display:flex;flex-direction:column;gap:10px;margin-top:9px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);"
+                                        style="display:flex;flex-direction:column;gap:0;margin-top:9px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-raised);"
                                     >
-                                        <div style="position:relative;">
-                                            <textarea
-                                                class="input-field"
-                                                value={editContent}
-                                                onInput={(event) =>
-                                                    setEditContent(
-                                                        (event.target as HTMLTextAreaElement).value
-                                                    )
-                                                }
-                                                rows={3}
-                                                maxLength={PULSE_CONTENT_MAX + 20}
-                                                style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
-                                            />
-                                            <span
-                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${
-                                                    editCharactersLeft < 0
-                                                        ? 'var(--danger)'
-                                                        : editCharactersLeft < 40
-                                                          ? 'var(--warning)'
-                                                          : 'var(--text-tertiary)'
-                                                };`}
-                                            >
-                                                {editCharactersLeft}
-                                            </span>
-                                        </div>
-
-                                        {pulse.type === 'need' && (
-                                            <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;">
+                                        {canMarkEmergency && (
+                                            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;">
                                                 <input
                                                     type="checkbox"
                                                     checked={editIsEmergency}
@@ -777,31 +753,58 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             </label>
                                         )}
 
-                                        {pulse.type === 'need' && (
-                                            <div style="display:flex;flex:1;min-width:220px;flex-direction:column;gap:6px;">
+                                        <div style="position:relative;margin-bottom:12px;">
+                                            <textarea
+                                                class="input-field"
+                                                value={editContent}
+                                                onInput={(event) =>
+                                                    setEditContent(
+                                                        (event.target as HTMLTextAreaElement).value
+                                                    )
+                                                }
+                                                rows={3}
+                                                maxLength={PULSE_CONTENT_MAX + 20}
+                                                placeholder="What's happening in your neighborhood?"
+                                                style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
+                                            />
+                                            <span
+                                                style={`position:absolute;right:10px;bottom:10px;font-size:11px;font-variant-numeric:tabular-nums;color:${editCharactersLeft < 0
+                                                        ? 'var(--danger)'
+                                                        : editCharactersLeft < 40
+                                                            ? 'var(--warning)'
+                                                            : 'var(--text-tertiary)'
+                                                    };`}
+                                            >
+                                                {editCharactersLeft}
+                                            </span>
+                                        </div>
+
+                                        {showResourceSelector && (
+                                            <div style="margin-bottom:10px;display:flex;flex-direction:column;gap:8px;">
                                                 <label
                                                     htmlFor={`pulse-edit-skills-${pulse.id}`}
-                                                    style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
+                                                    style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
                                                 >
                                                     Skills / Items Needed
                                                 </label>
-                                                <input
-                                                    id={`pulse-edit-skills-${pulse.id}`}
-                                                    class="input-field"
-                                                    value={editRequiredSkills}
-                                                    onInput={(event) =>
-                                                        setEditRequiredSkills(
-                                                            (event.target as HTMLInputElement)
-                                                                .value
-                                                        )
-                                                    }
-                                                    placeholder="first aid, transport, translation"
-                                                    style="height:36px;padding:0 12px;"
-                                                />
+                                                <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised);">
+                                                    <input
+                                                        id={`pulse-edit-skills-${pulse.id}`}
+                                                        value={editRequiredSkills}
+                                                        onInput={(event) =>
+                                                            setEditRequiredSkills(
+                                                                (event.target as HTMLInputElement)
+                                                                    .value
+                                                            )
+                                                        }
+                                                        placeholder="first aid, transport, translation"
+                                                        style="flex:1;border:none;background:transparent;outline:none;color:var(--text);font-size:12px;font-family:inherit;"
+                                                    />
+                                                </div>
                                             </div>
                                         )}
 
-                                        {pulse.type === 'need' && parsedEditSkills.length > 0 && (
+                                        {showResourceSelector && parsedEditSkills.length > 0 && (
                                             <div style="display:flex;flex-wrap:wrap;gap:6px;">
                                                 {parsedEditSkills.map((skill) => (
                                                     <HoverButton
@@ -833,14 +836,14 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
                                         {editError && (
                                             <p
-                                                style="margin:0;padding:8px 12px;border-radius:6px;background:var(--danger-subtle);color:var(--danger);font-size:12px;border:1px solid var(--type-emergency-border);"
+                                                style="margin:10px 0 0;padding:8px 12px;border-radius:6px;background:var(--danger-subtle);color:var(--danger);font-size:12px;border:1px solid var(--type-emergency-border);"
                                                 role="alert"
                                             >
                                                 {editError}
                                             </p>
                                         )}
 
-                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;">
                                             <HoverButton
                                                 type="button"
                                                 class="btn-primary"
@@ -849,7 +852,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                                 style="height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;padding:0 14px;"
                                             >
                                                 <Send size={13} />
-                                                {savingEdit ? 'Saving...' : 'Save Changes'}
+                                                {savingEdit ? 'Saving...' : 'Save Pulse'}
                                             </HoverButton>
                                             <HoverButton
                                                 type="button"
@@ -886,8 +889,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             onClick={() => handleConfirm(pulse.id)}
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);font-weight:600;background:none;border:none;padding:0;cursor:pointer;margin-left:auto;"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
@@ -923,8 +926,8 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-tertiary);background:none;border:none;padding:0;cursor:pointer;"
                                             title="Report content"
                                             onMouseEnter={(e) =>
-                                                ((e.target as HTMLElement).style.filter =
-                                                    'var(--hover-brightness)')
+                                            ((e.target as HTMLElement).style.filter =
+                                                'var(--hover-brightness)')
                                             }
                                             onMouseLeave={(e) =>
                                                 ((e.target as HTMLElement).style.filter = 'none')
