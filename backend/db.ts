@@ -2704,16 +2704,21 @@ export async function confirmPulse(
 export async function insertPulseInteraction(params: {
     pulseId: string;
     helperId: string;
-}): Promise<{ success: boolean; alreadyAccepted: boolean; interaction?: PulseInteraction }> {
+}): Promise<{
+    success: boolean;
+    alreadyAccepted: boolean;
+    solved?: boolean;
+    interaction?: PulseInteraction;
+}> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
 
         const [pulse] = (await tx`
-            SELECT id, author_id
+            SELECT id, author_id, COALESCE(is_solved, false) AS is_solved
             FROM app.pulses
             WHERE id = ${params.pulseId}::uuid
             LIMIT 1
-        `) as Array<{ id: string; author_id: string }>;
+        `) as Array<{ id: string; author_id: string; is_solved: boolean }>;
 
         if (!pulse) {
             return { success: false, alreadyAccepted: false };
@@ -2721,6 +2726,10 @@ export async function insertPulseInteraction(params: {
 
         if (pulse.author_id === params.helperId) {
             return { success: false, alreadyAccepted: false };
+        }
+
+        if (pulse.is_solved) {
+            return { success: false, alreadyAccepted: false, solved: true };
         }
 
         const [existing] = (await tx`
@@ -2817,7 +2826,7 @@ export async function confirmPulseInteraction(params: {
     pulseId: string;
     interactionId: string;
     authorId: string;
-}): Promise<{ success: boolean; interaction?: PulseInteraction }> {
+}): Promise<{ success: boolean; solved?: boolean; interaction?: PulseInteraction }> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
 
@@ -2835,7 +2844,8 @@ export async function confirmPulseInteraction(params: {
                     ELSE ROUND(EXTRACT(EPOCH FROM pi.confirmed_at) * 1000)::bigint
                 END AS confirmed_at,
                 pi.trust_awarded,
-                COALESCE(p.urgency_level, 1) AS pulse_urgency_level
+                COALESCE(p.urgency_level, 1) AS pulse_urgency_level,
+                COALESCE(p.is_solved, false) AS pulse_is_solved
             FROM app.pulse_interactions AS pi
             JOIN app.pulses AS p ON p.id = pi.pulse_id
             LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
@@ -2843,7 +2853,12 @@ export async function confirmPulseInteraction(params: {
               AND pi.pulse_id = ${params.pulseId}::uuid
               AND pi.author_id = ${params.authorId}::uuid
             LIMIT 1
-        `) as Array<PulseInteractionRow & { pulse_urgency_level: number | string | null }>;
+        `) as Array<
+            PulseInteractionRow & {
+                pulse_urgency_level: number | string | null;
+                pulse_is_solved: boolean;
+            }
+        >;
 
         if (!interaction) {
             return { success: false };
@@ -2851,6 +2866,10 @@ export async function confirmPulseInteraction(params: {
 
         if (interaction.status === 'successful') {
             return { success: true, interaction: mapPulseInteractionRow(interaction) };
+        }
+
+        if (interaction.pulse_is_solved) {
+            return { success: false, solved: true };
         }
 
         const trustAward = trustAwardForUrgency(Number(interaction.pulse_urgency_level ?? 1));
@@ -2892,6 +2911,25 @@ export async function confirmPulseInteraction(params: {
 
         return { success: true, interaction: mappedInteraction };
     });
+}
+
+export async function markPulseSolved(
+    pulseId: string,
+    authorId: string
+): Promise<PulseFeedItem | null> {
+    const [updated] = (await sql`
+        UPDATE app.pulses
+        SET is_solved = true
+        WHERE id = ${pulseId}::uuid
+          AND author_id = ${authorId}::uuid
+        RETURNING id::text AS id
+    `) as Array<{ id: string }>;
+
+    if (!updated) {
+        return null;
+    }
+
+    return await selectPulseById(updated.id);
 }
 
 export async function selectAcceptedInteractionsForHelper(

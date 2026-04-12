@@ -1051,6 +1051,12 @@ export const httpRoutes: HttpRoutes = {
                             helperId: payload.id,
                         });
 
+                        if (!result.success && result.solved) {
+                            return withCors(
+                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
                         if (!result.success && result.alreadyAccepted) {
                             return withCors(
                                 Response.json({ error: 'Already accepted' }, { status: 409 })
@@ -1096,6 +1102,12 @@ export const httpRoutes: HttpRoutes = {
                             authorId: payload.id,
                         });
 
+                        if (!result.success && result.solved) {
+                            return withCors(
+                                Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
                         if (!result.success || !result.interaction) {
                             return withCors(BAD_REQUEST);
                         }
@@ -1103,6 +1115,23 @@ export const httpRoutes: HttpRoutes = {
                         return withCors(
                             Response.json({ interaction: result.interaction }, { status: 200 })
                         );
+                    })
+                )
+            ),
+    },
+    '/api/pulses/:id/solve': {
+        POST: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const pulse = await db.markPulseSolved(req.params.id as string, payload.id);
+
+                        if (!pulse) {
+                            return withCors(FORBIDDEN);
+                        }
+
+                        return withCors(Response.json({ pulse }, { status: 200 }));
                     })
                 )
             ),
