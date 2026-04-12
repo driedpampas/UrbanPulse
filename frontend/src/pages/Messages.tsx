@@ -480,7 +480,7 @@ export function Messages() {
         <AppLayout
             title="Messages"
             headerRight={
-                <div style="display:flex;gap:8px;">
+                <div class="stack-h gap-sm">
                     <HoverButton
                         type="button"
                         class="btn-primary"
@@ -489,9 +489,9 @@ export function Messages() {
                             setShowCompose(true);
                             setComposeMode('direct');
                         }}
-                        style="height:30px;padding:0 10px;font-size:12px;gap:4px;"
+                        style="height:32px;padding:0 12px;font-size:12px;"
                     >
-                        <Plus size={13} />
+                        <Plus size={14} />
                         New Chat
                     </HoverButton>
                     <HoverButton
@@ -502,15 +502,15 @@ export function Messages() {
                             setShowCompose(true);
                             setComposeMode('group');
                         }}
-                        style="height:30px;padding:0 10px;font-size:12px;gap:4px;"
+                        style="height:32px;padding:0 12px;font-size:12px;"
                     >
-                        <Users size={13} />
+                        <Users size={14} />
                         Create Group Chat
                     </HoverButton>
                 </div>
             }
         >
-            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <div class="section-body gap-md">
                 {loading ? (
                     [1, 2].map((i) => (
                         <div
@@ -519,7 +519,7 @@ export function Messages() {
                         />
                     ))
                 ) : threads.length === 0 ? (
-                    <div style="padding:56px 24px;text-align:center;border:1px solid var(--border);border-radius:16px;background:var(--surface);">
+                    <div class="section-body" style="padding:56px 24px;text-align:center;">
                         <div style="width:48px;height:48px;margin:0 auto 10px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);">
                             <Users size={24} />
                         </div>
@@ -543,7 +543,7 @@ export function Messages() {
                                 id={`thread-${thread.id}`}
                                 onClick={() => openThread(thread)}
                                 class="card animate-slide-up"
-                                style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer;transition:background 0.15s;animation-delay:${i * 50}ms;`}
+                                style={`width:100%;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;animation-delay:${i * 50}ms;`}
                             >
                                 <div
                                     style={`width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg-muted);overflow:hidden;`}
@@ -608,7 +608,7 @@ export function Messages() {
                 <div
                     role="dialog"
                     aria-modal="true"
-                    style="position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(8px);"
+                    class="sheet-overlay"
                 >
                     <div
                         style="position:absolute;inset:0;"
@@ -616,8 +616,7 @@ export function Messages() {
                         aria-hidden="true"
                     />
                     <div
-                        class="animate-slide-up"
-                        style="position:relative;width:100%;max-width:680px;max-height:82dvh;display:flex;flex-direction:column;border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;background:var(--surface);overflow:hidden;box-shadow:0 -8px 40px rgba(0,0,0,0.15);"
+                        class="sheet-content animate-slide-up"
                     >
                         {/* Sheet header */}
                         <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0;">

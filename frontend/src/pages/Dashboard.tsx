@@ -29,7 +29,7 @@ export function Dashboard() {
 
     return (
         <AppLayout title="UrbanPulse" headerRight={null}>
-            <div style={`display:flex;flex-direction:column;${view === 'map' ? 'flex:1;' : ''}`}>
+            <div class="stack-v" style={view === 'map' ? 'flex:1;' : ''}>
                 <DashboardToolbar
                     view={view}
                     showFilters={showFilters}
@@ -61,7 +61,7 @@ export function Dashboard() {
                 {view === 'feed' ? (
                     <LiveFeed radiusFilter={radius} pulseLimit={limit} />
                 ) : (
-                    <div style="margin-top:12px;flex:1;display:flex;flex-direction:column;min-height:55dvh;">
+                    <div class="stack-v" style="margin-top:12px;flex:1;min-height:55dvh;">
                         <PulseMap expanded radiusFilter={radius} pulseLimit={limit} />
                     </div>
                 )}

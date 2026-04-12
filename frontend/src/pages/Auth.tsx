@@ -100,9 +100,9 @@ export function Auth() {
 	`;
 
     return (
-        <div style="min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);">
+        <div class="page-shell bg-[var(--bg)]">
             {/* Top bar */}
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;max-width:680px;width:100%;margin:0 auto;">
+            <div class="stack-h flex-between" style="padding:16px 20px;max-width:680px;width:100%;margin:0 auto;">
                 <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.02em;">
                     UrbanPulse
                 </p>
@@ -111,11 +111,6 @@ export function Auth() {
                     class="btn-icon"
                     onClick={toggle}
                     aria-label="Toggle theme"
-                    style="color:var(--text-secondary);"
-                    onMouseEnter={(e) =>
-                        ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                    }
-                    onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                 >
                     {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                 </HoverButton>
@@ -137,33 +132,15 @@ export function Auth() {
                     </div>
 
                     {/* Tab strip */}
-                    <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:20px;background:var(--bg-subtle);">
+                    <div class="tab-switcher" style="margin-bottom:20px;">
                         {(['login', 'register'] as AuthMode[]).map((m) => (
                             <HoverButton
                                 key={m}
                                 type="button"
                                 id={`auth-tab-${m}`}
                                 onClick={() => reset(m)}
-                                style={`
-									flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-									padding:6px 12px;border-radius:6px;border:none;
-									font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
-									transition:all 0.15s;
-									${
-                                        mode === m
-                                            ? 'background:var(--surface-raised);color:var(--text);box-shadow:var(--shadow-sm);'
-                                            : 'background:transparent;color:var(--text-tertiary);'
-                                    }
-								`}
-                                onMouseEnter={(e) => {
-                                    (e.target as HTMLElement).style.filter =
-                                        'var(--hover-brightness)';
-                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    (e.target as HTMLElement).style.filter = 'none';
-                                    (e.target as HTMLElement).style.background = 'transparent';
-                                }}
+                                class={`tab-btn ${mode === m ? 'active' : ''}`}
+                                style="flex:1;"
                             >
                                 {m === 'login' ? <LogIn size={13} /> : <UserPlus size={13} />}
                                 {m === 'login' ? 'Sign In' : 'Register'}
@@ -174,11 +151,11 @@ export function Auth() {
                     {/* Form */}
                     <form
                         onSubmit={handleSubmit}
-                        style="display:flex;flex-direction:column;gap:14px;"
+                        class="stack-v gap-md"
                     >
                         {mode === 'register' && (
                             <div>
-                                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                                <label class="label-caps">
                                     Display name
                                 </label>
                                 <input
@@ -189,18 +166,7 @@ export function Auth() {
                                     }
                                     placeholder="Alex Neighbor"
                                     autoComplete="name"
-                                    style={fieldStyle(Boolean(errors.displayName))}
-                                    onFocus={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            'var(--border-focus)';
-                                        (e.target as HTMLElement).style.boxShadow =
-                                            '0 0 0 3px var(--accent-muted)';
-                                    }}
-                                    onBlur={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            errors.displayName ? 'var(--danger)' : 'var(--border)';
-                                        (e.target as HTMLElement).style.boxShadow = 'none';
-                                    }}
+                                    style={errors.displayName ? 'border-color:var(--danger);' : ''}
                                 />
                                 {errors.displayName && (
                                     <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
@@ -211,7 +177,7 @@ export function Auth() {
                         )}
 
                         <div>
-                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                            <label class="label-caps">
                                 Email
                             </label>
                             <input
@@ -221,19 +187,7 @@ export function Auth() {
                                 onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
                                 placeholder="you@example.com"
                                 autoComplete="email"
-                                style={fieldStyle(Boolean(errors.email))}
-                                onFocus={(e) => {
-                                    (e.target as HTMLElement).style.borderColor =
-                                        'var(--border-focus)';
-                                    (e.target as HTMLElement).style.boxShadow =
-                                        '0 0 0 3px var(--accent-muted)';
-                                }}
-                                onBlur={(e) => {
-                                    (e.target as HTMLElement).style.borderColor = errors.email
-                                        ? 'var(--danger)'
-                                        : 'var(--border)';
-                                    (e.target as HTMLElement).style.boxShadow = 'none';
-                                }}
+                                style={errors.email ? 'border-color:var(--danger);' : ''}
                             />
                             {errors.email && (
                                 <p style="font-size:11px;color:var(--danger);margin:4px 0 0;">
@@ -243,7 +197,7 @@ export function Auth() {
                         </div>
 
                         <div>
-                            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                            <label class="label-caps">
                                 Password
                             </label>
                             <div style={pwWrap}>
@@ -258,31 +212,13 @@ export function Auth() {
                                     autoComplete={
                                         mode === 'login' ? 'current-password' : 'new-password'
                                     }
-                                    style={`${fieldStyle(Boolean(errors.password))}padding-right:38px;`}
-                                    onFocus={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            'var(--border-focus)';
-                                        (e.target as HTMLElement).style.boxShadow =
-                                            '0 0 0 3px var(--accent-muted)';
-                                    }}
-                                    onBlur={(e) => {
-                                        (e.target as HTMLElement).style.borderColor =
-                                            errors.password ? 'var(--danger)' : 'var(--border)';
-                                        (e.target as HTMLElement).style.boxShadow = 'none';
-                                    }}
+                                    style={`${errors.password ? 'border-color:var(--danger);' : ''}padding-right:38px;`}
                                 />
                                 <HoverButton
                                     type="button"
                                     onClick={() => setShowPw((v) => !v)}
                                     style={eyeBtn}
                                     aria-label={showPw ? 'Hide' : 'Show'}
-                                    onMouseEnter={(e) =>
-                                        ((e.target as HTMLElement).style.filter =
-                                            'var(--hover-brightness)')
-                                    }
-                                    onMouseLeave={(e) =>
-                                        ((e.target as HTMLElement).style.filter = 'none')
-                                    }
                                 >
                                     {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
                                 </HoverButton>
@@ -296,7 +232,7 @@ export function Auth() {
 
                         {mode === 'register' && (
                             <div>
-                                <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">
+                                <label class="label-caps">
                                     Confirm password
                                 </label>
                                 <div style={pwWrap}>
@@ -309,36 +245,13 @@ export function Auth() {
                                         }
                                         placeholder="Repeat password"
                                         autoComplete="new-password"
-                                        style={
-                                            fieldStyle(Boolean(errors.confirmPassword)) +
-                                            'padding-right:38px;'
-                                        }
-                                        onFocus={(e) => {
-                                            (e.target as HTMLElement).style.borderColor =
-                                                'var(--border-focus)';
-                                            (e.target as HTMLElement).style.boxShadow =
-                                                '0 0 0 3px var(--accent-muted)';
-                                        }}
-                                        onBlur={(e) => {
-                                            (e.target as HTMLElement).style.borderColor =
-                                                errors.confirmPassword
-                                                    ? 'var(--danger)'
-                                                    : 'var(--border)';
-                                            (e.target as HTMLElement).style.boxShadow = 'none';
-                                        }}
+                                        style={`${errors.confirmPassword ? 'border-color:var(--danger);' : ''}padding-right:38px;`}
                                     />
                                     <HoverButton
                                         type="button"
                                         onClick={() => setShowCPw((v) => !v)}
                                         style={eyeBtn}
                                         aria-label={showCPw ? 'Hide' : 'Show'}
-                                        onMouseEnter={(e) =>
-                                            ((e.target as HTMLElement).style.filter =
-                                                'var(--hover-brightness)')
-                                        }
-                                        onMouseLeave={(e) =>
-                                            ((e.target as HTMLElement).style.filter = 'none')
-                                        }
                                     >
                                         {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
                                     </HoverButton>
@@ -352,7 +265,7 @@ export function Auth() {
                         )}
 
                         {errors.form && (
-                            <div style="padding:10px 12px;border-radius:8px;background:var(--danger-subtle);border:1px solid var(--type-emergency-border);display:flex;align-items:flex-start;gap:8px;">
+                            <div style="padding:10px 12px;border-radius:10px;background:var(--danger-subtle);border:1px solid var(--danger-muted);display:flex;align-items:flex-start;gap:8px;">
                                 <AlertCircle
                                     size={14}
                                     style="color:var(--danger);flex-shrink:0;margin-top:1px;"
@@ -368,23 +281,19 @@ export function Auth() {
                             id="auth-submit-btn"
                             disabled={loading}
                             class="btn-primary"
-                            style="height:40px;font-size:13px;width:100%;background:var(--accent);border-radius:8px;opacity:1;margin-top:2px;"
-                            onMouseEnter={(e) =>
-                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                            }
-                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
+                            style="height:44px;font-size:14px;width:100%;margin-top:4px;"
                         >
                             {loading ? (
                                 <>
-                                    <LoaderCircle size={14} class="animate-spin" />
+                                    <LoaderCircle size={15} class="animate-spin" />
                                     Working…
                                 </>
                             ) : (
                                 <>
                                     {mode === 'login' ? (
-                                        <LogIn size={14} />
+                                        <LogIn size={15} />
                                     ) : (
-                                        <UserPlus size={14} />
+                                        <UserPlus size={15} />
                                     )}
                                     {mode === 'login' ? 'Sign In' : 'Create Account'}
                                 </>
@@ -393,7 +302,7 @@ export function Auth() {
                     </form>
 
                     {/* Switch mode */}
-                    <div style="margin-top:16px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;justify-content:space-between;">
+                    <div class="stack-h flex-between" style="margin-top:20px;padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);">
                         <span style="font-size:12px;color:var(--text-secondary);">
                             {mode === 'login' ? 'No account?' : 'Already registered?'}
                         </span>
@@ -401,10 +310,6 @@ export function Auth() {
                             type="button"
                             onClick={() => reset(mode === 'login' ? 'register' : 'login')}
                             style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;"
-                            onMouseEnter={(e) =>
-                                ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
-                            }
-                            onMouseLeave={(e) => ((e.target as HTMLElement).style.filter = 'none')}
                         >
                             {mode === 'login' ? 'Register' : 'Sign In'}
                             <ArrowRight size={12} />
@@ -414,8 +319,8 @@ export function Auth() {
             </div>
 
             {/* Version indicator */}
-            <div style="padding:12px;text-align:center;">
-                <span style="font-size:10px;color:var(--text-tertiary);letter-spacing:0.02em;">
+            <div style="padding:16px;text-align:center;">
+                <span style="font-size:10px;color:var(--text-tertiary);letter-spacing:0.04em;text-transform:uppercase;opacity:0.6;">
                     Version: {__COMMIT_HASH__}
                 </span>
             </div>

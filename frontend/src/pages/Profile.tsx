@@ -68,19 +68,7 @@ function normDays(days: Array<number | string> | undefined): number[] {
     ).sort((a, b) => a - b);
 }
 
-const S = {
-    label: 'display:block;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;letter-spacing:0.01em;text-transform:uppercase;',
-    val: 'font-size:13px;color:var(--text);',
-    section:
-        'border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden;',
-    sectionHead:
-        'padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;',
-    sectionBody: 'padding:16px;display:flex;flex-direction:column;gap:14px;',
-    row: 'display:flex;align-items:center;justify-content:space-between;gap:12px;',
-    input: 'width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;',
-    textarea:
-        'width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;resize:none;height:80px;transition:border-color 0.15s,box-shadow 0.15s;',
-};
+// Centralized UI classes are defined in index.css
 
 const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
 const PROFILE_MAPBOX_STYLE_DARK = 'mapbox/dark-v11';
@@ -114,16 +102,7 @@ function locationText(location: { lat: number; lng: number } | null) {
     return location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : 'Not set';
 }
 
-const focusOn = (e: Event) => {
-    const el = e.target as HTMLElement;
-    el.style.borderColor = 'var(--border-focus)';
-    el.style.boxShadow = '0 0 0 3px var(--accent-muted)';
-};
-const focusOff = (e: Event) => {
-    const el = e.target as HTMLElement;
-    el.style.borderColor = 'var(--border)';
-    el.style.boxShadow = 'none';
-};
+// Focus handling is now managed by .input-field:focus in index.css
 
 export function Profile() {
     const { theme } = useTheme();
@@ -495,11 +474,11 @@ export function Profile() {
     if (!user) {
         return (
             <AppLayout title="Profile">
-                <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+                <div class="section-body gap-md">
                     {[80, 120, 100].map((h, i) => (
                         <div
                             key={i}
-                            style={`height:${h}px;border-radius:10px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;animation-delay:${i * 100}ms;`}
+                            style={`height:${h}px;border-radius:12px;background:var(--bg-muted);animation:pulse 1.5s ease-in-out infinite;animation-delay:${i * 100}ms;`}
                         />
                     ))}
                 </div>
@@ -528,19 +507,19 @@ export function Profile() {
                 ) : undefined
             }
         >
-            <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div class="section-body gap-md">
                 {/* Identity card */}
-                <div style={S.section} class="animate-slide-up">
-                    <div style={S.sectionHead}>
-                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
+                <div class="section animate-slide-up">
+                    <div class="section-header">
+                        <p class="label-caps" style="margin:0;">
                             IDENTITY
                         </p>
                     </div>
-                    <div style={`${S.sectionBody}flex-direction:row;align-items:flex-start;`}>
+                    <div class="section-body stack-h gap-md" style="align-items:flex-start;">
                         <img
                             src={user.avatar}
                             alt=""
-                            style="width:48px;height:48px;border-radius:8px;border:1px solid var(--border);object-fit:cover;flex-shrink:0;background:var(--bg-muted);"
+                            class="avatar avatar-lg"
                         />
                         <div style="flex:1;min-width:0;">
                             {editing ? (
@@ -552,10 +531,8 @@ export function Profile() {
                                             name: (e.target as HTMLInputElement).value,
                                         }))
                                     }
-                                    style={S.input}
+                                    class="input-field"
                                     placeholder="Display name"
-                                    onFocus={focusOn}
-                                    onBlur={focusOff}
                                 />
                             ) : (
                                 <>
@@ -577,8 +554,8 @@ export function Profile() {
                     </div>
 
                     {/* Bio row */}
-                    <div style="padding:0 16px 16px;">
-                        <p style={S.label}>Bio</p>
+                    <div class="px-4 pb-4">
+                        <p class="label-caps">Bio</p>
                         {editing ? (
                             <textarea
                                 value={draft.bio ?? ''}
@@ -588,10 +565,9 @@ export function Profile() {
                                         bio: (e.target as HTMLTextAreaElement).value,
                                     }))
                                 }
-                                style={S.textarea}
+                                class="input-field"
+                                style="height:100px;resize:none;"
                                 placeholder="Tell your neighbors a bit about yourself…"
-                                onFocus={focusOn}
-                                onBlur={focusOff}
                             />
                         ) : (
                             <p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.55;">
@@ -606,9 +582,9 @@ export function Profile() {
                 </div>
 
                 {!isOwnProfile && (
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        <p style={S.label}>Personal Actions</p>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                    <div class="stack-v gap-sm">
+                        <p class="label-caps">Personal Actions</p>
+                        <div class="stack-h gap-sm" style="flex-wrap:wrap;">
                             <HoverButton
                                 type="button"
                                 class="btn-primary"
@@ -645,13 +621,13 @@ export function Profile() {
 
                 {isAdmin && !isOwnProfile && (
                     <div
-                        style="margin-top:10px;display:flex;flex-direction:column;gap:8px;background:var(--danger-subtle);padding:14px;border-radius:12px;border:1px solid var(--danger-muted);position:relative;"
-                        class="animate-slide-up"
+                        class="animate-slide-up stack-v gap-sm"
+                        style="background:var(--danger-subtle);padding:14px;border-radius:12px;border:1px solid var(--danger-muted);position:relative;"
                     >
-                        <p style={`${S.label}color:var(--danger);opacity:0.8;`}>
+                        <p class="label-caps" style="color:var(--danger);opacity:0.8;">
                             Admin Control Panel
                         </p>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                        <div class="stack-h gap-sm" style="flex-wrap:wrap;">
                             <HoverButton
                                 id="manage-role-btn"
                                 type="button"
@@ -740,13 +716,13 @@ export function Profile() {
                 )}
 
                 {/* Preferences */}
-                <div style={S.section} class="animate-slide-up" style-animation-delay="100ms">
-                    <div style={S.sectionHead}>
-                        <p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;">
+                <div class="section animate-slide-up" style="animation-delay:100ms">
+                    <div class="section-header">
+                        <p class="label-caps" style="margin:0;">
                             PREFERENCES
                         </p>
                     </div>
-                    <div style={S.sectionBody}>
+                    <div class="section-body gap-md">
                         {/* Home location */}
                         {isOwnProfile && (
                             <div>
