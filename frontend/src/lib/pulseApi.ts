@@ -482,7 +482,7 @@ export async function deletePulse(id: string): Promise<void> {
 export async function editPulse(id: string, updates: Partial<Pulse>): Promise<Pulse> {
     const payload: {
         content?: string;
-        urgencyLevel?: number;
+        isEmergency?: boolean;
         requiredSkills?: string[];
     } = {};
 
@@ -490,8 +490,8 @@ export async function editPulse(id: string, updates: Partial<Pulse>): Promise<Pu
         payload.content = updates.content.trim();
     }
 
-    if (updates.urgencyLevel !== undefined) {
-        payload.urgencyLevel = updates.urgencyLevel;
+    if (updates.isEmergency !== undefined) {
+        payload.isEmergency = updates.isEmergency;
     }
 
     if (updates.requiredSkills !== undefined) {
@@ -502,7 +502,7 @@ export async function editPulse(id: string, updates: Partial<Pulse>): Promise<Pu
 
     if (
         payload.content === undefined &&
-        payload.urgencyLevel === undefined &&
+        payload.isEmergency === undefined &&
         payload.requiredSkills === undefined
     ) {
         throw new PulseApiError('No editable pulse fields were provided.', 400);

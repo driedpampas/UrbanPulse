@@ -2485,14 +2485,14 @@ export async function updatePulse(
     authorId: string,
     updates: {
         content?: string;
-        urgencyLevel?: number;
+        isEmergency?: boolean;
         requiredSkills?: string[];
     }
 ): Promise<PulseFeedItem | null> {
     await ensureSchema();
 
     const content = updates.content ?? null;
-    const urgencyLevel = updates.urgencyLevel ?? null;
+    const isEmergency = updates.isEmergency ?? null;
     const requiredSkills =
         updates.requiredSkills !== undefined ? JSON.stringify(updates.requiredSkills) : null;
 
@@ -2500,7 +2500,18 @@ export async function updatePulse(
         UPDATE app.pulses
         SET
             content = COALESCE(${content}, content),
-            urgency_level = COALESCE(${urgencyLevel}, urgency_level),
+            is_emergency = COALESCE(${isEmergency}::boolean, is_emergency),
+            urgency_level = CASE
+                WHEN ${isEmergency}::boolean IS NULL THEN urgency_level
+                WHEN ${isEmergency}::boolean = true THEN 5
+                ELSE CASE LOWER(COALESCE(pulse_type, 'update'))
+                    WHEN 'need' THEN 4
+                    WHEN 'skill' THEN 2
+                    WHEN 'item' THEN 1
+                    WHEN 'emergency' THEN 5
+                    ELSE 1
+                END
+            END,
             required_skills = COALESCE(${requiredSkills}::jsonb, required_skills)
         WHERE id = ${pulseId}::uuid
           AND author_id = ${authorId}::uuid

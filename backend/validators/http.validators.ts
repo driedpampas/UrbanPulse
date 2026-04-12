@@ -49,13 +49,13 @@ export const createPulseSchema = z.strictObject({
 export const updatePulseSchema = z
     .strictObject({
         content: z.string().trim().min(1).max(5000).optional(),
-        urgencyLevel: z.number().int().min(1).max(5).optional(),
+        isEmergency: z.boolean().optional(),
         requiredSkills: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
     })
     .refine(
         (value) =>
             value.content !== undefined ||
-            value.urgencyLevel !== undefined ||
+            value.isEmergency !== undefined ||
             value.requiredSkills !== undefined,
         {
             message: 'At least one pulse field must be updated.',

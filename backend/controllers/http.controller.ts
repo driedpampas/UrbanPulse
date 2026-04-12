@@ -1474,9 +1474,20 @@ export const httpRoutes: HttpRoutes = {
                             );
                         }
 
+                        if (body.isEmergency !== undefined && pulse.type !== 'need') {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulses can be marked as emergency.',
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
                         const updates: {
                             content?: string;
-                            urgencyLevel?: number;
+                            isEmergency?: boolean;
                             requiredSkills?: string[];
                         } = {};
 
@@ -1484,8 +1495,8 @@ export const httpRoutes: HttpRoutes = {
                             updates.content = body.content.trim();
                         }
 
-                        if (body.urgencyLevel !== undefined) {
-                            updates.urgencyLevel = body.urgencyLevel;
+                        if (body.isEmergency !== undefined) {
+                            updates.isEmergency = body.isEmergency;
                         }
 
                         if (body.requiredSkills !== undefined) {
