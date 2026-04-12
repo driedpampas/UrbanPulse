@@ -1745,9 +1745,25 @@ export const httpRoutes: HttpRoutes = {
                     caught(async () => {
                         const payload = session as JwtPayload;
                         const threadId = req.params.id as string;
-                        const body: CreateMessageBody = await req
-                            .json()
-                            .then((raw) => createMessageSchema.parse(raw));
+                        const rawBody = await req.json().catch(() => null);
+                        if (rawBody === null) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const parsedBody = createMessageSchema.safeParse(rawBody);
+                        if (!parsedBody.success) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Invalid message payload.',
+                                        issues: parsedBody.error.issues,
+                                    },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        const body: CreateMessageBody = parsedBody.data;
 
                         const chats = await db.selectChats(payload.id);
                         const isParticipant = chats.some((chat) => chat.chatId === threadId);
