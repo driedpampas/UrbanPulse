@@ -66,6 +66,18 @@ export function AdminDashboard() {
     } | null>(null);
     const [editingLibraryItem, setEditingLibraryItem] = useState<LibraryItem | null>(null);
     const usersSentinelRef = useRef<HTMLDivElement>(null);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const toastTimerRef = useRef<number | null>(null);
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        if (toastTimerRef.current !== null) {
+            window.clearTimeout(toastTimerRef.current);
+        }
+        toastTimerRef.current = window.setTimeout(() => {
+            setToastMessage(null);
+        }, 2400);
+    };
 
     useEffect(() => {
         const target = usersSentinelRef.current;
@@ -80,6 +92,14 @@ export function AdminDashboard() {
         observer.observe(target);
         return () => observer.disconnect();
     }, [loadMoreUsers, section]);
+
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current !== null) {
+                window.clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
 
     return (
         <AppLayout title="Admin">
@@ -192,6 +212,7 @@ export function AdminDashboard() {
                                                 destructive: role === 'banned',
                                                 onConfirm: async () => {
                                                     await setUserRole(userId, role);
+                                                    showToast(`${user.name} role changed to ${role}.`);
                                                 },
                                             });
                                         }}
@@ -401,6 +422,9 @@ export function AdminDashboard() {
                             await confirmation.onConfirm();
                         } catch (error) {
                             console.error(error);
+                            window.alert(
+                                error instanceof Error ? error.message : 'Action failed.'
+                            );
                         } finally {
                             setConfirmation(null);
                         }
@@ -416,6 +440,16 @@ export function AdminDashboard() {
                             setEditingLibraryItem(null);
                         }}
                     />
+                )}
+                {toastMessage && (
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        class="animate-fade-in"
+                        style="position:fixed;right:16px;bottom:88px;z-index:140;max-width:min(92vw,320px);padding:10px 12px;border-radius:10px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:var(--shadow-lg);"
+                    >
+                        {toastMessage}
+                    </div>
                 )}
             </div>
         </AppLayout>

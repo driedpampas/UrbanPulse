@@ -379,9 +379,9 @@ export const httpRoutes: HttpRoutes = {
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                              lat: url.searchParams.get('lat'),
-                                              lng: url.searchParams.get('lng'),
-                                          }
+                                            lat: url.searchParams.get('lat'),
+                                            lng: url.searchParams.get('lng'),
+                                        }
                                         : null,
                                 availableDays: url.searchParams.getAll('available_days'),
                                 availableHours: url.searchParams.getAll('available_hours'),
@@ -466,9 +466,9 @@ export const httpRoutes: HttpRoutes = {
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                          lat: url.searchParams.get('lat'),
-                                          lng: url.searchParams.get('lng'),
-                                      }
+                                        lat: url.searchParams.get('lat'),
+                                        lng: url.searchParams.get('lng'),
+                                    }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -545,7 +545,7 @@ export const httpRoutes: HttpRoutes = {
                             await req.json().then((raw) => raw)
                         );
                         const actorRole = (await db.selectUserRole(session.id))?.toLowerCase();
-                        if (actorRole !== 'admin') {
+                        if (actorRole !== 'admin' && actorRole !== 'mod') {
                             return withCors(FORBIDDEN);
                         }
 
@@ -557,10 +557,9 @@ export const httpRoutes: HttpRoutes = {
                         }
 
                         const nextRole = body.role.toLowerCase();
-                        if (targetRole === 'admin' && nextRole !== 'admin') {
-                            return withCors(FORBIDDEN);
-                        }
-                        if (targetRole === 'admin' && nextRole === 'banned') {
+
+                        const actorIsAdmin = actorRole === 'admin';
+                        if (!actorIsAdmin && (nextRole === 'admin' || targetRole === 'admin')) {
                             return withCors(FORBIDDEN);
                         }
 
@@ -885,8 +884,8 @@ export const httpRoutes: HttpRoutes = {
                             const isEmergency = Boolean(body.isEmergency) || requestedType === 'emergency';
                             const pulseType: PulseType =
                                 requestedType === 'emergency' ||
-                                requestedType === 'skill' ||
-                                requestedType === 'item'
+                                    requestedType === 'skill' ||
+                                    requestedType === 'item'
                                     ? 'need'
                                     : requestedType;
                             const urgencyLevel =
@@ -897,8 +896,8 @@ export const httpRoutes: HttpRoutes = {
                             const selectedResources =
                                 pulseType === 'need'
                                     ? (body.selectedResources ?? body.requiredSkills ?? [])
-                                          .map((value) => value.trim())
-                                          .filter((value) => value.length > 0)
+                                        .map((value) => value.trim())
+                                        .filter((value) => value.length > 0)
                                     : [];
                             const fullUser = await db.selectFullUser(payload.id);
                             const requesterTimezone =

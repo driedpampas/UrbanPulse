@@ -141,9 +141,30 @@ export function useAdminDashboardData() {
     const setUserRole = useCallback(
         async (userId: string, role: 'admin' | 'mod' | 'resident' | 'banned') => {
             await updateAdminUserRole(userId, role);
-            loadData();
+
+            setUsers((current) =>
+                current.map((user) => (user.id === userId ? { ...user, role } : user))
+            );
+
+            try {
+                const [freshUser] = await fetchAdminUsers({ id: userId, limit: 1, offset: 0 });
+                if (freshUser) {
+                    setUsers((current) =>
+                        current.map((user) => (user.id === userId ? { ...user, ...freshUser } : user))
+                    );
+                }
+            } catch {
+                // Keep optimistic UI update if targeted refresh fails.
+            }
+
+            try {
+                const overviewData = await fetchAdminOverview();
+                setOverview(overviewData);
+            } catch {
+                // Keep optimistic UI update even if overview refresh fails.
+            }
         },
-        [loadData]
+        []
     );
 
     const updateLibrary = useCallback(

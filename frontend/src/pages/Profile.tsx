@@ -92,10 +92,10 @@ const MAP_FRAME_STYLE =
 function resolveLocationValue(
     value:
         | {
-              location?: { lat?: number | null; lng?: number | null } | null;
-              lat?: number | null;
-              lng?: number | null;
-          }
+            location?: { lat?: number | null; lng?: number | null } | null;
+            lat?: number | null;
+            lng?: number | null;
+        }
         | null
         | undefined
 ): { lat: number; lng: number } | null {
@@ -145,6 +145,7 @@ export function Profile() {
         onConfirm: () => Promise<void>;
     }>(null);
     const [showRoleOptions, setShowRoleOptions] = useState(false);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
     const targetRole = user?.role?.toLowerCase() ?? 'resident';
     const [mapError, setMapError] = useState<string | null>(null);
@@ -153,6 +154,7 @@ export function Profile() {
     const mapRef = useRef<MapboxMap | null>(null);
     const mapboxGlRef = useRef<typeof import('mapbox-gl')['default'] | null>(null);
     const locationMarkerRef = useRef<MapboxMarker | null>(null);
+    const toastTimerRef = useRef<number | null>(null);
 
     const selectedUserId = readQueryParam('userId');
     const isOwnProfile = !selectedUserId || selectedUserId === session?.user.id;
@@ -317,12 +319,20 @@ export function Profile() {
         }
     }, [mapStyle, mapLoaded]);
 
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current !== null) {
+                window.clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
+
     const mapTitle = editableLocationMap ? 'Adjust your location' : 'Home location';
     const mapSubtitle = editableLocationMap
         ? 'Click the map or drag the pin to update your profile.'
         : selectedLocation
-          ? 'Profile location preview'
-          : 'No location shared yet';
+            ? 'Profile location preview'
+            : 'No location shared yet';
 
     const handleSave = async () => {
         if (!draft) return;
@@ -401,24 +411,24 @@ export function Profile() {
                 nextRole === 'banned'
                     ? 'Ban user'
                     : nextRole === 'admin'
-                      ? 'Promote user'
-                      : nextRole === 'mod'
                         ? 'Promote user'
-                        : 'Demote user',
+                        : nextRole === 'mod'
+                            ? 'Promote user'
+                            : 'Demote user',
             message:
                 nextRole === 'banned'
                     ? `Ban ${user?.name ?? 'this user'}?`
                     : nextRole === 'admin'
-                      ? `Promote ${user?.name ?? 'this user'} to admin?`
-                      : nextRole === 'mod'
-                        ? `Promote ${user?.name ?? 'this user'} to mod?`
-                        : `Demote ${user?.name ?? 'this user'}?`,
+                        ? `Promote ${user?.name ?? 'this user'} to admin?`
+                        : nextRole === 'mod'
+                            ? `Promote ${user?.name ?? 'this user'} to mod?`
+                            : `Demote ${user?.name ?? 'this user'}?`,
             confirmLabel:
                 nextRole === 'admin' || nextRole === 'mod'
                     ? 'Promote'
                     : nextRole === 'banned'
-                      ? 'Ban'
-                      : 'Demote',
+                        ? 'Ban'
+                        : 'Demote',
             destructive: nextRole === 'banned' || nextRole === 'resident',
             onConfirm: async () => {
                 await handleAdminRole(nextRole);
@@ -438,9 +448,18 @@ export function Profile() {
             const updatedUser = await fetchUserById(selectedUserId);
             if (updatedUser) setUser(updatedUser);
             setShowRoleOptions(false);
+            setToastMessage(`${updatedUser?.name ?? 'User'} role changed to ${nextRole}.`);
+            if (toastTimerRef.current !== null) {
+                window.clearTimeout(toastTimerRef.current);
+            }
+            toastTimerRef.current = window.setTimeout(() => {
+                setToastMessage(null);
+            }, 2400);
         } catch (error) {
             console.error(error);
-            window.alert('Could not update user role.');
+            window.alert(
+                error instanceof Error ? error.message : 'Could not update user role.'
+            );
         } finally {
             setActionBusy(false);
         }
@@ -801,9 +820,8 @@ export function Profile() {
                                         </div>
                                         <div
                                             ref={mapContainerRef}
-                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${
-                                                displayLocationMap ? 'block' : 'none'
-                                            };`}
+                                            style={`position:absolute;inset:0;width:100%;height:100%;display:${displayLocationMap ? 'block' : 'none'
+                                                };`}
                                         />
                                         {displayLocationMap && !mapLoaded && !mapError && (
                                             <div style="position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text-secondary);font-size:12px;background:var(--bg-subtle);">
@@ -813,11 +831,10 @@ export function Profile() {
                                         )}
                                         {displayLocationMap && mapError && (
                                             <div
-                                                style={`position:absolute;${
-                                                    mapLoaded
+                                                style={`position:absolute;${mapLoaded
                                                         ? 'top:70px;left:12px;right:12px;z-index:10;border-radius:12px;border:1px solid var(--danger-muted);box-shadow:var(--shadow-md);'
                                                         : 'inset:0;justify-content:center;'
-                                                } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
+                                                    } padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--danger-subtle);backdrop-filter:blur(8px);`}
                                                 class="animate-slide-up"
                                             >
                                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
@@ -840,15 +857,15 @@ export function Profile() {
                                                         onClick={() => setMapError(null)}
                                                         style="background:none;border:none;cursor:pointer;padding:4px;color:var(--danger);opacity:0.6;display:flex;border-radius:6px;transition:background 0.2s;"
                                                         onMouseEnter={(e) =>
-                                                            ((
-                                                                e.target as HTMLElement
-                                                            ).style.background =
-                                                                'var(--danger-muted)')
+                                                        ((
+                                                            e.target as HTMLElement
+                                                        ).style.background =
+                                                            'var(--danger-muted)')
                                                         }
                                                         onMouseLeave={(e) =>
-                                                            ((
-                                                                e.target as HTMLElement
-                                                            ).style.background = 'transparent')
+                                                        ((
+                                                            e.target as HTMLElement
+                                                        ).style.background = 'transparent')
                                                         }
                                                         aria-label="Clear error"
                                                     >
@@ -999,10 +1016,9 @@ export function Profile() {
 												padding:4px 10px;border-radius:5px;border:1px solid;
 												font-size:12px;font-weight:500;cursor:${editing ? 'pointer' : 'default'};
 												transition:all 0.15s;
-												${
-                                                    active
-                                                        ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
-                                                        : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+												${active
+                                                    ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);'
+                                                    : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
                                                 }
 											`}
                                         >
@@ -1030,8 +1046,8 @@ export function Profile() {
                             {saving
                                 ? 'Saving…'
                                 : isSetupMode && !selectedLocation
-                                  ? 'Choose a location'
-                                  : 'Save Changes'}
+                                    ? 'Choose a location'
+                                    : 'Save Changes'}
                         </HoverButton>
                         <HoverButton
                             type="button"
@@ -1156,6 +1172,16 @@ export function Profile() {
                     }
                 }}
             />
+            {toastMessage && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    class="animate-fade-in"
+                    style="position:fixed;right:16px;bottom:88px;z-index:140;max-width:min(92vw,320px);padding:10px 12px;border-radius:10px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:var(--shadow-lg);"
+                >
+                    {toastMessage}
+                </div>
+            )}
         </AppLayout>
     );
 }

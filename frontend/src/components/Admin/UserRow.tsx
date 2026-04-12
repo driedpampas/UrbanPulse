@@ -1,5 +1,6 @@
 import { ShieldCheck, ShieldX, Slash, Trash2 } from 'lucide-preact';
 import { memo, useState } from 'preact/compat';
+import { Link } from 'wouter';
 import type { User } from '../../types';
 import { HoverButton } from '../ui/HoverButton';
 
@@ -44,7 +45,10 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
         <div
             style={`${surfaceCard};padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;`}
         >
-            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <Link
+                href={`/profile?userId=${encodeURIComponent(user.id)}`}
+                style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;text-decoration:none;"
+            >
                 <div style="width:40px;height:40px;border-radius:12px;overflow:hidden;background:var(--bg-muted);flex-shrink:0;">
                     <img
                         src={user.avatar}
@@ -65,7 +69,7 @@ function UserRowComponent({ user, onSetRole, onDelete }: Props) {
                         {user.email ?? 'No email available'}
                     </p>
                 </div>
-            </div>
+            </Link>
             <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;justify-content:flex-end;align-items:center;">
                 {showActions ? (
                     <div
