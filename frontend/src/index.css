@@ -537,6 +537,15 @@
 .animate-slide-in-right { animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
 
+@keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+.toast-progress-bar {
+    animation: toast-progress 5s linear forwards;
+}
+
 /* ─── Mapbox overrides ───────────────────────────────────────── */
 
 .mapboxgl-ctrl-bottom-left,

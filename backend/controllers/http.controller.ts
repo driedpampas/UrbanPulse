@@ -314,6 +314,41 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
+    '/api/auth/password-reset': {
+        POST: async (req) =>
+            validate(req, async () =>
+                unauthorize(req, async () =>
+                    caught(async () => {
+                        const body: { email: string } = await req.json();
+                        if (!body.email || typeof body.email !== 'string') {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const result = await auth.requestPasswordResetByEmail(body.email);
+
+                        if (!result.success) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Unable to process password reset request.' },
+                                    { status: result.status }
+                                )
+                            );
+                        }
+
+                        return withCors(
+                            Response.json(
+                                {
+                                    success: true,
+                                    message:
+                                        'If an account with that email exists, a reset link has been sent.',
+                                },
+                                { status: 200 }
+                            )
+                        );
+                    })
+                )
+            ),
+    },
     '/api/password/request': {
         POST: async (req) =>
             validate(req, async () =>

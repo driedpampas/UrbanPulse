@@ -78,78 +78,80 @@ export function Settings() {
 
     return (
         <AppLayout title="Account Settings" headerRight={null}>
-            <div class="space-y-4 p-4">
-                <section class="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
-                    <div class="mb-4 flex items-center gap-3">
-                        <div class="rounded-xl bg-[var(--accent-muted)] p-2">
+            <div class="stack-v gap-lg p-4">
+                <section class="section">
+                    <div class="section-header bg-[var(--bg-subtle)]">
+                        <div class="stack-h gap-sm">
                             <Mail class="h-4 w-4 text-[var(--accent)]" />
-                        </div>
-                        <div>
                             <h2 class="text-sm font-semibold text-[var(--text)]">Email Address</h2>
-                            <p class="text-xs text-[var(--text-secondary)]">
-                                Changing your email resets verification until you confirm the new
-                                inbox.
-                            </p>
                         </div>
                     </div>
 
-                    <form class="space-y-3" onSubmit={handleEmailUpdate}>
-                        <label class="block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-                            New email address
-                        </label>
-                        <input
-                            type="email"
-                            value={email}
-                            onInput={(event) => setEmail((event.target as HTMLInputElement).value)}
-                            autoComplete="email"
-                            class="h-10 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] px-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--border-focus)]"
-                            placeholder="you@domain.com"
-                        />
-                        {emailError && (
-                            <p class="rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-3 py-2 text-xs text-[var(--danger)]">
-                                {emailError}
-                            </p>
-                        )}
-                        {emailSuccess && (
-                            <p class="rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-3 py-2 text-xs text-[var(--success)]">
-                                {emailSuccess}
-                            </p>
-                        )}
+                    <div class="section-body">
+                        <p class="text-xs text-[var(--text-secondary)]">
+                            Changing your email resets verification until you confirm the new inbox.
+                        </p>
 
-                        <HoverButton
-                            type="submit"
-                            class="btn-primary"
-                            disabled={emailSubmitting}
-                            style="height:40px;width:100%;"
-                        >
-                            {emailSubmitting ? 'Updating email…' : 'Update Email'}
-                        </HoverButton>
-                    </form>
+                        <form class="stack-v gap-md" onSubmit={handleEmailUpdate}>
+                            <div class="stack-v gap-sm">
+                                <label class="label-caps">
+                                    New email address
+                                </label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onInput={(event) => setEmail((event.target as HTMLInputElement).value)}
+                                    autoComplete="email"
+                                    class="input-field"
+                                    placeholder="you@domain.com"
+                                />
+                            </div>
+
+                            {emailError && (
+                                <p class="rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-3 py-2 text-xs text-[var(--danger)]">
+                                    {emailError}
+                                </p>
+                            )}
+                            {emailSuccess && (
+                                <p class="rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-3 py-2 text-xs text-[var(--success)]">
+                                    {emailSuccess}
+                                </p>
+                            )}
+
+                            <HoverButton
+                                type="submit"
+                                class="btn-primary"
+                                disabled={emailSubmitting}
+                                style="height:44px;width:100%;"
+                            >
+                                {emailSubmitting ? 'Updating email…' : 'Update Email'}
+                            </HoverButton>
+                        </form>
+                    </div>
                 </section>
 
-                <section class="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
-                    <div class="mb-4 flex items-center gap-3">
-                        <div class="rounded-xl bg-[var(--warning-subtle)] p-2">
+                <section class="section">
+                    <div class="section-header bg-[var(--bg-subtle)]">
+                        <div class="stack-h gap-sm">
                             <KeyRound class="h-4 w-4 text-[var(--warning)]" />
-                        </div>
-                        <div>
-                            <h2 class="text-sm font-semibold text-[var(--text)]">
-                                Password Security
-                            </h2>
-                            <p class="text-xs text-[var(--text-secondary)]">
-                                Password updates require a secure email confirmation token.
-                            </p>
+                            <h2 class="text-sm font-semibold text-[var(--text)]">Password Security</h2>
                         </div>
                     </div>
 
-                    <div class="space-y-3">
+                    <div class="section-body">
                         <p class="text-xs text-[var(--text-secondary)]">
-                            We will send a password change link to
-                            <span class="ml-1 font-semibold text-[var(--text)]">
-                                {session?.user.email || 'your current email'}
-                            </span>
-                            .
+                            Password updates require a secure email confirmation token.
                         </p>
+
+                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-4">
+                            <p class="text-xs text-[var(--text-secondary)]">
+                                We will send a password change link to
+                                <span class="ml-1 font-semibold text-[var(--text)]">
+                                    {session?.user.email || 'your current email'}
+                                </span>
+                                .
+                            </p>
+                        </div>
 
                         {passwordError && (
                             <p class="rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-3 py-2 text-xs text-[var(--danger)]">
@@ -168,7 +170,7 @@ export function Settings() {
                             class="btn-ghost"
                             disabled={passwordSubmitting}
                             onClick={handlePasswordRequest}
-                            style="height:40px;width:100%;"
+                            style="height:44px;width:100%;"
                         >
                             {passwordSubmitting
                                 ? 'Sending secure link…'
@@ -177,14 +179,11 @@ export function Settings() {
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
-                    <div class="flex items-center gap-3">
-                        <div class="rounded-xl bg-[var(--accent-muted)] p-2">
-                            <ShieldCheck class="h-4 w-4 text-[var(--accent)]" />
-                        </div>
+                <section class="section p-4 bg-[var(--bg-subtle)]">
+                    <div class="stack-h gap-sm">
+                        <ShieldCheck class="h-4 w-4 text-[var(--accent)]" />
                         <p class="text-xs text-[var(--text-secondary)]">
-                            UrbanPulse enforces token-based confirmation for sensitive account
-                            changes.
+                            UrbanPulse enforces token-based confirmation for sensitive account changes.
                         </p>
                     </div>
                 </section>

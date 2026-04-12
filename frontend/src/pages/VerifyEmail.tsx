@@ -94,40 +94,42 @@ export function VerifyEmail() {
     const nextPath = isAuthenticated ? '/' : '/auth';
 
     return (
-        <div class="min-h-[100dvh] bg-[var(--bg)] px-4 py-10">
-            <div class="mx-auto w-full max-w-xl">
-                <div class="mb-6 text-center">
-                    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                        UrbanPulse Account Security
+        <div class="page-shell bg-[var(--bg)] px-4 py-10">
+            <div class="app-container">
+                <div class="mb-8 text-center animate-slide-up">
+                    <p class="label-caps" style="margin-bottom: 4px;">
+                        UrbanPulse Security
                     </p>
-                    <h1 class="mt-2 text-2xl font-bold tracking-[-0.03em] text-[var(--text)]">
+                    <h1 class="text-2xl font-bold tracking-[-0.03em] text-[var(--text)]">
                         Email Verification
                     </h1>
                 </div>
 
-                <div class="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)]">
-                    <div class="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-subtle)] px-5 py-4">
-                        {state === 'loading' && (
-                            <LoaderCircle class="h-5 w-5 animate-spin text-[var(--accent)]" />
-                        )}
-                        {state === 'success' && (
-                            <CheckCircle2 class="h-5 w-5 text-[var(--success)]" />
-                        )}
-                        {state === 'error' && (
-                            <AlertTriangle class="h-5 w-5 text-[var(--danger)]" />
-                        )}
-                        <p class="text-sm font-semibold text-[var(--text)]">
-                            {state === 'loading' && 'Checking your verification token'}
-                            {state === 'success' && 'Verification complete'}
-                            {state === 'error' && 'Verification failed'}
-                        </p>
+                <div class="section animate-slide-up shadow-[var(--shadow-lg)]" style="animation-delay: 0.1s;">
+                    <div class="section-header bg-[var(--bg-subtle)]">
+                        <div class="stack-h gap-sm">
+                            {state === 'loading' && (
+                                <LoaderCircle class="h-5 w-5 animate-spin text-[var(--accent)]" />
+                            )}
+                            {state === 'success' && (
+                                <CheckCircle2 class="h-5 w-5 text-[var(--success)]" />
+                            )}
+                            {state === 'error' && (
+                                <AlertTriangle class="h-5 w-5 text-[var(--danger)]" />
+                            )}
+                            <p class="text-sm font-semibold text-[var(--text)]">
+                                {state === 'loading' && 'Checking verification token…'}
+                                {state === 'success' && 'Verification complete'}
+                                {state === 'error' && 'Verification failed'}
+                            </p>
+                        </div>
                     </div>
 
-                    <div class="p-5 sm:p-6">
-                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-4">
-                            <div class="flex items-start gap-3">
+                    <div class="section-body p-6">
+                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-5">
+                            <div class="stack-h gap-md items-start">
                                 <div class="mt-0.5 rounded-full bg-[var(--accent-muted)] p-2">
-                                    <MailCheck class="h-4 w-4 text-[var(--accent)]" />
+                                    <MailCheck class="h-5 w-5 text-[var(--accent)]" />
                                 </div>
                                 <p class="text-sm leading-6 text-[var(--text-secondary)]">
                                     {message}
@@ -135,12 +137,12 @@ export function VerifyEmail() {
                             </div>
                         </div>
 
-                        <div class="mt-5 flex flex-col gap-3 sm:flex-row">
+                        <div class="mt-4 stack-v gap-md sm:flex-row sm:gap-3">
                             <HoverButton
                                 type="button"
                                 class="btn-primary"
                                 onClick={() => setLocation(nextPath)}
-                                style="height:40px;flex:1;"
+                                style="height:44px;flex:1;"
                             >
                                 Proceed to Dashboard
                             </HoverButton>
@@ -152,7 +154,7 @@ export function VerifyEmail() {
                                         window.location.reload();
                                     }
                                 }}
-                                style="height:40px;flex:1;"
+                                style="height:44px;flex:1;"
                             >
                                 Retry Verification
                             </HoverButton>

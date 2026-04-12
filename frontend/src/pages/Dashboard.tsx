@@ -1,3 +1,4 @@
+import { ShieldCheck } from 'lucide-preact';
 import { DashboardFiltersPanel } from '../components/Dashboard/DashboardFiltersPanel';
 import { DashboardToolbar } from '../components/Dashboard/DashboardToolbar';
 import { HeroAlert } from '../components/Dashboard/HeroAlert';
@@ -47,13 +48,22 @@ export function Dashboard() {
                     onLimitChange={setLimit}
                 />
                 {showEmailVerificationBanner && (
-                    <div class="mx-4 mt-3 rounded-xl border border-[var(--warning)] bg-[var(--warning-subtle)] px-4 py-3">
-                        <p class="text-sm font-semibold text-[var(--warning)]">
-                            Please verify your email to unlock high-trust features.
-                        </p>
-                        <p class="mt-1 text-xs text-[var(--text-secondary)]">
-                            Check your inbox for the verification link.
-                        </p>
+                    <div class="mx-4 mt-3 animate-slide-up">
+                        <div class="section border-[var(--warning)] bg-[var(--warning-subtle)]/30">
+                            <div class="p-4 stack-h gap-md">
+                                <div class="rounded-full bg-[var(--warning-subtle)] p-2 border border-[var(--warning)]/20">
+                                    <ShieldCheck class="h-5 w-5 text-[var(--warning)]" />
+                                </div>
+                                <div class="stack-v">
+                                    <p class="text-sm font-bold text-[var(--text)]">
+                                        Verify your email address
+                                    </p>
+                                    <p class="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        High-trust features require a verified account. Check your inbox for the link.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
                 <WeatherAlert />

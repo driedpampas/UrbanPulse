@@ -27,8 +27,8 @@ function RouteRedirect({ to }: { to: string }) {
         setLocation(to);
     }, [setLocation, to]);
     return (
-        <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
-            <span style="font-size:13px;color:var(--text-secondary);">Redirecting…</span>
+        <div class="page-shell flex-center">
+            <span class="text-sm text-[var(--text-tertiary)] animate-pulse">Redirecting…</span>
         </div>
     );
 }
@@ -40,14 +40,16 @@ function AppRoutes() {
 
     if (!isReady) {
         return (
-            <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
-                <div style="text-align:center;">
-                    <p style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.02em;">
+            <div class="page-shell flex-center bg-[var(--bg)]">
+                <div class="stack-v gap-sm text-center">
+                    <p class="text-lg font-bold text-[var(--text)] tracking-tight">
                         UrbanPulse
                     </p>
-                    <p style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">
-                        Loading…
-                    </p>
+                    <div class="stack-h gap-sm justify-center">
+                        <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" style="animation-delay:-0.3s" />
+                        <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" style="animation-delay:-0.15s" />
+                        <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" />
+                    </div>
                 </div>
             </div>
         );
@@ -87,8 +89,8 @@ function AppRoutes() {
                 )}
             </Route>
             <Route>
-                <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;">
-                    <span style="color:var(--text-secondary);font-size:13px;">Page not found</span>
+                <div class="page-shell flex-center">
+                    <span class="text-sm text-[var(--text-tertiary)]">Page not found</span>
                 </div>
             </Route>
         </Switch>
@@ -288,6 +290,12 @@ function ChatNotificationsBridge() {
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent-muted);overflow:hidden;border-radius:0 0 12px 12px;">
+                        <div 
+                            className="toast-progress-bar" 
+                            style="height:100%;background:var(--accent);width:100%;transform-origin:left;" 
+                        />
+                    </div>
                 </div>
             ))}
         </div>

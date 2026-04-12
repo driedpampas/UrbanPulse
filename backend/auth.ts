@@ -140,6 +140,24 @@ export async function requestPasswordChange(userId: string): Promise<PasswordRes
         return { success: false, status: 404 };
     }
 
+    return await performPasswordChangeTrigger(userId, email);
+}
+
+export async function requestPasswordResetByEmail(email: string): Promise<PasswordResetRequestResult> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const [user] = await db.selectId(normalizedEmail);
+    if (!user) {
+        // Return success even if user not found to prevent email enumeration
+        return { success: true };
+    }
+
+    return await performPasswordChangeTrigger(user.id, normalizedEmail);
+}
+
+async function performPasswordChangeTrigger(
+    userId: string,
+    email: string
+): Promise<PasswordResetRequestResult> {
     const resetToken = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
     const stored = await db.storePasswordResetToken(userId, resetToken, expiresAt);
