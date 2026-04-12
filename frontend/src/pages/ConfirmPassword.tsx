@@ -70,21 +70,16 @@ export function ConfirmPassword() {
     const nextPath = isAuthenticated ? '/settings' : '/auth';
 
     return (
-        <div class="page-shell bg-[var(--bg)] px-4 py-10">
-            <div class="app-container">
+        <div class="page-shell bg-[var(--bg)] px-4 py-12">
+            <div class="app-container max-w-[440px]">
                 <div class="mb-8 text-center animate-slide-up">
-                    <p class="label-caps" style="margin-bottom: 4px;">
-                        UrbanPulse Security
-                    </p>
-                    <h1 class="text-2xl font-bold tracking-[-0.03em] text-[var(--text)]">
+                    <p class="label-caps !mb-1">UrbanPulse Security</p>
+                    <h1 class="text-2xl font-bold tracking-tight text-[var(--text)]">
                         Confirm Password Change
                     </h1>
                 </div>
 
-                <div
-                    class="section animate-slide-up shadow-[var(--shadow-lg)]"
-                    style="animation-delay: 0.1s;"
-                >
+                <div class="section animate-slide-up shadow-lg" style="animation-delay: 0.1s;">
                     <div class="section-header bg-[var(--bg-subtle)]">
                         <div class="stack-h gap-sm">
                             <KeyRound class="h-4 w-4 text-[var(--accent)]" />
@@ -95,19 +90,21 @@ export function ConfirmPassword() {
                     </div>
 
                     <div class="section-body p-6">
-                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-5">
-                            <p class="text-sm leading-6 text-[var(--text-secondary)]">{message}</p>
+                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-5 mb-2">
+                            <p class="text-sm leading-relaxed text-[var(--text-secondary)]">
+                                {message}
+                            </p>
                         </div>
 
                         {state === 'success' && (
-                            <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-4 py-3 text-sm font-semibold text-[var(--success)]">
+                            <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-4 py-3 text-sm font-semibold text-[var(--success)] animate-fade-in">
                                 <CheckCircle2 class="h-4 w-4" />
                                 Password changed successfully.
                             </div>
                         )}
 
                         {state === 'error' && (
-                            <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-4 py-3 text-sm font-semibold text-[var(--danger)]">
+                            <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-4 py-3 text-sm font-semibold text-[var(--danger)] animate-fade-in">
                                 <AlertTriangle class="h-4 w-4" />
                                 Unable to complete password update.
                             </div>
@@ -123,8 +120,7 @@ export function ConfirmPassword() {
                                     onInput={(event) =>
                                         setPassword((event.target as HTMLInputElement).value)
                                     }
-                                    class="input-field"
-                                    style="height: 44px;"
+                                    class="input-field h-11"
                                     placeholder="Minimum 8 characters"
                                 />
                             </div>
@@ -138,8 +134,7 @@ export function ConfirmPassword() {
                                     onInput={(event) =>
                                         setConfirmPassword((event.target as HTMLInputElement).value)
                                     }
-                                    class="input-field"
-                                    style="height: 44px;"
+                                    class="input-field h-11"
                                     placeholder="Repeat new password"
                                 />
                             </div>
@@ -147,9 +142,8 @@ export function ConfirmPassword() {
                             <div class="stack-v gap-md mt-2">
                                 <HoverButton
                                     type="submit"
-                                    class="btn-primary"
+                                    class="btn-primary h-11 w-full"
                                     disabled={submitting}
-                                    style="height:44px;width:100%;"
                                 >
                                     {submitting
                                         ? 'Applying password update…'
@@ -158,9 +152,8 @@ export function ConfirmPassword() {
 
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost"
+                                    class="btn-ghost h-11 w-full"
                                     onClick={() => setLocation(nextPath)}
-                                    style="height:44px;width:100%;"
                                 >
                                     Return to Account
                                 </HoverButton>

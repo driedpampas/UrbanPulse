@@ -114,30 +114,32 @@ export function Auth() {
     };
 
     return (
-        <div class="page-shell bg-(--bg)">
-            <div class="stack-h flex-between app-container" style="padding:16px 20px;">
-                <p style="font-size:16px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.03em;">
-                    UrbanPulse
-                </p>
-                <HoverButton
-                    type="button"
-                    class="btn-icon"
-                    onClick={toggle}
-                    aria-label="Toggle theme"
-                >
-                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                </HoverButton>
+        <div class="page-shell bg-[var(--bg)]">
+            {/* Header / Logo */}
+            <div class="stack-h flex-between app-container px-5 py-4">
+                <div class="flex-1" />
+                <p class="text-base font-bold tracking-tight text-[var(--text)]">UrbanPulse</p>
+                <div class="flex-1 flex justify-end">
+                    <HoverButton
+                        type="button"
+                        class="btn-icon"
+                        onClick={toggle}
+                        aria-label="Toggle theme"
+                    >
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </HoverButton>
+                </div>
             </div>
 
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px;">
-                <div style="width:100%;max-width:400px;" class="animate-slide-up">
-                    <div style="margin-bottom:28px;text-align:center;">
-                        <h1 style="font-size:24px;font-weight:700;color:var(--text);margin:0 0 8px;letter-spacing:-0.03em;">
+            <div class="flex-1 flex items-center justify-center p-5">
+                <div class="w-full max-w-[400px] animate-slide-up">
+                    <div class="mb-7 text-center stack-v gap-xs">
+                        <h1 class="text-[32px] font-bold tracking-tight text-[var(--text)]">
                             {mode === 'login' && 'Welcome back'}
                             {mode === 'register' && 'Join UrbanPulse'}
                             {mode === 'forgot-password' && 'Reset Password'}
                         </h1>
-                        <p style="font-size:14px;color:var(--text-secondary);margin:0;">
+                        <p class="text-[var(--text-secondary)]">
                             {mode === 'login' && 'Sign in to access your neighborhood feed.'}
                             {mode === 'register' && 'Create an account to connect with neighbors.'}
                             {mode === 'forgot-password' &&
@@ -145,23 +147,16 @@ export function Auth() {
                         </p>
                     </div>
 
-                    <div
-                        class="section animate-slide-up shadow-[var(--shadow-lg)]"
-                        style="animation-delay: 0.1s;"
-                    >
+                    <div class="section animate-slide-up shadow-lg" style="animation-delay: 0.1s;">
                         {mode !== 'forgot-password' && (
-                            <div class="section-header bg-[var(--bg-subtle)]" style="padding: 6px;">
-                                <div
-                                    class="tab-switcher"
-                                    style="width: 100%; border: none; background: transparent;"
-                                >
+                            <div class="section-header bg-[var(--bg-subtle)] !p-1.5">
+                                <div class="tab-switcher w-full !border-none !bg-transparent">
                                     {(['login', 'register'] as AuthMode[]).map((m) => (
                                         <HoverButton
                                             key={m}
                                             type="button"
                                             onClick={() => reset(m)}
-                                            class={`tab-btn ${mode === m ? 'active' : ''}`}
-                                            style="flex:1; justify-content: center; height: 36px;"
+                                            class={`tab-btn h-9 flex-1 justify-center ${mode === m ? 'active' : ''}`}
                                         >
                                             {m === 'login' ? (
                                                 <LogIn size={14} />
@@ -179,9 +174,8 @@ export function Auth() {
                             <div class="section-header bg-[var(--bg-subtle)]">
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost"
+                                    class="btn-ghost !border-none h-8 px-2 text-xs"
                                     onClick={() => reset('login')}
-                                    style="border:none; height: 32px; padding: 0 8px; font-size: 12px;"
                                 >
                                     <ArrowLeft size={14} />
                                     Back to Sign In
@@ -195,18 +189,13 @@ export function Auth() {
                                     <div class="stack-v gap-sm">
                                         <label class="label-caps">Display name</label>
                                         <input
-                                            class="input-field"
+                                            class={`input-field ${errors.displayName ? 'border-[var(--danger)]' : ''}`}
                                             value={displayName}
                                             onInput={(e) =>
                                                 setDisplayName((e.target as HTMLInputElement).value)
                                             }
                                             placeholder="Alex Neighbor"
                                             autoComplete="name"
-                                            style={
-                                                errors.displayName
-                                                    ? 'border-color:var(--danger);'
-                                                    : ''
-                                            }
                                         />
                                         {errors.displayName && (
                                             <p class="text-[11px] text-[var(--danger)] mt-1">
@@ -217,17 +206,16 @@ export function Auth() {
                                 )}
 
                                 <div class="stack-v gap-sm">
-                                    <label class="label-caps">Email address</label>
+                                    <label class="label-caps">Email</label>
                                     <input
                                         type="email"
-                                        class="input-field"
+                                        class={`input-field ${errors.email ? 'border-[var(--danger)]' : ''}`}
                                         value={email}
                                         onInput={(e) =>
                                             setEmail((e.target as HTMLInputElement).value)
                                         }
                                         placeholder="you@example.com"
                                         autoComplete="email"
-                                        style={errors.email ? 'border-color:var(--danger);' : ''}
                                     />
                                     {errors.email && (
                                         <p class="text-[11px] text-[var(--danger)] mt-1">
@@ -239,23 +227,21 @@ export function Auth() {
                                 {mode !== 'forgot-password' && (
                                     <div class="stack-v gap-sm">
                                         <div class="stack-h flex-between">
-                                            <label class="label-caps" style="margin:0;">
-                                                Password
-                                            </label>
+                                            <label class="label-caps !mb-0">Password</label>
                                             {mode === 'login' && (
-                                                <HoverButton
+                                                <button
                                                     type="button"
                                                     onClick={() => reset('forgot-password')}
-                                                    style="font-size:11px; font-weight:700; color:var(--accent); background:none; border:none; padding:0; height:auto; text-transform:uppercase; letter-spacing:0.02em;"
+                                                    class="text-[11px] font-bold text-[var(--accent)] hover:underline uppercase tracking-wider"
                                                 >
                                                     Forgot?
-                                                </HoverButton>
+                                                </button>
                                             )}
                                         </div>
-                                        <div style="position:relative;">
+                                        <div class="relative">
                                             <input
                                                 type={showPw ? 'text' : 'password'}
-                                                class="input-field"
+                                                class={`input-field pr-10 ${errors.password ? 'border-[var(--danger)]' : ''}`}
                                                 value={password}
                                                 onInput={(e) =>
                                                     setPassword(
@@ -268,13 +254,11 @@ export function Auth() {
                                                         ? 'current-password'
                                                         : 'new-password'
                                                 }
-                                                style={`${errors.password ? 'border-color:var(--danger);' : ''} padding-right:40px;`}
                                             />
                                             <HoverButton
                                                 type="button"
                                                 onClick={() => setShowPw((v) => !v)}
-                                                class="btn-icon"
-                                                style="position:absolute; right:4px; top:50%; transform:translateY(-50%); width:32px; height:32px;"
+                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 !w-8 !h-8"
                                                 aria-label={showPw ? 'Hide' : 'Show'}
                                             >
                                                 {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -291,10 +275,10 @@ export function Auth() {
                                 {mode === 'register' && (
                                     <div class="stack-v gap-sm">
                                         <label class="label-caps">Confirm password</label>
-                                        <div style="position:relative;">
+                                        <div class="relative">
                                             <input
                                                 type={showCPw ? 'text' : 'password'}
-                                                class="input-field"
+                                                class={`input-field pr-10 ${errors.confirmPassword ? 'border-[var(--danger)]' : ''}`}
                                                 value={confirmPassword}
                                                 onInput={(e) =>
                                                     setConfirmPassword(
@@ -303,13 +287,11 @@ export function Auth() {
                                                 }
                                                 placeholder="Repeat password"
                                                 autoComplete="new-password"
-                                                style={`${errors.confirmPassword ? 'border-color:var(--danger);' : ''} padding-right:40px;`}
                                             />
                                             <HoverButton
                                                 type="button"
                                                 onClick={() => setShowCPw((v) => !v)}
-                                                class="btn-icon"
-                                                style="position:absolute; right:4px; top:50%; transform:translateY(-50%); width:32px; height:32px;"
+                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 !w-8 !h-8"
                                                 aria-label={showCPw ? 'Hide' : 'Show'}
                                             >
                                                 {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -350,8 +332,7 @@ export function Auth() {
                                 <HoverButton
                                     type="submit"
                                     disabled={loading}
-                                    class="btn-primary"
-                                    style="height:48px; font-size:15px; width:100%; margin-top:8px;"
+                                    class="btn-primary h-12 text-[15px] w-full mt-2"
                                 >
                                     {loading ? (
                                         <LoaderCircle size={18} class="animate-spin" />
@@ -372,34 +353,27 @@ export function Auth() {
                         </div>
                     </div>
 
-                    <div class="mt-8 text-center stack-v gap-md">
-                        {mode !== 'forgot-password' ? (
-                            <p class="text-sm text-[var(--text-secondary)]">
-                                {mode === 'login'
-                                    ? "Don't have an account?"
-                                    : 'Already have an account?'}
-                                <button
-                                    type="button"
-                                    onClick={() => reset(mode === 'login' ? 'register' : 'login')}
-                                    class="ml-2 font-bold text-[var(--accent)] hover:underline"
-                                >
-                                    {mode === 'login' ? 'Join Neighbor' : 'Sign In'}
-                                </button>
-                            </p>
-                        ) : (
-                            <p class="text-sm text-[var(--text-secondary)]">
-                                Remember your password?
-                                <button
-                                    type="button"
-                                    onClick={() => reset('login')}
-                                    class="ml-2 font-bold text-[var(--accent)] hover:underline"
-                                >
-                                    Sign In
-                                </button>
-                            </p>
-                        )}
-                        <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-50">
-                            UrbanPulse Version {__COMMIT_HASH__}
+                    {/* Footer Toggle Section */}
+                    {mode !== 'forgot-password' && (
+                        <HoverButton
+                            onClick={() => reset(mode === 'login' ? 'register' : 'login')}
+                            class="section bg-[var(--bg-subtle)] p-3 hover:bg-[var(--bg-muted)] transition-all cursor-pointer border-none shadow-sm group"
+                        >
+                            <div class="flex-between w-full px-1">
+                                <span class="text-sm text-[var(--text-secondary)]">
+                                    {mode === 'login' ? 'No account?' : 'Already have an account?'}
+                                </span>
+                                <span class="text-sm font-bold text-[var(--accent)] group-hover:translate-x-1 transition-transform">
+                                    {mode === 'login' ? 'Register' : 'Sign In'} <span class="ml-1">→</span>
+                                </span>
+                            </div>
+                        </HoverButton>
+                    )}
+
+                    {/* Version Tag */}
+                    <div class="text-center">
+                        <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-40">
+                            Version {__COMMIT_HASH__}
                         </span>
                     </div>
                 </div>
