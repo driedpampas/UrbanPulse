@@ -162,7 +162,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const [deleteConfirmPulseId, setDeleteConfirmPulseId] = useState<string | null>(null);
     const [editingPulseId, setEditingPulseId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
-    const [editUrgencyLevel, setEditUrgencyLevel] = useState('1');
+    const [editIsEmergency, setEditIsEmergency] = useState(false);
     const [editRequiredSkills, setEditRequiredSkills] = useState('');
     const [savingEdit, setSavingEdit] = useState(false);
     const [editError, setEditError] = useState<string | null>(null);
@@ -466,7 +466,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     const beginPulseEdit = (pulse: Pulse) => {
         setEditingPulseId(pulse.id);
         setEditContent(pulse.content);
-        setEditUrgencyLevel(String(pulse.urgencyLevel ?? 1));
+        setEditIsEmergency(Boolean(pulse.isEmergency));
         setEditRequiredSkills((pulse.requiredSkills ?? []).join(', '));
         setEditError(null);
     };
@@ -493,18 +493,12 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
             return;
         }
 
-        const parsedUrgency = Number(editUrgencyLevel);
-        if (!Number.isInteger(parsedUrgency) || parsedUrgency < 1 || parsedUrgency > 5) {
-            setEditError('Urgency level must be a number between 1 and 5.');
-            return;
-        }
-
         const updates: Partial<Pulse> = {
             content: nextContent,
-            urgencyLevel: parsedUrgency,
         };
 
         if (pulse.type === 'need') {
+            updates.isEmergency = editIsEmergency;
             updates.requiredSkills = parseRequiredSkillsInput(editRequiredSkills);
         }
 
@@ -763,54 +757,49 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
                                             </span>
                                         </div>
 
-                                        <div style="display:flex;align-items:end;gap:10px;flex-wrap:wrap;">
-                                            <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;">
-                                                <label
-                                                    htmlFor={`pulse-edit-urgency-${pulse.id}`}
-                                                    style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
-                                                >
-                                                    Urgency
-                                                </label>
+                                        {pulse.type === 'need' && (
+                                            <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;">
                                                 <input
-                                                    id={`pulse-edit-urgency-${pulse.id}`}
-                                                    class="input-field"
-                                                    type="number"
-                                                    min={1}
-                                                    max={5}
-                                                    value={editUrgencyLevel}
-                                                    onInput={(event) =>
-                                                        setEditUrgencyLevel(
-                                                            (event.target as HTMLInputElement).value
+                                                    type="checkbox"
+                                                    checked={editIsEmergency}
+                                                    onChange={(event) =>
+                                                        setEditIsEmergency(
+                                                            (event.target as HTMLInputElement)
+                                                                .checked
                                                         )
                                                     }
-                                                    style="height:36px;padding:0 12px;max-width:120px;"
+                                                />
+                                                <span
+                                                    style={`font-size:12px;font-weight:600;color:${editIsEmergency ? 'var(--danger)' : 'var(--text-secondary)'};`}
+                                                >
+                                                    Mark as emergency
+                                                </span>
+                                            </label>
+                                        )}
+
+                                        {pulse.type === 'need' && (
+                                            <div style="display:flex;flex:1;min-width:220px;flex-direction:column;gap:6px;">
+                                                <label
+                                                    htmlFor={`pulse-edit-skills-${pulse.id}`}
+                                                    style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
+                                                >
+                                                    Skills / Items Needed
+                                                </label>
+                                                <input
+                                                    id={`pulse-edit-skills-${pulse.id}`}
+                                                    class="input-field"
+                                                    value={editRequiredSkills}
+                                                    onInput={(event) =>
+                                                        setEditRequiredSkills(
+                                                            (event.target as HTMLInputElement)
+                                                                .value
+                                                        )
+                                                    }
+                                                    placeholder="first aid, transport, translation"
+                                                    style="height:36px;padding:0 12px;"
                                                 />
                                             </div>
-
-                                            {pulse.type === 'need' && (
-                                                <div style="display:flex;flex:1;min-width:220px;flex-direction:column;gap:6px;">
-                                                    <label
-                                                        htmlFor={`pulse-edit-skills-${pulse.id}`}
-                                                        style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;"
-                                                    >
-                                                        Skills / Items Needed
-                                                    </label>
-                                                    <input
-                                                        id={`pulse-edit-skills-${pulse.id}`}
-                                                        class="input-field"
-                                                        value={editRequiredSkills}
-                                                        onInput={(event) =>
-                                                            setEditRequiredSkills(
-                                                                (event.target as HTMLInputElement)
-                                                                    .value
-                                                            )
-                                                        }
-                                                        placeholder="first aid, transport, translation"
-                                                        style="height:36px;padding:0 12px;"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
+                                        )}
 
                                         {pulse.type === 'need' && parsedEditSkills.length > 0 && (
                                             <div style="display:flex;flex-wrap:wrap;gap:6px;">
