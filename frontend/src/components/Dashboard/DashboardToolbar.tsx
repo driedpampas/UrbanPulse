@@ -1,4 +1,5 @@
-import { List, Map as MapIcon, Plus, SlidersHorizontal } from 'lucide-preact';
+import { List, Map as MapIcon, PawPrint, Plus, SlidersHorizontal } from 'lucide-preact';
+import { useLocation } from 'wouter';
 import { memo } from 'preact/compat';
 import type { DashboardView } from '../../hooks/useDashboardViewState';
 import { cn } from '../../lib/utils';
@@ -24,6 +25,7 @@ function DashboardToolbarComponent({
     onToggleFilters,
     onOpenPostForm,
 }: Props) {
+    const [, setLocation] = useLocation();
     return (
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0 0;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -47,6 +49,17 @@ function DashboardToolbarComponent({
                         Map
                     </HoverButton>
                 </div>
+
+                <HoverButton
+                    type="button"
+                    onClick={() => setLocation('/pet-match')}
+                    style="display:flex;align-items:center;gap:6px;padding:0 10px;height:34px;background:var(--warning-subtle);color:var(--warning);border:1px solid var(--warning-border);border-radius:10px;font-size:12px;font-weight:700;"
+                    onMouseEnter={(e) => (e.target as HTMLElement).style.filter = 'var(--hover-brightness)'}
+                    onMouseLeave={(e) => (e.target as HTMLElement).style.filter = 'none'}
+                >
+                    <PawPrint size={14} />
+                    Pet Guardian
+                </HoverButton>
 
                 <div style="display:flex;align-items:center;gap:6px;">
                     <HoverButton

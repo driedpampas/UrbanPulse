@@ -15,6 +15,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Library } from './pages/Library';
 import { Messages } from './pages/Messages';
 import { Profile } from './pages/Profile';
+import { PetMatch } from './pages/PetMatch';
 import { Requests } from './pages/Requests';
 import './index.css';
 
@@ -67,6 +68,7 @@ function AppRoutes() {
             <Route path="/library" component={Library} />
             <Route path="/messages" component={Messages} />
             <Route path="/requests" component={Requests} />
+            <Route path="/pet-match" component={PetMatch} />
             <Route path="/profile" component={Profile} />
             <Route path="/auth">
                 <RouteRedirect to="/" />

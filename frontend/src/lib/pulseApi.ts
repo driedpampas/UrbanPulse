@@ -415,7 +415,8 @@ export async function fetchPulses(
     lng?: number,
     radius?: number,
     limit = 50,
-    offset = 0
+    offset = 0,
+    type?: string
 ): Promise<Pulse[]> {
     let path = '/pulse';
     const params = new URLSearchParams();
@@ -423,6 +424,7 @@ export async function fetchPulses(
     if (lat !== undefined) params.append('lat', lat.toString());
     if (lng !== undefined) params.append('lng', lng.toString());
     if (radius !== undefined) params.append('radius', radius.toString());
+    if (type) params.append('type', type);
     params.append('limit', limit.toString());
     if (offset > 0) params.append('offset', offset.toString());
 

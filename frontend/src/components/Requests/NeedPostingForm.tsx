@@ -4,6 +4,7 @@ import {
     Loader2,
     MapPin,
     MessageSquare,
+    PawPrint,
     Plus,
     Send,
     X,
@@ -17,6 +18,7 @@ import { HoverButton } from '../ui/HoverButton';
 
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
+    { val: 'pet', label: 'Pet', icon: PawPrint, css: 'emergency' },
     { val: 'need', label: 'Need', icon: Plus, css: 'item' },
 ];
 

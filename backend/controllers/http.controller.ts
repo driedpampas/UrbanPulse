@@ -954,12 +954,15 @@ export const httpRoutes: HttpRoutes = {
                         ? Number(url.searchParams.get('radius'))
                         : null;
 
+                    const type = url.searchParams.get('type') as PulseType | null;
+
                     const pulses = await db.selectPulses(
                         Number.isFinite(requestedLimit) ? requestedLimit : 50,
                         lat,
                         lng,
                         radius,
-                        Number.isFinite(offset) ? offset : 0
+                        Number.isFinite(offset) ? offset : 0,
+                        type || undefined
                     );
 
                     return withCors(Response.json(pulses, { status: 200 }));
