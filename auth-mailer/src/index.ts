@@ -47,7 +47,7 @@ export default {
 
             try {
                 const mimeMsg = createMimeMessage();
-                mimeMsg.setSender({ name: 'UrbanPulse Auth', addr: 'noreply@syu.nl.eu.org' });
+                mimeMsg.setSender({ name: 'UrbanPulse Auth', addr: 'noreply@urbanpulse.syu.nl.eu.org' });
                 mimeMsg.setRecipient(email);
                 mimeMsg.setSubject('Verify your account');
                 mimeMsg.addMessage({
@@ -55,7 +55,7 @@ export default {
                     data: `<p>Click here to verify: <a href="${verificationLink}">${verificationLink}</a></p>`,
                 });
 
-                const message = new EmailMessage('noreply@syu.nl.eu.org', email, mimeMsg.asRaw());
+                const message = new EmailMessage('noreply@urbanpulse.syu.nl.eu.org', email, mimeMsg.asRaw());
 
                 await env.SEND_MAIL.send(message);
 
