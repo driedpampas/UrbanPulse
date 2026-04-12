@@ -114,33 +114,30 @@ export function Auth() {
     };
 
     return (
-        <div class="page-shell bg-[var(--bg)] min-h-screen">
-            {/* Header / Logo */}
-            <div class="stack-h flex-between w-full app-container px-6 py-5">
-                <div class="flex-1">
-                    <p class="text-sm font-bold tracking-tight text-[var(--text)]">UrbanPulse</p>
-                </div>
-                <div class="flex-1 flex justify-end">
-                    <HoverButton
-                        type="button"
-                        class="btn-icon !bg-transparent !border-none"
-                        onClick={toggle}
-                        aria-label="Toggle theme"
-                    >
-                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                    </HoverButton>
-                </div>
+        <div class="page-shell bg-[var(--bg)] min-h-screen flex flex-col">
+            <div class="stack-h flex-between app-container px-5 py-4">
+                <p class="text-base font-bold text-[var(--text)] m-0 tracking-tight">
+                    UrbanPulse
+                </p>
+                <HoverButton
+                    type="button"
+                    class="btn-icon"
+                    onClick={toggle}
+                    aria-label="Toggle theme"
+                >
+                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                </HoverButton>
             </div>
 
             <div class="flex-1 flex items-center justify-center p-5">
                 <div class="w-full max-w-[400px] animate-slide-up">
-                    <div class="mb-7 text-center stack-v gap-xs">
-                        <h1 class="text-[32px] font-bold tracking-tight text-[var(--text)]">
+                    <div class="mb-7 text-center stack-v gap-2">
+                        <h1 class="text-2xl font-bold tracking-tight text-[var(--text)]">
                             {mode === 'login' && 'Welcome back'}
                             {mode === 'register' && 'Join UrbanPulse'}
                             {mode === 'forgot-password' && 'Reset Password'}
                         </h1>
-                        <p class="text-[var(--text-secondary)]">
+                        <p class="text-sm text-[var(--text-secondary)]">
                             {mode === 'login' && 'Sign in to access your neighborhood feed.'}
                             {mode === 'register' && 'Create an account to connect with neighbors.'}
                             {mode === 'forgot-password' &&
@@ -149,23 +146,23 @@ export function Auth() {
                     </div>
 
                     <div
-                        class="section animate-slide-up shadow-xl border-[var(--border)]"
+                        class="section animate-slide-up shadow-lg border-[var(--border)]"
                         style="animation-delay: 0.1s;"
                     >
                         {mode !== 'forgot-password' && (
-                            <div class="p-1.5 border-b border-[var(--border)] bg-[var(--bg-subtle)]/50">
-                                <div class="tab-switcher w-full !border-none !bg-transparent !p-0">
+                            <div class="section-header bg-[var(--bg-subtle)] p-1.5 border-b border-[var(--border)]">
+                                <div class="tab-switcher w-full border-none bg-transparent m-0 p-0">
                                     {(['login', 'register'] as AuthMode[]).map((m) => (
                                         <HoverButton
                                             key={m}
                                             type="button"
                                             onClick={() => reset(m)}
-                                            class={`tab-btn h-10 flex-1 justify-center ${mode === m ? 'active' : ''}`}
+                                            class={`tab-btn h-9 flex-1 justify-center ${mode === m ? 'active' : ''}`}
                                         >
                                             {m === 'login' ? (
-                                                <LogIn size={15} />
+                                                <LogIn size={14} />
                                             ) : (
-                                                <UserPlus size={15} />
+                                                <UserPlus size={14} />
                                             )}
                                             {m === 'login' ? 'Sign In' : 'Register'}
                                         </HoverButton>
@@ -175,10 +172,10 @@ export function Auth() {
                         )}
 
                         {mode === 'forgot-password' && (
-                            <div class="section-header bg-[var(--bg-subtle)]">
+                            <div class="section-header bg-[var(--bg-subtle)] border-b border-[var(--border)] p-2">
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost !border-none h-8 px-2 text-xs"
+                                    class="btn-ghost border-none h-8 px-2 text-xs"
                                     onClick={() => reset('login')}
                                 >
                                     <ArrowLeft size={14} />
@@ -231,15 +228,15 @@ export function Auth() {
                                 {mode !== 'forgot-password' && (
                                     <div class="stack-v gap-sm">
                                         <div class="stack-h flex-between">
-                                            <label class="label-caps !mb-0">Password</label>
+                                            <label class="label-caps !m-0">Password</label>
                                             {mode === 'login' && (
-                                                <button
+                                                <HoverButton
                                                     type="button"
                                                     onClick={() => reset('forgot-password')}
-                                                    class="text-[11px] font-bold text-[var(--accent)] hover:underline uppercase tracking-wider"
+                                                    class="text-[11px] font-bold text-[var(--accent)] bg-transparent border-none p-0 h-auto uppercase tracking-wide hover:underline"
                                                 >
                                                     Forgot?
-                                                </button>
+                                                </HoverButton>
                                             )}
                                         </div>
                                         <div class="relative">
@@ -262,7 +259,7 @@ export function Auth() {
                                             <HoverButton
                                                 type="button"
                                                 onClick={() => setShowPw((v) => !v)}
-                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 !w-8 !h-8"
+                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8"
                                                 aria-label={showPw ? 'Hide' : 'Show'}
                                             >
                                                 {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -295,7 +292,7 @@ export function Auth() {
                                             <HoverButton
                                                 type="button"
                                                 onClick={() => setShowCPw((v) => !v)}
-                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 !w-8 !h-8"
+                                                class="btn-icon absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8"
                                                 aria-label={showCPw ? 'Hide' : 'Show'}
                                             >
                                                 {showCPw ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -357,28 +354,34 @@ export function Auth() {
                         </div>
                     </div>
 
-                    {/* Footer Toggle Section */}
-                    {mode !== 'forgot-password' && (
-                        <HoverButton
-                            onClick={() => reset(mode === 'login' ? 'register' : 'login')}
-                            class="section bg-[var(--bg-subtle)] p-3 hover:bg-[var(--bg-muted)] transition-all cursor-pointer border-none shadow-sm group"
-                        >
-                            <div class="flex-between w-full px-1">
-                                <span class="text-sm text-[var(--text-secondary)]">
-                                    {mode === 'login' ? 'No account?' : 'Already have an account?'}
-                                </span>
-                                <span class="text-sm font-bold text-[var(--accent)] group-hover:translate-x-1 transition-transform">
-                                    {mode === 'login' ? 'Register' : 'Sign In'}{' '}
-                                    <span class="ml-1">→</span>
-                                </span>
-                            </div>
-                        </HoverButton>
-                    )}
-
-                    {/* Version Tag */}
-                    <div class="mt-12 text-center">
-                        <span class="text-[10px] text-[var(--text-tertiary)] font-bold uppercase tracking-[0.15em] opacity-40">
-                            Version {__COMMIT_HASH__}
+                    <div class="mt-8 text-center stack-v gap-md">
+                        {mode !== 'forgot-password' ? (
+                            <p class="text-sm text-[var(--text-secondary)]">
+                                {mode === 'login'
+                                    ? "Don't have an account?"
+                                    : 'Already have an account?'}
+                                <button
+                                    type="button"
+                                    onClick={() => reset(mode === 'login' ? 'register' : 'login')}
+                                    class="ml-2 font-bold text-[var(--accent)] hover:underline"
+                                >
+                                    {mode === 'login' ? 'Join Neighbor' : 'Sign In'}
+                                </button>
+                            </p>
+                        ) : (
+                            <p class="text-sm text-[var(--text-secondary)]">
+                                Remember your password?
+                                <button
+                                    type="button"
+                                    onClick={() => reset('login')}
+                                    class="ml-2 font-bold text-[var(--accent)] hover:underline"
+                                >
+                                    Sign In
+                                </button>
+                            </p>
+                        )}
+                        <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-50">
+                            UrbanPulse Version {__COMMIT_HASH__}
                         </span>
                     </div>
                 </div>
@@ -386,3 +389,4 @@ export function Auth() {
         </div>
     );
 }
+
