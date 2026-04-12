@@ -876,9 +876,17 @@ export const httpRoutes: HttpRoutes = {
                                 .then((raw) => createPulseSchema.parse(raw));
 
                             const payload = session as JwtPayload;
-                            const pulseType = body.type.toLowerCase() as PulseType;
+                            const requestedType = body.type.toLowerCase() as PulseType;
+                            const isEmergency = Boolean(body.isEmergency) || requestedType === 'emergency';
+                            const pulseType =
+                                requestedType === 'emergency'
+                                    ? ('need' as PulseType)
+                                    : requestedType;
                             const urgencyLevel =
-                                body.urgencyLevel ?? DEFAULT_PULSE_URGENCY[pulseType];
+                                body.urgencyLevel ??
+                                (isEmergency
+                                    ? Math.max(DEFAULT_PULSE_URGENCY[pulseType], 5)
+                                    : DEFAULT_PULSE_URGENCY[pulseType]);
                             const selectedResources = (
                                 body.selectedResources ??
                                 body.requiredSkills ??
@@ -890,6 +898,7 @@ export const httpRoutes: HttpRoutes = {
                             const createdPulse = await db.insertPulse({
                                 authorId: payload.id,
                                 type: pulseType,
+                                isEmergency,
                                 urgencyLevel,
                                 content: body.content,
                                 location: body.location,

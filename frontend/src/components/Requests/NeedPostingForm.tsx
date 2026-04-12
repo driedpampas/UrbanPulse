@@ -19,11 +19,13 @@ import { HoverButton } from '../ui/HoverButton';
 
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
-    { val: 'emergency', label: 'Emergency', icon: AlertTriangle, css: 'emergency' },
+    { val: 'need', label: 'Need', icon: AlertTriangle, css: 'emergency' },
     { val: 'skill', label: 'Skill', icon: Wrench, css: 'skill' },
     { val: 'item', label: 'Item', icon: Package, css: 'item' },
     { val: 'pet', label: 'Pet alert', icon: PawPrint, css: 'pet' },
 ];
+
+const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['update', 'need', 'skill', 'item'];
 
 const MAX = 280;
 
@@ -33,6 +35,7 @@ interface Props {
 
 export function NeedPostingForm({ onClose }: Props) {
     const [type, setType] = useState<Pulse['type']>('update');
+    const [isEmergency, setIsEmergency] = useState(false);
     const [content, setContent] = useState('');
     const [resourceQuery, setResourceQuery] = useState('');
     const [selectedResources, setSelectedResources] = useState<string[]>([]);
@@ -48,12 +51,13 @@ export function NeedPostingForm({ onClose }: Props) {
 
     const left = MAX - content.length;
 
+    const canMarkEmergency = EMERGENCY_ELIGIBLE_TYPES.includes(type);
     const showResourceSelector =
-        type === 'need' || type === 'emergency' || type === 'skill' || type === 'item';
+        type === 'need' || type === 'skill' || type === 'item' || (type === 'update' && isEmergency);
 
     const catalogHint = useMemo(() => {
         if (!showResourceSelector) {
-            return 'Skill/item targeting is available for Need, Emergency, Skill, and Item pulses.';
+            return 'Skill/item targeting is available for Need, Skill, Item, and emergency-marked updates.';
         }
         if (selectedResources.length === 0) {
             return 'Select at least one skill or item to target matching heroes.';
@@ -64,6 +68,12 @@ export function NeedPostingForm({ onClose }: Props) {
 
     const suppressedMatches = heroMatches.filter((match) => match.suppressedByQuietHours).length;
     const activeMatches = heroMatches.length - suppressedMatches;
+
+    useEffect(() => {
+        if (!canMarkEmergency && isEmergency) {
+            setIsEmergency(false);
+        }
+    }, [canMarkEmergency, isEmergency]);
 
     useEffect(() => {
         let cancelled = false;
@@ -205,6 +215,7 @@ export function NeedPostingForm({ onClose }: Props) {
         try {
             await postPulse({
                 type,
+                isEmergency,
                 content,
                 lat: location.lat,
                 lng: location.lng,
@@ -302,6 +313,25 @@ export function NeedPostingForm({ onClose }: Props) {
                             );
                         })}
                     </div>
+
+                    {canMarkEmergency && (
+                        <label
+                            style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-raised);cursor:pointer;"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={isEmergency}
+                                onChange={(e) =>
+                                    setIsEmergency((e.target as HTMLInputElement).checked)
+                                }
+                            />
+                            <span
+                                style={`font-size:12px;font-weight:600;color:${isEmergency ? 'var(--danger)' : 'var(--text-secondary)'};`}
+                            >
+                                Mark as emergency
+                            </span>
+                        </label>
+                    )}
 
                     {/* Textarea */}
                     <div style="position:relative; margin-bottom: 12px;">
