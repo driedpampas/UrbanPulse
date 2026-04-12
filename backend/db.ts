@@ -1,5 +1,6 @@
 import { sql as drizzleSql } from 'drizzle-orm';
 import { db } from './drizzle/client';
+import { buildResourceTokenSet, findMatchedRequestedResources } from './resourceMatching';
 
 type SqlRunner = {
     <T = any>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
@@ -466,40 +467,12 @@ function mapAcceptedInteractionRow(row: AcceptedInteractionRow): AcceptedInterac
     };
 }
 
-const MIN_RESOURCE_TOKEN_LENGTH = 3;
-
 function normalizeResourceText(value: string): string {
     return value
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-}
-
-function toResourceTokens(value: string): string[] {
-    const normalized = normalizeResourceText(value);
-    if (!normalized) {
-        return [];
-    }
-
-    const tokens = new Set<string>([normalized]);
-    for (const token of normalized.split(' ')) {
-        if (token.length >= MIN_RESOURCE_TOKEN_LENGTH) {
-            tokens.add(token);
-        }
-    }
-
-    return Array.from(tokens);
-}
-
-function buildResourceTokenSet(values: string[]): Set<string> {
-    const tokens = new Set<string>();
-    for (const value of values) {
-        for (const token of toResourceTokens(value)) {
-            tokens.add(token);
-        }
-    }
-    return tokens;
 }
 
 function normalizeQuietDays(days: Array<number | string> | null | undefined): number[] {
@@ -646,56 +619,6 @@ function isSuppressedByQuietWindow(
     }
 
     return isWithinQuietHours(quietHours, local.minuteOfDay);
-}
-
-function tokensMatch(needle: string, candidate: string): boolean {
-    if (!needle || !candidate) {
-        return false;
-    }
-
-    if (needle === candidate) {
-        return true;
-    }
-
-    if (needle.length >= MIN_RESOURCE_TOKEN_LENGTH && candidate.includes(needle)) {
-        return true;
-    }
-
-    if (candidate.length >= MIN_RESOURCE_TOKEN_LENGTH && needle.includes(candidate)) {
-        return true;
-    }
-
-    return false;
-}
-
-function findMatchedRequestedResources(
-    requestedResources: string[],
-    userResourceTokens: Set<string>
-): string[] {
-    if (requestedResources.length === 0 || userResourceTokens.size === 0) {
-        return [];
-    }
-
-    const matched = new Set<string>();
-    const candidateTokens = Array.from(userResourceTokens);
-
-    for (const requestedResource of requestedResources) {
-        const normalizedRequested = normalizeResourceText(requestedResource);
-        if (!normalizedRequested) {
-            continue;
-        }
-
-        const requestedTokens = toResourceTokens(requestedResource);
-        const hasMatch = requestedTokens.some((requestedToken) =>
-            candidateTokens.some((candidateToken) => tokensMatch(requestedToken, candidateToken))
-        );
-
-        if (hasMatch) {
-            matched.add(normalizedRequested);
-        }
-    }
-
-    return Array.from(matched);
 }
 
 function mapMessageRow(rawMessage: MessageRow): Message {
