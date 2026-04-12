@@ -116,9 +116,7 @@ export function Auth() {
     return (
         <div class="page-shell bg-[var(--bg)] min-h-screen flex flex-col">
             <div class="stack-h flex-between app-container px-5 py-4">
-                <p class="text-base font-bold text-[var(--text)] m-0 tracking-tight">
-                    UrbanPulse
-                </p>
+                <p class="text-base font-bold text-[var(--text)] m-0 tracking-tight">UrbanPulse</p>
                 <HoverButton
                     type="button"
                     class="btn-icon"
@@ -360,4 +358,3 @@ export function Auth() {
         </div>
     );
 }
-

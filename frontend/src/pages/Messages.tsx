@@ -318,7 +318,7 @@ export function Messages() {
                     return;
                 }
 
-                void refreshThread(event.threadId).catch(() => { });
+                void refreshThread(event.threadId).catch(() => {});
                 return;
             }
 
@@ -326,7 +326,7 @@ export function Messages() {
                 return;
             }
 
-            void refreshThread(event.threadId).catch(() => { });
+            void refreshThread(event.threadId).catch(() => {});
         };
 
         connectChatWebSocket(handleRefresh);
@@ -362,9 +362,9 @@ export function Messages() {
                     event.event === 'notification.message' && event.senderName
                         ? event.senderName
                         : senderIndex >= 0
-                            ? thread.participantNames[senderIndex] ||
+                          ? thread.participantNames[senderIndex] ||
                             `Neighbor ${event.message.senderId.slice(0, 6)}`
-                            : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                          : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
                 const mappedMessage: ChatMessage = {
                     id: event.message.id,
@@ -1126,7 +1126,7 @@ function ChatView({
                     return;
                 }
 
-                void onThreadRefresh(thread.id).catch(() => { });
+                void onThreadRefresh(thread.id).catch(() => {});
                 return;
             }
 
@@ -1147,11 +1147,11 @@ function ChatView({
             const senderName = isMe
                 ? currentUserName
                 : event.event === 'notification.message' && event.senderName
-                    ? event.senderName
-                    : senderIndex >= 0
-                        ? thread.participantNames[senderIndex] ||
-                        `Neighbor ${event.message.senderId.slice(0, 6)}`
-                        : `Neighbor ${event.message.senderId.slice(0, 6)}`;
+                  ? event.senderName
+                  : senderIndex >= 0
+                    ? thread.participantNames[senderIndex] ||
+                      `Neighbor ${event.message.senderId.slice(0, 6)}`
+                    : `Neighbor ${event.message.senderId.slice(0, 6)}`;
 
             const mappedMessage: ChatMessage = {
                 id: event.message.id,
@@ -1559,7 +1559,7 @@ function ChatView({
                         <img
                             src={avatarUrl(
                                 thread.participants.find((p) => p !== currentUserId) ||
-                                thread.participants[0]
+                                    thread.participants[0]
                             )}
                             alt=""
                             style="width:100%;height:100%;object-fit:cover;"
@@ -1732,14 +1732,20 @@ function ChatView({
                                                 type="button"
                                                 onClick={(e: MouseEvent) => {
                                                     if (isEditingMessage) return;
-                                                    handleContextMenu(e as unknown as MouseEvent, msg.id);
+                                                    handleContextMenu(
+                                                        e as unknown as MouseEvent,
+                                                        msg.id
+                                                    );
                                                 }}
                                                 onContextMenu={(e: MouseEvent) => {
                                                     if (isEditingMessage) {
                                                         e.preventDefault();
                                                         return;
                                                     }
-                                                    handleContextMenu(e as unknown as MouseEvent, msg.id);
+                                                    handleContextMenu(
+                                                        e as unknown as MouseEvent,
+                                                        msg.id
+                                                    );
                                                 }}
                                                 class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${
                                                     isMe
@@ -1946,7 +1952,9 @@ function ChatView({
                                                     >
                                                         <HoverButton
                                                             type="button"
-                                                            onClick={() => void handleCopyMessage(msg.content)}
+                                                            onClick={() =>
+                                                                void handleCopyMessage(msg.content)
+                                                            }
                                                             role="menuitem"
                                                             key="copy-text"
                                                             class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--text)] stack-h gap-sm text-left hover:bg-[var(--bg-muted)] transition-colors"
@@ -1958,7 +1966,9 @@ function ChatView({
                                                         {isMe && (
                                                             <HoverButton
                                                                 type="button"
-                                                                onClick={() => handleStartMessageEdit(msg)}
+                                                                onClick={() =>
+                                                                    handleStartMessageEdit(msg)
+                                                                }
                                                                 role="menuitem"
                                                                 key="edit-message"
                                                                 class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--text)] stack-h gap-sm text-left hover:bg-[var(--bg-muted)] transition-colors"
@@ -2015,8 +2025,12 @@ function ChatView({
                                                                 <HoverButton
                                                                     type="button"
                                                                     onClick={() => {
-                                                                        setContextMenuMessageId(null);
-                                                                        setContextMenuPosition(null);
+                                                                        setContextMenuMessageId(
+                                                                            null
+                                                                        );
+                                                                        setContextMenuPosition(
+                                                                            null
+                                                                        );
                                                                         handleDeleteMessage(
                                                                             msg,
                                                                             'everyone'
@@ -2105,8 +2119,8 @@ function ChatView({
                                         isBlockedConversation
                                             ? 'You have blocked this user'
                                             : connectionStatus !== 'connected' || !threadSubscribed
-                                                ? 'Connecting…'
-                                                : 'Message…'
+                                              ? 'Connecting…'
+                                              : 'Message…'
                                     }
                                     style="flex:1;padding:9px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
                                     onFocus={(e) => {
@@ -2235,7 +2249,7 @@ function ChatView({
                                                             directCounterpartProfile?.avatar ||
                                                             avatarUrl(
                                                                 directCounterpartId ||
-                                                                thread.participants[0]
+                                                                    thread.participants[0]
                                                             )
                                                         }
                                                         alt=""
@@ -2330,10 +2344,12 @@ function ChatView({
                                                     background:${color};cursor:pointer;transition:transform 0.1s;
                                                 `}
                                                     onMouseEnter={(e) =>
-                                                        (e.currentTarget.style.transform = 'scale(1.1)')
+                                                        (e.currentTarget.style.transform =
+                                                            'scale(1.1)')
                                                     }
                                                     onMouseLeave={(e) =>
-                                                        (e.currentTarget.style.transform = 'scale(1)')
+                                                        (e.currentTarget.style.transform =
+                                                            'scale(1)')
                                                     }
                                                     aria-label={`Select color ${color}`}
                                                 />
@@ -2466,10 +2482,13 @@ function ChatView({
                                             thread.participantNames[index] ||
                                             participantNameById.get(participantId) ||
                                             `Neighbor ${participantId.slice(0, 6)}`;
-                                        const avatar = profile?.avatar || getAvatarUrl(participantId);
-                                        const roles = thread.participantRoles?.[participantId] ?? [];
+                                        const avatar =
+                                            profile?.avatar || getAvatarUrl(participantId);
+                                        const roles =
+                                            thread.participantRoles?.[participantId] ?? [];
                                         const isOwner =
-                                            thread.ownerId === participantId || roles.includes('owner');
+                                            thread.ownerId === participantId ||
+                                            roles.includes('owner');
                                         const isAdmin = roles.includes('admin');
                                         const isSelf = participantId === currentUserId;
                                         return (
@@ -2516,48 +2535,52 @@ function ChatView({
                                                     </div>
                                                 </HoverButton>
                                                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
-                                                    {thread.ownerId === currentUserId && !isOwner && (
-                                                        <HoverButton
-                                                            type="button"
-                                                            class="btn-ghost"
-                                                            disabled={
-                                                                participantActionBusy === participantId
-                                                            }
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setMemberActionConfirm({
-                                                                    title: 'Promote member',
-                                                                    message: `Promote ${name} to admin?`,
-                                                                    confirmLabel: 'Promote',
-                                                                    onConfirm: async () => {
-                                                                        setParticipantActionBusy(
-                                                                            participantId
-                                                                        );
-                                                                        try {
-                                                                            await promoteGroupChatParticipant(
-                                                                                thread.id,
+                                                    {thread.ownerId === currentUserId &&
+                                                        !isOwner && (
+                                                            <HoverButton
+                                                                type="button"
+                                                                class="btn-ghost"
+                                                                disabled={
+                                                                    participantActionBusy ===
+                                                                    participantId
+                                                                }
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setMemberActionConfirm({
+                                                                        title: 'Promote member',
+                                                                        message: `Promote ${name} to admin?`,
+                                                                        confirmLabel: 'Promote',
+                                                                        onConfirm: async () => {
+                                                                            setParticipantActionBusy(
                                                                                 participantId
                                                                             );
-                                                                            const updated =
-                                                                                await onThreadRefresh(
-                                                                                    thread.id
+                                                                            try {
+                                                                                await promoteGroupChatParticipant(
+                                                                                    thread.id,
+                                                                                    participantId
                                                                                 );
-                                                                            onThreadUpdate(updated);
-                                                                        } finally {
-                                                                            setParticipantActionBusy(
-                                                                                null
-                                                                            );
-                                                                        }
-                                                                    },
-                                                                });
-                                                            }}
-                                                            aria-label="Promote to admin"
-                                                            title="Promote to admin"
-                                                            style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
-                                                        >
-                                                            <ShieldCheck size={14} />
-                                                        </HoverButton>
-                                                    )}
+                                                                                const updated =
+                                                                                    await onThreadRefresh(
+                                                                                        thread.id
+                                                                                    );
+                                                                                onThreadUpdate(
+                                                                                    updated
+                                                                                );
+                                                                            } finally {
+                                                                                setParticipantActionBusy(
+                                                                                    null
+                                                                                );
+                                                                            }
+                                                                        },
+                                                                    });
+                                                                }}
+                                                                aria-label="Promote to admin"
+                                                                title="Promote to admin"
+                                                                style="width:30px;height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent-muted);"
+                                                            >
+                                                                <ShieldCheck size={14} />
+                                                            </HoverButton>
+                                                        )}
                                                     {(thread.ownerId === currentUserId ||
                                                         (thread.participantRoles?.[
                                                             currentUserId
@@ -2591,7 +2614,9 @@ function ChatView({
                                                                                     await onThreadRefresh(
                                                                                         thread.id
                                                                                     );
-                                                                                onThreadUpdate(updated);
+                                                                                onThreadUpdate(
+                                                                                    updated
+                                                                                );
                                                                             } finally {
                                                                                 setParticipantActionBusy(
                                                                                     null
