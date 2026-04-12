@@ -145,37 +145,12 @@ export function Auth() {
                         </p>
                     </div>
 
-                    <div
-                        class="section animate-slide-up shadow-lg border-[var(--border)]"
-                        style="animation-delay: 0.1s;"
-                    >
-                        {mode !== 'forgot-password' && (
-                            <div class="section-header bg-[var(--bg-subtle)] p-1.5 border-b border-[var(--border)]">
-                                <div class="tab-switcher w-full border-none bg-transparent m-0 p-0">
-                                    {(['login', 'register'] as AuthMode[]).map((m) => (
-                                        <HoverButton
-                                            key={m}
-                                            type="button"
-                                            onClick={() => reset(m)}
-                                            class={`tab-btn h-9 flex-1 justify-center ${mode === m ? 'active' : ''}`}
-                                        >
-                                            {m === 'login' ? (
-                                                <LogIn size={14} />
-                                            ) : (
-                                                <UserPlus size={14} />
-                                            )}
-                                            {m === 'login' ? 'Sign In' : 'Register'}
-                                        </HoverButton>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
+                    <div class="animate-slide-up" style="animation-delay: 0.1s;">
                         {mode === 'forgot-password' && (
-                            <div class="section-header bg-[var(--bg-subtle)] border-b border-[var(--border)] p-2">
+                            <div class="mb-6">
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost border-none h-8 px-2 text-xs"
+                                    class="btn-ghost border-none h-8 px-0 text-xs text-[var(--text-secondary)] hover:text-[var(--text)]"
                                     onClick={() => reset('login')}
                                 >
                                     <ArrowLeft size={14} />
@@ -184,7 +159,7 @@ export function Auth() {
                             </div>
                         )}
 
-                        <div class="section-body p-6">
+                        <div class="py-2">
                             <form onSubmit={handleSubmit} class="stack-v gap-lg">
                                 {mode === 'register' && (
                                     <div class="stack-v gap-sm">
@@ -330,56 +305,52 @@ export function Auth() {
                                     </div>
                                 )}
 
-                                <HoverButton
-                                    type="submit"
-                                    disabled={loading}
-                                    class="btn-primary h-12 text-[15px] w-full mt-2"
-                                >
-                                    {loading ? (
-                                        <LoaderCircle size={18} class="animate-spin" />
-                                    ) : (
-                                        <>
-                                            {mode === 'login' && <LogIn size={18} />}
-                                            {mode === 'register' && <UserPlus size={18} />}
-                                            {mode === 'forgot-password' && <KeyRound size={18} />}
+                                <div class="stack-v gap-4 mt-2">
+                                    <HoverButton
+                                        type="submit"
+                                        disabled={loading}
+                                        class="btn-primary h-12 text-[15px] w-full"
+                                    >
+                                        {loading ? (
+                                            <LoaderCircle size={18} class="animate-spin" />
+                                        ) : (
+                                            <>
+                                                {mode === 'login' && <LogIn size={18} />}
+                                                {mode === 'register' && <UserPlus size={18} />}
+                                                {mode === 'forgot-password' && (
+                                                    <KeyRound size={18} />
+                                                )}
+                                                {mode === 'login'
+                                                    ? 'Sign In'
+                                                    : mode === 'register'
+                                                      ? 'Create Account'
+                                                      : 'Send Reset Link'}
+                                            </>
+                                        )}
+                                    </HoverButton>
+
+                                    {mode !== 'forgot-password' && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                reset(mode === 'login' ? 'register' : 'login')
+                                            }
+                                            class="text-sm text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors py-2"
+                                        >
                                             {mode === 'login'
-                                                ? 'Sign In'
-                                                : mode === 'register'
-                                                  ? 'Create Account'
-                                                  : 'Send Reset Link'}
-                                        </>
+                                                ? "Don't have an account? "
+                                                : 'Already have an account? '}
+                                            <span class="font-bold text-[var(--accent)]">
+                                                {mode === 'login' ? 'Register' : 'Sign In'}
+                                            </span>
+                                        </button>
                                     )}
-                                </HoverButton>
+                                </div>
                             </form>
                         </div>
                     </div>
 
-                    <div class="mt-8 text-center stack-v gap-md">
-                        {mode !== 'forgot-password' ? (
-                            <p class="text-sm text-[var(--text-secondary)]">
-                                {mode === 'login'
-                                    ? "Don't have an account?"
-                                    : 'Already have an account?'}
-                                <button
-                                    type="button"
-                                    onClick={() => reset(mode === 'login' ? 'register' : 'login')}
-                                    class="ml-2 font-bold text-[var(--accent)] hover:underline"
-                                >
-                                    {mode === 'login' ? 'Join Neighbor' : 'Sign In'}
-                                </button>
-                            </p>
-                        ) : (
-                            <p class="text-sm text-[var(--text-secondary)]">
-                                Remember your password?
-                                <button
-                                    type="button"
-                                    onClick={() => reset('login')}
-                                    class="ml-2 font-bold text-[var(--accent)] hover:underline"
-                                >
-                                    Sign In
-                                </button>
-                            </p>
-                        )}
+                    <div class="mt-12 text-center">
                         <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-50">
                             UrbanPulse Version {__COMMIT_HASH__}
                         </span>
