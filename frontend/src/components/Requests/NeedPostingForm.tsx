@@ -4,10 +4,9 @@ import {
     Loader2,
     MapPin,
     MessageSquare,
-    Package,
+    Plus,
     PawPrint,
     Send,
-    Wrench,
     X,
 } from 'lucide-preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
@@ -19,12 +18,11 @@ import { HoverButton } from '../ui/HoverButton';
 
 const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; css: string }[] = [
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
-    { val: 'skill', label: 'Skill', icon: Wrench, css: 'skill' },
-    { val: 'item', label: 'Item', icon: Package, css: 'item' },
+    { val: 'need', label: 'Need', icon: Plus, css: 'item' },
     { val: 'pet', label: 'Pet alert', icon: PawPrint, css: 'pet' },
 ];
 
-const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['update', 'skill', 'item'];
+const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['need'];
 
 const MAX = 280;
 
@@ -51,12 +49,11 @@ export function NeedPostingForm({ onClose }: Props) {
     const left = MAX - content.length;
 
     const canMarkEmergency = EMERGENCY_ELIGIBLE_TYPES.includes(type);
-    const showResourceSelector =
-        type === 'skill' || type === 'item' || (type === 'update' && isEmergency);
+    const showResourceSelector = type === 'need';
 
     const catalogHint = useMemo(() => {
         if (!showResourceSelector) {
-            return 'Skill/item targeting is available for Skill, Item, and emergency-marked updates.';
+            return 'Need pulses can include skills/items to target matching helpers.';
         }
         if (selectedResources.length === 0) {
             return 'Select at least one skill or item to target matching heroes.';
@@ -356,7 +353,7 @@ export function NeedPostingForm({ onClose }: Props) {
                     {showResourceSelector && (
                         <div style="margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
                             <label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;">
-                                Skills / Items Selector
+                                Skills / Items Needed
                             </label>
 
                             <div style="display:flex;align-items:center;gap:8px;padding:0 10px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface-raised);">
@@ -399,11 +396,7 @@ export function NeedPostingForm({ onClose }: Props) {
                                                 `}
                                             >
                                                 <span style="display:flex;align-items:center;gap:7px;">
-                                                    {resource.type === 'skill' ? (
-                                                        <Wrench size={11} />
-                                                    ) : (
-                                                        <Package size={11} />
-                                                    )}
+                                                    <Plus size={11} />
                                                     {resource.value}
                                                 </span>
                                                 {isSelected && <Check size={12} />}

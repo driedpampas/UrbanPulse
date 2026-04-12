@@ -51,6 +51,8 @@ function PostedPulsesSectionComponent({
             {myPulses.map((pulse) => {
                 const expanded = expandedPulseId === pulse.id;
                 const interactions = interactionsByPulse[pulse.id] ?? [];
+                const canSolvePulse = pulse.type !== 'update';
+                const canConfirmInteraction = pulse.type === 'need' && !pulse.isSolved;
 
                 return (
                     <article
@@ -79,7 +81,7 @@ function PostedPulsesSectionComponent({
                                     Solved
                                 </span>
                             )}
-                            {!pulse.isSolved && (
+                            {canSolvePulse && !pulse.isSolved && (
                                 <HoverButton
                                     type="button"
                                     onClick={() => setConfirmSolvePulseId(pulse.id)}
@@ -138,7 +140,7 @@ function PostedPulsesSectionComponent({
                                                 }
                                                 disabled={
                                                     confirmingInteractionId === interaction.id ||
-                                                    Boolean(pulse.isSolved)
+                                                    !canConfirmInteraction
                                                 }
                                                 class="btn-primary"
                                                 style="height:28px;padding:0 10px;font-size:11px;white-space:nowrap;"

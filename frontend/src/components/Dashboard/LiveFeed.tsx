@@ -90,6 +90,10 @@ function resourceTokens(values: string[]): Set<string> {
 }
 
 function pulseCanBeAcceptedByUser(pulse: Pulse, userTokens: Set<string>): boolean {
+    if (pulse.type !== 'need') {
+        return false;
+    }
+
     const required = pulse.requiredSkills ?? [];
     if (required.length === 0) {
         return false;

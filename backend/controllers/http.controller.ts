@@ -883,22 +883,23 @@ export const httpRoutes: HttpRoutes = {
                             const payload = session as JwtPayload;
                             const requestedType = body.type.toLowerCase() as PulseType;
                             const isEmergency = Boolean(body.isEmergency) || requestedType === 'emergency';
-                            const pulseType =
-                                requestedType === 'need'
-                                    ? ('update' as PulseType)
+                            const pulseType: PulseType =
+                                requestedType === 'emergency' ||
+                                requestedType === 'skill' ||
+                                requestedType === 'item'
+                                    ? 'need'
                                     : requestedType;
                             const urgencyLevel =
                                 body.urgencyLevel ??
                                 (isEmergency
                                     ? Math.max(DEFAULT_PULSE_URGENCY[pulseType], 5)
                                     : DEFAULT_PULSE_URGENCY[pulseType]);
-                            const selectedResources = (
-                                body.selectedResources ??
-                                body.requiredSkills ??
-                                []
-                            )
-                                .map((value) => value.trim())
-                                .filter((value) => value.length > 0);
+                            const selectedResources =
+                                pulseType === 'need'
+                                    ? (body.selectedResources ?? body.requiredSkills ?? [])
+                                          .map((value) => value.trim())
+                                          .filter((value) => value.length > 0)
+                                    : [];
                             const fullUser = await db.selectFullUser(payload.id);
                             const requesterTimezone =
                                 body.timezone?.trim() || fullUser?.timezone || 'UTC';
@@ -1066,6 +1067,15 @@ export const httpRoutes: HttpRoutes = {
                             );
                         }
 
+                        if (!result.success && result.nonRequestType) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Only need pulses can be accepted' },
+                                    { status: 409 }
+                                )
+                            );
+                        }
+
                         if (!result.success && result.alreadyAccepted) {
                             return withCors(
                                 Response.json({ error: 'Already accepted' }, { status: 409 })
@@ -1114,6 +1124,17 @@ export const httpRoutes: HttpRoutes = {
                         if (!result.success && result.solved) {
                             return withCors(
                                 Response.json({ error: 'Pulse already solved' }, { status: 409 })
+                            );
+                        }
+
+                        if (!result.success && result.nonRequestType) {
+                            return withCors(
+                                Response.json(
+                                    {
+                                        error: 'Only need pulse interactions can be marked successful',
+                                    },
+                                    { status: 409 }
+                                )
                             );
                         }
 

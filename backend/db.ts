@@ -883,6 +883,33 @@ async function ensureSchema() {
             CREATE INDEX IF NOT EXISTS pulses_is_solved_idx
             ON app.pulses (is_solved)
         `;
+
+        const pulseTypeConstraint = (await tx`
+            SELECT pg_get_constraintdef(c.oid) AS constraint_def
+            FROM pg_constraint AS c
+            WHERE c.conrelid = 'app.pulses'::regclass
+              AND c.conname = 'pulses_pulse_type_check'
+            LIMIT 1
+        `) as Array<{ constraint_def?: string | null }>;
+
+        if (
+            pulseTypeConstraint.length === 0 ||
+            !String(pulseTypeConstraint[0]?.constraint_def ?? '').toLowerCase().includes('need')
+        ) {
+            await tx`
+                ALTER TABLE app.pulses
+                DROP CONSTRAINT IF EXISTS pulses_pulse_type_check
+            `;
+
+            await tx`
+                ALTER TABLE app.pulses
+                ADD CONSTRAINT pulses_pulse_type_check CHECK (
+                    LOWER(pulse_type) = ANY (
+                        ARRAY['update', 'emergency', 'skill', 'item', 'pet', 'need']
+                    )
+                )
+            `;
+        }
     });
 
     isSchemaEnsured = true;
@@ -2698,17 +2725,22 @@ export async function insertPulseInteraction(params: {
     success: boolean;
     alreadyAccepted: boolean;
     solved?: boolean;
+    nonRequestType?: boolean;
     interaction?: PulseInteraction;
 }> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
 
         const [pulse] = (await tx`
-            SELECT id, author_id, COALESCE(is_solved, false) AS is_solved
+            SELECT
+                id,
+                author_id,
+                LOWER(COALESCE(pulse_type, 'update')) AS pulse_type,
+                COALESCE(is_solved, false) AS is_solved
             FROM app.pulses
             WHERE id = ${params.pulseId}::uuid
             LIMIT 1
-        `) as Array<{ id: string; author_id: string; is_solved: boolean }>;
+        `) as Array<{ id: string; author_id: string; pulse_type: string; is_solved: boolean }>;
 
         if (!pulse) {
             return { success: false, alreadyAccepted: false };
@@ -2720,6 +2752,10 @@ export async function insertPulseInteraction(params: {
 
         if (pulse.is_solved) {
             return { success: false, alreadyAccepted: false, solved: true };
+        }
+
+        if (pulse.pulse_type !== 'need') {
+            return { success: false, alreadyAccepted: false, nonRequestType: true };
         }
 
         const [existing] = (await tx`
@@ -2816,7 +2852,12 @@ export async function confirmPulseInteraction(params: {
     pulseId: string;
     interactionId: string;
     authorId: string;
-}): Promise<{ success: boolean; solved?: boolean; interaction?: PulseInteraction }> {
+}): Promise<{
+    success: boolean;
+    solved?: boolean;
+    nonRequestType?: boolean;
+    interaction?: PulseInteraction;
+}> {
     return await sql.begin(async (tx) => {
         await ensureSchema();
 
@@ -2835,7 +2876,8 @@ export async function confirmPulseInteraction(params: {
                 END AS confirmed_at,
                 pi.trust_awarded,
                 COALESCE(p.urgency_level, 1) AS pulse_urgency_level,
-                COALESCE(p.is_solved, false) AS pulse_is_solved
+                COALESCE(p.is_solved, false) AS pulse_is_solved,
+                LOWER(COALESCE(p.pulse_type, 'update')) AS pulse_type
             FROM app.pulse_interactions AS pi
             JOIN app.pulses AS p ON p.id = pi.pulse_id
             LEFT JOIN app.users AS helper ON helper.id = pi.helper_id
@@ -2847,6 +2889,7 @@ export async function confirmPulseInteraction(params: {
             PulseInteractionRow & {
                 pulse_urgency_level: number | string | null;
                 pulse_is_solved: boolean;
+                pulse_type: string;
             }
         >;
 
@@ -2860,6 +2903,10 @@ export async function confirmPulseInteraction(params: {
 
         if (interaction.pulse_is_solved) {
             return { success: false, solved: true };
+        }
+
+        if (interaction.pulse_type !== 'need') {
+            return { success: false, nonRequestType: true };
         }
 
         const trustAward = trustAwardForUrgency(Number(interaction.pulse_urgency_level ?? 1));
@@ -2912,6 +2959,7 @@ export async function markPulseSolved(
         SET is_solved = true
         WHERE id = ${pulseId}::uuid
           AND author_id = ${authorId}::uuid
+          AND LOWER(COALESCE(pulse_type, 'update')) <> 'update'
         RETURNING id::text AS id
     `) as Array<{ id: string }>;
 
