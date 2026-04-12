@@ -43,6 +43,7 @@ import {
     updateAdminUserRole,
     updateProfile,
 } from '../lib/userApi';
+import { readQueryParam } from '../lib/navigation';
 import { DEFAULT_PULSE_CENTER, getCurrentBrowserLocation, isUsableCoordinates } from '../lib/utils';
 import { HoverButton } from '../components/ui/HoverButton';
 
@@ -139,14 +140,9 @@ export function Profile() {
     const mapboxGlRef = useRef<typeof import('mapbox-gl')['default'] | null>(null);
     const locationMarkerRef = useRef<MapboxMarker | null>(null);
 
-    const selectedUserId =
-        typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('userId')
-            : null;
+    const selectedUserId = readQueryParam('userId');
     const isOwnProfile = !selectedUserId || selectedUserId === session?.user.id;
-    const isSetupMode =
-        typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('setup') === '1';
+    const isSetupMode = readQueryParam('setup') === '1';
     const selectedLocation = resolveLocationValue(editing ? draft : user);
     const editableLocationMap = isOwnProfile && editing;
     const displayLocationMap = isOwnProfile && Boolean(selectedLocation || editableLocationMap);

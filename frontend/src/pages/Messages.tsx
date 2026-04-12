@@ -44,6 +44,7 @@ import {
     setActiveChatThread,
     useUnreadChatThreads,
 } from '../lib/chatNotifications';
+import { useQueryParamState } from '../lib/navigation';
 import type { User as AppUser, ChatMessage, ChatThread } from '../lib/types';
 import { fetchUsers } from '../lib/userApi';
 import { HoverButton } from '../components/ui/HoverButton';
@@ -131,16 +132,8 @@ function getThreadDisplayName(thread: ChatThread, currentUserId: string, fallbac
     return thread.name || names.join(', ') || fallback;
 }
 
-function getSelectedThreadIdFromUrl() {
-    if (typeof window === 'undefined') {
-        return null;
-    }
-
-    return new URLSearchParams(window.location.search).get('threadId');
-}
-
 export function Messages() {
-    const [location, setLocation] = useLocation();
+    const [, setLocation] = useLocation();
     const [threads, setThreads] = useState<ChatThread[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeThread, setActiveThread] = useState<ChatThread | null>(null);
@@ -158,31 +151,11 @@ export function Messages() {
     const currentUserName = currentUser?.displayName ?? currentUser?.email ?? 'You';
     const currentUserId = currentUser?.id ?? 'me';
     const composeSearchLimit = 50;
-    const historyNormalizedThreadIdRef = useRef<string | null>(null);
-    const [selectedThreadId, setSelectedThreadId] = useState<string | null>(() =>
-        getSelectedThreadIdFromUrl()
-    );
-
-    useEffect(() => {
-        const syncSelectedThread = () => {
-            setSelectedThreadId(getSelectedThreadIdFromUrl());
-        };
-
-        syncSelectedThread();
-        window.addEventListener('popstate', syncSelectedThread);
-        return () => {
-            window.removeEventListener('popstate', syncSelectedThread);
-        };
-    }, []);
-
-    useEffect(() => {
-        setSelectedThreadId(getSelectedThreadIdFromUrl());
-    }, [location]);
+    const [selectedThreadId, setSelectedThreadId] = useQueryParamState('threadId');
 
     useEffect(() => {
         if (!selectedThreadId) {
             setActiveThread(null);
-            historyNormalizedThreadIdRef.current = null;
         }
     }, [selectedThreadId]);
 
@@ -217,23 +190,10 @@ export function Messages() {
                 const target = data.find((thread) => thread.id === selectedThreadId);
                 if (target) {
                     setActiveThread(target);
-
-                    // If user lands directly on a thread URL, insert the list route
-                    // before it so browser/phone back returns to the chat list first.
-                    if (
-                        typeof window !== 'undefined' &&
-                        historyNormalizedThreadIdRef.current !== selectedThreadId
-                    ) {
-                        const listUrl = '/messages';
-                        const threadUrl = `/messages?threadId=${encodeURIComponent(selectedThreadId)}`;
-                        window.history.replaceState(window.history.state, '', listUrl);
-                        window.history.pushState(window.history.state, '', threadUrl);
-                        historyNormalizedThreadIdRef.current = selectedThreadId;
-                    }
                 }
             }
         });
-    }, [location, selectedThreadId]);
+    }, [selectedThreadId]);
 
     useEffect(() => {
         if (!showCompose) {
@@ -274,6 +234,8 @@ export function Messages() {
     const openThreadById = async (threadId: string) => {
         const existing = threads.find((thread) => thread.id === threadId);
         if (existing) {
+            setLocation(`/messages?threadId=${encodeURIComponent(existing.id)}`);
+            setSelectedThreadId(existing.id);
             setActiveThread(existing);
             return;
         }
@@ -282,6 +244,8 @@ export function Messages() {
         setThreads(refreshed);
         const resolved = refreshed.find((thread) => thread.id === threadId);
         if (resolved) {
+            setLocation(`/messages?threadId=${encodeURIComponent(resolved.id)}`);
+            setSelectedThreadId(resolved.id);
             setActiveThread(resolved);
         }
     };
