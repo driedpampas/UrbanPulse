@@ -24,6 +24,7 @@ export function withCors(response: Response): Response {
 export function isAllowedOrigin(origin: string): boolean {
     return (
         origin === 'https://urbanpulse.syu.nl.eu.org' ||
+        origin === 'https://pets.urbanpulse-1rw.pages.dev' ||
         /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
     );
 }
@@ -37,5 +38,10 @@ export async function validate(
         return withCors(FORBIDDEN);
     }
 
-    return await handler();
+    const res = await handler();
+    if (origin && isAllowedOrigin(origin)) {
+        res.headers.set('Access-Control-Allow-Origin', origin);
+    }
+    return res;
 }
+
