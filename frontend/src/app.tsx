@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './lib/auth';
 import { type ChatSocketEvent, connectChatWebSocket, disconnectChatWebSocket } from './lib/chatApi';
@@ -107,6 +107,7 @@ function ChatNotificationsBridge() {
     const { isAuthenticated } = useAuth();
     const [location] = useLocation();
     const [toasts, setToasts] = useState<Array<{ id: string; title: string; body: string }>>([]);
+    const seenMessageIdsRef = useRef<Map<string, number>>(new Map());
     const [isForeground, setIsForeground] = useState(() => {
         if (typeof document === 'undefined') {
             return true;
@@ -194,6 +195,22 @@ function ChatNotificationsBridge() {
         const handleChatEvent = (event: ChatSocketEvent) => {
             if (event.event !== 'notification.message' || !event.message) {
                 return;
+            }
+
+            const seen = seenMessageIdsRef.current;
+            const messageId = event.message.id;
+            if (seen.has(messageId)) {
+                return;
+            }
+
+            const now = Date.now();
+            seen.set(messageId, now);
+            if (seen.size > 400) {
+                for (const [id, ts] of seen) {
+                    if (now - ts > 5 * 60 * 1000) {
+                        seen.delete(id);
+                    }
+                }
             }
 
             const notificationEvent = event as Extract<
