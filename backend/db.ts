@@ -770,6 +770,23 @@ async function ensureSchema() {
                 ADD COLUMN message_type text NOT NULL DEFAULT 'text'
             `;
         }
+
+        const deletionRequestedAtCol = await tx`
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'app' AND table_name = 'users' AND column_name = 'deletion_requested_at'
+            LIMIT 1
+        `;
+        if (deletionRequestedAtCol.length === 0) {
+            await tx`
+                ALTER TABLE app.users
+                ADD COLUMN deletion_requested_at timestamptz
+            `;
+        }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS users_deletion_requested_at_idx
+            ON app.users (deletion_requested_at)
+        `;
     });
 
     isSchemaEnsured = true;
@@ -1741,6 +1758,8 @@ export async function selectPasswordHash(id: string) {
 }
 
 export async function selectFullUser(id: string): Promise<User | null> {
+    await ensureSchema();
+
     const [rawUser] = (await sql`
     SELECT 
       id,
@@ -1889,6 +1908,8 @@ export async function searchUsers(
     limit = SEARCH_LIMIT,
     offset = 0
 ): Promise<User[]> {
+    await ensureSchema();
+
     const availableDaysQuery = (userSearch.availableDays ?? []).map((day) => Number(day));
     const safeLimit = Number.isFinite(limit)
         ? Math.max(1, Math.min(Math.floor(limit), 100))
@@ -2098,6 +2119,8 @@ export async function deleteUsers(deleterID: string, userSearch: UserSearchParam
 }
 
 export async function requestUserDeletion(id: string): Promise<boolean> {
+    await ensureSchema();
+
     const [updated] = await sql`
         UPDATE app.users
         SET deletion_requested_at = COALESCE(deletion_requested_at, now())
@@ -2109,6 +2132,8 @@ export async function requestUserDeletion(id: string): Promise<boolean> {
 }
 
 export async function cancelUserDeletion(id: string): Promise<boolean> {
+    await ensureSchema();
+
     const [updated] = await sql`
         UPDATE app.users
         SET deletion_requested_at = NULL
@@ -2123,6 +2148,8 @@ export async function selectPendingUserDeletions(
     limit = 100,
     offset = 0
 ): Promise<ScheduledUserDeletion[]> {
+    await ensureSchema();
+
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 100;
     const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
 
@@ -2183,6 +2210,8 @@ export async function selectPendingUserDeletions(
 }
 
 export async function purgeExpiredUserDeletions(now = Date.now()): Promise<number> {
+    await ensureSchema();
+
     const cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
     const deleted = await sql`
         DELETE FROM app.users
