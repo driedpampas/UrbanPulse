@@ -556,8 +556,7 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(NOT_FOUND);
                         }
 
-                        const nextRoleRaw = body.role.toLowerCase();
-                        const nextRole = nextRoleRaw === 'resident' ? 'user' : nextRoleRaw;
+                        const nextRole = body.role.toLowerCase();
 
                         const actorIsAdmin = actorRole === 'admin';
                         if (!actorIsAdmin && (nextRole === 'admin' || targetRole === 'admin')) {

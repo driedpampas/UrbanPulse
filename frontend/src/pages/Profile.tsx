@@ -147,8 +147,7 @@ export function Profile() {
     const [showRoleOptions, setShowRoleOptions] = useState(false);
     const [toastMessage, setToastMessage] = useState<string | null>(null);
     const isAdmin = session?.user.role?.toLowerCase() === 'admin';
-    const targetRole =
-        user?.role?.toLowerCase() === 'resident' ? 'user' : (user?.role?.toLowerCase() ?? 'user');
+    const targetRole = user?.role?.toLowerCase() ?? 'user';
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -721,7 +720,7 @@ export function Profile() {
                                             style="height:32px;font-size:12px;color:var(--text-secondary);border-color:var(--border);"
                                         >
                                             <ShieldX size={13} />
-                                            Demote to Resident
+                                            Demote to User
                                         </HoverButton>
                                     )}
                                     {targetRole !== 'banned' && (

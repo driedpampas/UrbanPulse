@@ -815,6 +815,46 @@ async function ensureSchema() {
             ALTER COLUMN timezone SET NOT NULL
         `;
 
+        const usersRoleConstraint = (await tx`
+            SELECT pg_get_constraintdef(c.oid) AS constraint_def
+            FROM pg_constraint AS c
+            WHERE c.conrelid = 'app.users'::regclass
+              AND c.conname = 'users_role_check'
+            LIMIT 1
+        `) as Array<{ constraint_def?: string | null }>;
+
+        const usersRoleConstraintDef = String(
+            usersRoleConstraint[0]?.constraint_def ?? ''
+        ).toLowerCase();
+
+        await tx`
+            UPDATE app.users
+            SET role = 'user'
+            WHERE LOWER(role) = 'resident'
+        `;
+
+        const usersRoleConstraintNeedsUpdate =
+            usersRoleConstraint.length === 0 ||
+            !usersRoleConstraintDef.includes('admin') ||
+            !usersRoleConstraintDef.includes('mod') ||
+            !usersRoleConstraintDef.includes('banned') ||
+            !usersRoleConstraintDef.includes('user') ||
+            usersRoleConstraintDef.includes('resident');
+
+        if (usersRoleConstraintNeedsUpdate) {
+            await tx`
+                ALTER TABLE app.users
+                DROP CONSTRAINT IF EXISTS users_role_check
+            `;
+
+            await tx`
+                ALTER TABLE app.users
+                ADD CONSTRAINT users_role_check CHECK (
+                    LOWER(role) = ANY (ARRAY['admin', 'mod', 'user', 'banned'])
+                )
+            `;
+        }
+
         const pulseEmergencyCol = await tx`
             SELECT 1 FROM information_schema.columns
             WHERE table_schema = 'app' AND table_name = 'pulses' AND column_name = 'is_emergency'
@@ -2041,18 +2081,13 @@ export async function selectAdminUsers(
 }
 
 export async function updateUserRole(id: string, role: string): Promise<boolean> {
+    await ensureSchema();
+
     const normalizedRole = role.toLowerCase();
 
-    if (!['admin', 'mod', 'user', 'resident', 'banned'].includes(normalizedRole)) {
+    if (!['admin', 'mod', 'user', 'banned'].includes(normalizedRole)) {
         return false;
     }
-
-    const candidateRoles =
-        normalizedRole === 'user'
-            ? ['user', 'resident']
-            : normalizedRole === 'resident'
-                ? ['resident', 'user']
-                : [normalizedRole];
 
     const isRoleConstraintViolation = (error: unknown): boolean => {
         const value = error as
@@ -2083,29 +2118,21 @@ export async function updateUserRole(id: string, role: string): Promise<boolean>
         return message.includes('check constraint') && message.includes('role');
     };
 
-    for (const candidateRole of candidateRoles) {
-        try {
-            const [updated] = await sql`
-                UPDATE app.users
-                SET role = ${candidateRole}
-                WHERE id = ${id}
-                RETURNING id
-            `;
+    try {
+        const [updated] = await sql`
+            UPDATE app.users
+            SET role = ${normalizedRole}
+            WHERE id = ${id}
+            RETURNING id
+        `;
 
-            if (updated) {
-                return true;
-            }
-        } catch (error) {
-            if (
-                !isRoleConstraintViolation(error) ||
-                candidateRole === candidateRoles[candidateRoles.length - 1]
-            ) {
-                throw error;
-            }
+        return Boolean(updated);
+    } catch (error) {
+        if (isRoleConstraintViolation(error)) {
+            return false;
         }
+        throw error;
     }
-
-    return false;
 }
 
 export async function searchUsers(

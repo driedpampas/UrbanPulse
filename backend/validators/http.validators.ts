@@ -229,7 +229,7 @@ export type UpdateLibraryItemBody = z.infer<typeof updateLibraryItemSchema>;
 export type CreateReportBody = z.infer<typeof createReportSchema>;
 export type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
 
-export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'resident', 'banned']);
+export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned']);
 
 export const updateAdminUserRoleBodySchema = z.strictObject({
     role: adminRoleSchema,
