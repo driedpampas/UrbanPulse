@@ -16,7 +16,7 @@ import { AppLayout } from '../components/Layout/AppLayout';
 import { HoverButton } from '../components/ui/HoverButton';
 import { useAuth } from '../lib/auth';
 import { confirmPulse, fetchPulses, postPulse } from '../lib/pulseApi';
-import { fetchCurrentUser, fetchCurrentUserAreaSelection } from '../lib/userApi';
+import { fetchCurrentUser } from '../lib/userApi';
 import type { Pulse } from '../types';
 
 interface PetMatchResult {
@@ -81,11 +81,6 @@ export function PetMatch() {
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState<string | null>(null);
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [areaSelection, setAreaSelection] = useState<{
-        lat: number;
-        lng: number;
-        radius: number;
-    } | null>(null);
 
     useEffect(() => {
         fetchCurrentUser()
@@ -93,16 +88,12 @@ export function PetMatch() {
                 if (u.lat !== 0 || u.lng !== 0) setUserLocation({ lat: u.lat, lng: u.lng });
             })
             .catch(() => {});
-
-        void fetchCurrentUserAreaSelection()
-            .then((selection) => setAreaSelection(selection))
-            .catch(() => setAreaSelection(null));
     }, []);
 
     useEffect(() => {
         let cancelled = false;
 
-        fetchPulses(areaSelection?.lat, areaSelection?.lng, areaSelection?.radius, 100, 0, 'pet')
+        fetchPulses(undefined, undefined, undefined, 100, 0, 'pet')
             .then((data) => {
                 if (!cancelled) {
                     setPulses(data);
@@ -118,7 +109,7 @@ export function PetMatch() {
         return () => {
             cancelled = true;
         };
-    }, [areaSelection?.lat, areaSelection?.lng, areaSelection?.radius]);
+    }, []);
 
     const lostPets = useMemo(
         () =>

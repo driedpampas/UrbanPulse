@@ -11,7 +11,7 @@ import {
 import { useTheme } from '../../lib/theme';
 import type { Pulse } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
-import { distanceInMeters, getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
+import { getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { UserAvatar } from '../ui/UserAvatar';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
@@ -317,16 +317,7 @@ export function PulseMap({
                     return;
                 }
 
-                if (
-                    distanceInMeters(
-                        mapCenter.lat,
-                        mapCenter.lng,
-                        event.pulse.lat,
-                        event.pulse.lng
-                    ) <= radiusFilter
-                ) {
-                    setPulses((current) => mergePulses(current, [event.pulse]));
-                }
+                setPulses((current) => mergePulses(current, [event.pulse]));
                 return;
             }
 

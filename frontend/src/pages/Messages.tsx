@@ -514,7 +514,7 @@ export function Messages() {
         <AppLayout
             title="Messages"
             headerRight={
-                <div class="stack-h gap-sm">
+                <div class="stack-h gap-sm flex-nowrap">
                     <HoverButton
                         type="button"
                         class="btn-primary"
@@ -526,7 +526,7 @@ export function Messages() {
                         style="height:32px;padding:0 12px;font-size:12px;"
                     >
                         <Plus size={14} />
-                        New Chat
+                        <span class="hidden sm:inline">New Chat</span>
                     </HoverButton>
                     <HoverButton
                         type="button"
@@ -539,7 +539,7 @@ export function Messages() {
                         style="height:32px;padding:0 12px;font-size:12px;"
                     >
                         <Users size={14} />
-                        Create Group Chat
+                        <span class="hidden sm:inline">Create Group Chat</span>
                     </HoverButton>
                 </div>
             }
