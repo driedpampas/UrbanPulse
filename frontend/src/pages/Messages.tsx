@@ -89,8 +89,7 @@ function upsertMessageById(
             (existing.replyTo?.senderId ?? null) === (incoming.replyTo?.senderId ?? null) &&
             (existing.replyTo?.senderName ?? null) === (incoming.replyTo?.senderName ?? null) &&
             (existing.replyTo?.snippet ?? null) === (incoming.replyTo?.snippet ?? null) &&
-            (existing.replyTo?.isUnavailable ?? null) ===
-                (incoming.replyTo?.isUnavailable ?? null);
+            (existing.replyTo?.isUnavailable ?? null) === (incoming.replyTo?.isUnavailable ?? null);
 
         if (unchanged) {
             return { messages, changed: false };
@@ -605,19 +604,13 @@ export function Messages() {
             </div>
 
             {showCompose && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    class="sheet-overlay"
-                >
+                <div role="dialog" aria-modal="true" class="sheet-overlay">
                     <div
                         style="position:absolute;inset:0;"
                         onClick={resetCompose}
                         aria-hidden="true"
                     />
-                    <div
-                        class="sheet-content animate-slide-up"
-                    >
+                    <div class="sheet-content animate-slide-up">
                         {/* Sheet header */}
                         <div style="padding:16px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0;">
                             <div>
@@ -1076,9 +1069,7 @@ function ChatView({
             name?: string;
         }) => {
             if (event.event === 'message.deleted' && typeof event.messageId === 'string') {
-                setReplyingTo((previous) =>
-                    previous?.id === event.messageId ? null : previous
-                );
+                setReplyingTo((previous) => (previous?.id === event.messageId ? null : previous));
                 setHighlightedMessageId((previous) =>
                     previous === event.messageId ? null : previous
                 );

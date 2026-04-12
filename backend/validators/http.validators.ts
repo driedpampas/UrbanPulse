@@ -132,20 +132,17 @@ export const sendMessageResponseSchema = z.strictObject({
     threadName: z.string().optional(),
 });
 
-const optionalReplyToIdSchema = z.preprocess(
-    (value) => {
-        if (value === null || value === undefined) {
-            return undefined;
-        }
+const optionalReplyToIdSchema = z.preprocess((value) => {
+    if (value === null || value === undefined) {
+        return undefined;
+    }
 
-        if (typeof value === 'string' && value.trim().length === 0) {
-            return undefined;
-        }
+    if (typeof value === 'string' && value.trim().length === 0) {
+        return undefined;
+    }
 
-        return value;
-    },
-    z.uuid().optional()
-);
+    return value;
+}, z.uuid().optional());
 
 export const createMessageSchema = z.object({
     content: z.string().trim().min(1).max(5000),

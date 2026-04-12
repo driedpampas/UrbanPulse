@@ -1,5 +1,5 @@
-import * as bun from 'bun';
 import { randomBytes } from 'node:crypto';
+import * as bun from 'bun';
 import * as jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import * as db from './db';
@@ -143,7 +143,9 @@ export async function requestPasswordChange(userId: string): Promise<PasswordRes
     return await performPasswordChangeTrigger(userId, email);
 }
 
-export async function requestPasswordResetByEmail(email: string): Promise<PasswordResetRequestResult> {
+export async function requestPasswordResetByEmail(
+    email: string
+): Promise<PasswordResetRequestResult> {
     const normalizedEmail = email.trim().toLowerCase();
     const [user] = await db.selectId(normalizedEmail);
     if (!user) {

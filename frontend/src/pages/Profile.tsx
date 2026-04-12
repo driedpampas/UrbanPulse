@@ -516,11 +516,7 @@ export function Profile() {
                         </p>
                     </div>
                     <div class="section-body stack-h gap-md" style="align-items:flex-start;">
-                        <img
-                            src={user.avatar}
-                            alt=""
-                            class="avatar avatar-lg"
-                        />
+                        <img src={user.avatar} alt="" class="avatar avatar-lg" />
                         <div style="flex:1;min-width:0;">
                             {editing ? (
                                 <input
@@ -1085,11 +1081,7 @@ export function Profile() {
 
             {/* Delete confirm */}
             {isOwnProfile && showDel && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    class="modal-overlay"
-                >
+                <div role="dialog" aria-modal="true" class="modal-overlay">
                     <div
                         class="modal-content animate-slide-up"
                         style="max-width:340px;padding:20px;"

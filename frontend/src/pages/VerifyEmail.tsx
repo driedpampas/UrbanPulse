@@ -105,7 +105,10 @@ export function VerifyEmail() {
                     </h1>
                 </div>
 
-                <div class="section animate-slide-up shadow-[var(--shadow-lg)]" style="animation-delay: 0.1s;">
+                <div
+                    class="section animate-slide-up shadow-[var(--shadow-lg)]"
+                    style="animation-delay: 0.1s;"
+                >
                     <div class="section-header bg-[var(--bg-subtle)]">
                         <div class="stack-h gap-sm">
                             {state === 'loading' && (

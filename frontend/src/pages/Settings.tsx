@@ -94,13 +94,13 @@ export function Settings() {
 
                         <form class="stack-v gap-md" onSubmit={handleEmailUpdate}>
                             <div class="stack-v gap-sm">
-                                <label class="label-caps">
-                                    New email address
-                                </label>
+                                <label class="label-caps">New email address</label>
                                 <input
                                     type="email"
                                     value={email}
-                                    onInput={(event) => setEmail((event.target as HTMLInputElement).value)}
+                                    onInput={(event) =>
+                                        setEmail((event.target as HTMLInputElement).value)
+                                    }
                                     autoComplete="email"
                                     class="input-field"
                                     placeholder="you@domain.com"
@@ -134,7 +134,9 @@ export function Settings() {
                     <div class="section-header bg-[var(--bg-subtle)]">
                         <div class="stack-h gap-sm">
                             <KeyRound class="h-4 w-4 text-[var(--warning)]" />
-                            <h2 class="text-sm font-semibold text-[var(--text)]">Password Security</h2>
+                            <h2 class="text-sm font-semibold text-[var(--text)]">
+                                Password Security
+                            </h2>
                         </div>
                     </div>
 
@@ -183,7 +185,8 @@ export function Settings() {
                     <div class="stack-h gap-sm">
                         <ShieldCheck class="h-4 w-4 text-[var(--accent)]" />
                         <p class="text-xs text-[var(--text-secondary)]">
-                            UrbanPulse enforces token-based confirmation for sensitive account changes.
+                            UrbanPulse enforces token-based confirmation for sensitive account
+                            changes.
                         </p>
                     </div>
                 </section>

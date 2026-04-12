@@ -59,7 +59,8 @@ export function Dashboard() {
                                         Verify your email address
                                     </p>
                                     <p class="text-xs text-[var(--text-secondary)] leading-relaxed">
-                                        High-trust features require a verified account. Check your inbox for the link.
+                                        High-trust features require a verified account. Check your
+                                        inbox for the link.
                                     </p>
                                 </div>
                             </div>

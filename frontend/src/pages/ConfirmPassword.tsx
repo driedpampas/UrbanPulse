@@ -81,11 +81,16 @@ export function ConfirmPassword() {
                     </h1>
                 </div>
 
-                <div class="section animate-slide-up shadow-[var(--shadow-lg)]" style="animation-delay: 0.1s;">
+                <div
+                    class="section animate-slide-up shadow-[var(--shadow-lg)]"
+                    style="animation-delay: 0.1s;"
+                >
                     <div class="section-header bg-[var(--bg-subtle)]">
                         <div class="stack-h gap-sm">
                             <KeyRound class="h-4 w-4 text-[var(--accent)]" />
-                            <p class="text-sm font-semibold text-[var(--text)]">Security Verification</p>
+                            <p class="text-sm font-semibold text-[var(--text)]">
+                                Security Verification
+                            </p>
                         </div>
                     </div>
 
@@ -110,9 +115,7 @@ export function ConfirmPassword() {
 
                         <form class="stack-v gap-lg" onSubmit={handleSubmit}>
                             <div class="stack-v gap-sm">
-                                <label class="label-caps">
-                                    New password
-                                </label>
+                                <label class="label-caps">New password</label>
                                 <input
                                     type="password"
                                     autoComplete="new-password"
@@ -127,9 +130,7 @@ export function ConfirmPassword() {
                             </div>
 
                             <div class="stack-v gap-sm">
-                                <label class="label-caps">
-                                    Confirm new password
-                                </label>
+                                <label class="label-caps">Confirm new password</label>
                                 <input
                                     type="password"
                                     autoComplete="new-password"
@@ -150,7 +151,9 @@ export function ConfirmPassword() {
                                     disabled={submitting}
                                     style="height:44px;width:100%;"
                                 >
-                                    {submitting ? 'Applying password update…' : 'Confirm Password Update'}
+                                    {submitting
+                                        ? 'Applying password update…'
+                                        : 'Confirm Password Update'}
                                 </HoverButton>
 
                                 <HoverButton

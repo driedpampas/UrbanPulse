@@ -42,12 +42,16 @@ function AppRoutes() {
         return (
             <div class="page-shell flex-center bg-[var(--bg)]">
                 <div class="stack-v gap-sm text-center">
-                    <p class="text-lg font-bold text-[var(--text)] tracking-tight">
-                        UrbanPulse
-                    </p>
+                    <p class="text-lg font-bold text-[var(--text)] tracking-tight">UrbanPulse</p>
                     <div class="stack-h gap-sm justify-center">
-                        <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" style="animation-delay:-0.3s" />
-                        <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" style="animation-delay:-0.15s" />
+                        <div
+                            class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce"
+                            style="animation-delay:-0.3s"
+                        />
+                        <div
+                            class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce"
+                            style="animation-delay:-0.15s"
+                        />
                         <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" />
                     </div>
                 </div>
@@ -284,16 +288,25 @@ function ChatNotificationsBridge() {
                         style="position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;"
                         title="Dismiss"
                     >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
                             <title>Dismiss Notification</title>
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                     </button>
                     <div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent-muted);overflow:hidden;border-radius:0 0 12px 12px;">
-                        <div 
-                            className="toast-progress-bar" 
-                            style="height:100%;background:var(--accent);width:100%;transform-origin:left;" 
+                        <div
+                            className="toast-progress-bar"
+                            style="height:100%;background:var(--accent);width:100%;transform-origin:left;"
                         />
                     </div>
                 </div>

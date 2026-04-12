@@ -1,4 +1,4 @@
-import * as bun from 'bun';
+import type * as bun from 'bun';
 import type { JwtPayload } from 'jsonwebtoken';
 import { z } from 'zod';
 import * as auth from '../auth';
@@ -18,8 +18,6 @@ import {
 import swaggerDoc from '../swagger.json';
 import type {
     AddChatParticipantsBody,
-    PasswordConfirmBody,
-    PasswordRequestBody,
     CreateChatBody,
     CreateLibraryItemBody,
     CreateMessageBody,
@@ -27,6 +25,8 @@ import type {
     DeleteMessageBody,
     InteractionFeedbackBody,
     LoginUserBody,
+    PasswordConfirmBody,
+    PasswordRequestBody,
     PulseListQuery,
     PulseMatchBody,
     RegisterUserBody,
@@ -41,17 +41,17 @@ import type {
 } from '../validators/http.validators';
 import {
     addChatParticipantsSchema,
+    adminMessageReportActionSchema,
+    adminMessageReportsQuerySchema,
     adminUsersQuerySchema,
     buildSearchParams,
     chatSocketMessageSchema,
     createChatSchema,
-    createMessageReportSchema,
     createLibraryItemSchema,
+    createMessageReportSchema,
     createMessageSchema,
     createPulseSchema,
     createReportSchema,
-    adminMessageReportActionSchema,
-    adminMessageReportsQuerySchema,
     deleteMessageSchema,
     interactionFeedbackSchema,
     loginUserSchema,
@@ -1203,10 +1203,7 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(BAD_REQUEST);
                         }
 
-                        const message = await db.selectMessage(
-                            parsedMessageId.data,
-                            payload.id
-                        );
+                        const message = await db.selectMessage(parsedMessageId.data, payload.id);
 
                         if (!message) {
                             return withCors(NOT_FOUND);
@@ -1540,11 +1537,7 @@ export const httpRoutes: HttpRoutes = {
                                 .filter((value) => value.length > 0);
                         }
 
-                        const updatedPulse = await db.updatePulse(
-                            pulse.id,
-                            pulse.userId,
-                            updates
-                        );
+                        const updatedPulse = await db.updatePulse(pulse.id, pulse.userId, updates);
 
                         if (!updatedPulse) {
                             return withCors(NOT_FOUND);

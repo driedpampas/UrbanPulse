@@ -204,9 +204,15 @@
     justify-content: space-between;
 }
 
-.gap-sm { gap: 8px; }
-.gap-md { gap: 12px; }
-.gap-lg { gap: 16px; }
+.gap-sm {
+    gap: 8px;
+}
+.gap-md {
+    gap: 12px;
+}
+.gap-lg {
+    gap: 16px;
+}
 
 /* ─── Components ─────────────────────────────────────────────── */
 
@@ -252,8 +258,16 @@
     flex-shrink: 0;
 }
 
-.avatar-sm { width: 32px; height: 32px; border-radius: 8px; }
-.avatar-lg { width: 48px; height: 48px; border-radius: 12px; }
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+.avatar-lg {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+}
 
 /* ─── Card ───────────────────────────────────────────────────── */
 
@@ -262,7 +276,10 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     box-shadow: var(--shadow-sm);
-    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    transition:
+        transform 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
 .card:hover {
@@ -421,7 +438,9 @@
     font-family: inherit;
     padding: 10px 14px;
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
 .input-field:focus {
@@ -490,14 +509,18 @@
     max-height: 90dvh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
+    box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.15);
 }
 
 /* ─── Animations ─────────────────────────────────────────────── */
 
 @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes slide-up {
@@ -512,13 +535,22 @@
 }
 
 @keyframes pulse-ring {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-    50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+    }
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes slide-in-right {
@@ -532,14 +564,26 @@
     }
 }
 
-.animate-fade-in { animation: fade-in 0.2s ease both; }
-.animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-slide-in-right { animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
+.animate-fade-in {
+    animation: fade-in 0.2s ease both;
+}
+.animate-slide-up {
+    animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-slide-in-right {
+    animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-pulse-ring {
+    animation: pulse-ring 2s ease-in-out infinite;
+}
 
 @keyframes toast-progress {
-    from { transform: scaleX(1); }
-    to { transform: scaleX(0); }
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
 }
 
 .toast-progress-bar {
@@ -580,7 +624,9 @@
 .message-row .message-reply-trigger {
     opacity: 0;
     transform: translateY(2px);
-    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    transition:
+        opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
 }
 
