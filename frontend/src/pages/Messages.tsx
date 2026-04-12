@@ -353,9 +353,7 @@ export function Messages() {
                 }
 
                 const thread = prev[index]!;
-                const senderIndex = thread.participants.findIndex(
-                    (participant) => participant === event.message?.senderId
-                );
+                const senderIndex = thread.participants.indexOf(event.message?.senderId);
                 const senderName =
                     event.event === 'notification.message' && event.senderName
                         ? event.senderName
@@ -1126,9 +1124,7 @@ function ChatView({
                 return;
             }
 
-            const senderIndex = thread.participants.findIndex((participant) => {
-                return participant === event.message?.senderId;
-            });
+            const senderIndex = thread.participants.indexOf(event.message?.senderId);
             const isMe = event.message.senderId === currentUserId;
             const senderName = isMe
                 ? currentUserName
@@ -1559,7 +1555,6 @@ function ChatView({
                                 type="text"
                                 className="input-field max-w-[200px]"
                                 value={chatNameDraft}
-                                autoFocus
                                 maxLength={50}
                                 onInput={(event) => {
                                     setChatNameDraft((event.target as HTMLInputElement).value);
@@ -1800,7 +1795,6 @@ function ChatView({
                                                             }
                                                         }}
                                                         maxLength={5000}
-                                                        autoFocus
                                                         style={`width:100%;padding:8px 10px;border-radius:8px;border:1px solid ${isMe ? 'rgba(255,255,255,0.45)' : 'var(--border)'};background:${isMe ? 'rgba(15,23,42,0.2)' : 'var(--bg-subtle)'};color:inherit;font-size:13px;outline:none;`}
                                                     />
                                                     <div style="display:flex;justify-content:flex-end;gap:8px;">

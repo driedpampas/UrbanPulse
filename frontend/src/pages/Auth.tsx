@@ -1,7 +1,6 @@
 import {
     AlertCircle,
     ArrowLeft,
-    ArrowRight,
     CheckCircle2,
     Eye,
     EyeOff,
@@ -115,7 +114,7 @@ export function Auth() {
     };
 
     return (
-        <div class="page-shell bg-[var(--bg)]">
+        <div class="page-shell bg-(--bg)">
             <div class="stack-h flex-between app-container" style="padding:16px 20px;">
                 <p style="font-size:16px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.03em;">
                     UrbanPulse
