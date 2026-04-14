@@ -4,4 +4,7 @@ team: `ciorbă`
 - [backend](/backend)
 - [frontend](/frontend)
 
-> Link Deployed Website: [https://urbanpulse.syu.nl.eu.org](https://urbanpulse.syu.nl.eu.org)
+> [!IMPORTANT]
+> The instance is havving issues, and the backend may not respond.
+
+Instance URL: [https://urbanpulse.syu.nl.eu.org](https://urbanpulse.syu.nl.eu.org)
