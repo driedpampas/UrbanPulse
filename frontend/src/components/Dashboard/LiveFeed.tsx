@@ -973,7 +973,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50, crisisFilter = null }:
                                                 class="btn-primary"
                                                 onClick={() => handleSavePulseEdit(pulse)}
                                                 disabled={savingEdit || editCharactersLeft < 0}
-                                                style="height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;padding:0 14px;"
+                                                style="height:38px;font-size:13px;border-radius:8px;opacity:1;padding:0 14px;"
                                             >
                                                 <Send size={13} />
                                                 {savingEdit ? 'Saving...' : 'Save Pulse'}

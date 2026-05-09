@@ -2285,7 +2285,7 @@ function ChatView({
                                         !threadSubscribed
                                     }
                                     class="btn-primary"
-                                    style="height:38px;width:38px;padding:0;background:var(--accent);border-radius:8px;flex-shrink:0;"
+                                    style="height:38px;width:38px;padding:0;border-radius:8px;flex-shrink:0;"
                                     aria-label="Send"
                                 >
                                     <Send size={15} />

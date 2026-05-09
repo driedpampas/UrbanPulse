@@ -143,7 +143,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, offender, on
                         type="submit"
                         disabled={sending}
                         class="btn-primary"
-                        style="width:100%;height:42px;font-size:14px;background:var(--accent);color:white;border-radius:10px;margin-top:4px;"
+                        style="width:100%;height:42px;font-size:14px;border-radius:10px;margin-top:4px;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }

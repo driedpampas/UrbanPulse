@@ -76,7 +76,8 @@ function DashboardToolbarComponent({
                         <HoverButton
                             type="button"
                             id="post-pulse-btn"
-                            class="btn-primary h-[34px] px-3 gap-xs text-[12px] w-auto"
+                            class="btn-ghost h-[34px] px-3 gap-xs text-[12px] w-auto"
+                            style="color:var(--accent);border-color:var(--accent);"
                             onClick={onOpenPostForm}
                             aria-label="Post pulse"
                         >

@@ -791,9 +791,9 @@ export function Profile() {
                                 class="btn-ghost"
                                 onClick={() => setShowRoleOptions(!showRoleOptions)}
                                 disabled={actionBusy}
-                                style={`height:36px;flex:1 1 120px;border-color:var(--accent-muted);${
+                                style={`height:36px;flex:1 1 120px;border-color:var(--accent);${
                                     showRoleOptions
-                                        ? 'background:var(--accent);color:#fff;'
+                                        ? 'color:var(--accent);'
                                         : 'color:var(--accent);'
                                 }`}
                             >
@@ -1225,7 +1225,7 @@ export function Profile() {
                             class="btn-primary"
                             onClick={handleSave}
                             disabled={saving || (isSetupMode && !selectedLocation)}
-                            style="flex:1;height:40px;background:var(--accent);"
+                            style="flex:1;height:40px;"
                         >
                             <Save size={14} />
                             {saving

@@ -464,7 +464,7 @@ export function NeedPostingForm({ onClose }: Props) {
                         id="post-pulse-submit"
                         disabled={!content.trim() || sending || left < 0}
                         class="btn-primary"
-                        style="margin-top:14px;width:100%;height:38px;font-size:13px;background:var(--accent);border-radius:8px;opacity:1;"
+                        style="margin-top:14px;width:100%;height:38px;font-size:13px;border-radius:8px;opacity:1;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }

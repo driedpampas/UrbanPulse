@@ -65,7 +65,7 @@ export function Library() {
                         id="add-library-btn"
                         class="btn-ghost"
                         onClick={() => setShowAdd(true)}
-                        style="height:34px;padding:0 12px;font-size:12px;color:var(--accent);border-color:var(--accent-muted);display:flex;align-items:center;gap:6px;"
+                        style="height:34px;padding:0 12px;font-size:12px;color:var(--accent);border-color:var(--accent);display:flex;align-items:center;gap:6px;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }
@@ -262,7 +262,7 @@ function AddItemModal({
                         type="submit"
                         disabled={!title.trim() || submitting}
                         class="btn-primary"
-                        style="height:40px;background:var(--accent);border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
+                        style="height:40px;border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }
@@ -405,7 +405,7 @@ function EditItemModal({
                         type="submit"
                         disabled={!title.trim() || busy}
                         class="btn-primary"
-                        style="height:40px;background:var(--accent);border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
+                        style="height:40px;border-radius:8px;width:100%;margin-top:2px;font-size:13px;opacity:1;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }
