@@ -391,8 +391,7 @@ export async function updateUserProfile(user: User) {
     const quietDaysProvided = user.quietDays !== undefined;
     const timezoneProvided = user.timezone !== undefined;
 
-    const quietHoursJson = JSON.stringify(user.quietHours ?? null);
-    const quietDaysJson = JSON.stringify(user.quietDays ?? null);
+    const quietHoursStrs = (user.quietHours ?? []).map((h) => `[${h.start ?? ''},${h.end ?? ''}]`);
     const timezone = user.timezone?.trim() || null;
 
     const shouldClearQuietHours = user.quietHours === null;
@@ -412,13 +411,13 @@ export async function updateUserProfile(user: User) {
 
       quiet_hours = CASE 
                 WHEN ${shouldClearQuietHours} THEN '{}'::app.timemultirange 
-                WHEN ${quietHoursProvided} THEN app.text_array_to_timemultirange(${quietHoursJson}::jsonb)
+                WHEN ${quietHoursProvided} THEN app.text_array_to_timemultirange(${quietHoursStrs}::text[])
         ELSE quiet_hours 
       END,
 
       quiet_days = CASE 
         WHEN ${shouldClearQuietDays} THEN '{}'::integer[]
-        WHEN ${quietDaysProvided} THEN app.jsonb_to_integer_array(${quietDaysJson}::jsonb)
+        WHEN ${quietDaysProvided} THEN ${user.quietDays ?? []}::integer[]
         ELSE quiet_days 
                         END,
 

@@ -944,9 +944,9 @@ export const httpRoutes: HttpRoutes = {
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                              lat: url.searchParams.get('lat'),
-                                              lng: url.searchParams.get('lng'),
-                                          }
+                                            lat: url.searchParams.get('lat'),
+                                            lng: url.searchParams.get('lng'),
+                                        }
                                         : null,
                                 bio: url.searchParams.get('bio'),
                                 limit: url.searchParams.get('limit'),
@@ -989,9 +989,9 @@ export const httpRoutes: HttpRoutes = {
                                 location:
                                     url.searchParams.get('lat') || url.searchParams.get('lng')
                                         ? {
-                                              lat: url.searchParams.get('lat'),
-                                              lng: url.searchParams.get('lng'),
-                                          }
+                                            lat: url.searchParams.get('lat'),
+                                            lng: url.searchParams.get('lng'),
+                                        }
                                         : null,
                                 limit: url.searchParams.get('limit'),
                                 offset: url.searchParams.get('offset'),
@@ -1037,9 +1037,9 @@ export const httpRoutes: HttpRoutes = {
                             location:
                                 url.searchParams.get('lat') || url.searchParams.get('lng')
                                     ? {
-                                          lat: url.searchParams.get('lat'),
-                                          lng: url.searchParams.get('lng'),
-                                      }
+                                        lat: url.searchParams.get('lat'),
+                                        lng: url.searchParams.get('lng'),
+                                    }
                                     : null,
                             availableDays: url.searchParams.getAll('available_days'),
                             availableHours: url.searchParams.getAll('available_hours'),
@@ -1691,16 +1691,16 @@ export const httpRoutes: HttpRoutes = {
                                 Boolean(body.isEmergency) || requestedType === 'emergency';
                             const pulseType: PulseType =
                                 requestedType === 'emergency' ||
-                                requestedType === 'skill' ||
-                                requestedType === 'item'
+                                    requestedType === 'skill' ||
+                                    requestedType === 'item'
                                     ? 'need'
                                     : requestedType;
 
                             const selectedResources =
                                 pulseType === 'need'
                                     ? (body.selectedResources ?? body.requiredSkills ?? [])
-                                          .map((value) => value.trim())
-                                          .filter((value) => value.length > 0)
+                                        .map((value) => value.trim())
+                                        .filter((value) => value.length > 0)
                                     : [];
                             const fullUser = await db.selectFullUser(payload.id);
                             const requesterTimezone =
