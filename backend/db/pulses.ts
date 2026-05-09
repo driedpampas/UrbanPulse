@@ -49,7 +49,7 @@ export async function selectPulses(
         ST_X(pulses.location::geometry) AS lng,
         COALESCE(pulses.is_verified_info, false) AS verified,
         COALESCE(pulses.confirmation_count, 0) AS confirmations,
-        COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+
         COALESCE(pulses.is_emergency, false) AS "is_emergency",
         COALESCE(pulses.is_solved, false) AS "is_solved",
         COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
@@ -88,7 +88,7 @@ export async function selectPulseById(id: string): Promise<PulseFeedItem | null>
         ST_X(pulses.location::geometry) AS lng,
         COALESCE(pulses.is_verified_info, false) AS verified,
         COALESCE(pulses.confirmation_count, 0) AS confirmations,
-        COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+
         COALESCE(pulses.is_emergency, false) AS "is_emergency",
         COALESCE(pulses.is_solved, false) AS "is_solved",
         COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
@@ -121,7 +121,7 @@ export async function selectPulsesByAuthor(
             ST_X(pulses.location::geometry) AS lng,
             COALESCE(pulses.is_verified_info, false) AS verified,
             COALESCE(pulses.confirmation_count, 0) AS confirmations,
-            COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+
             COALESCE(pulses.is_emergency, false) AS "is_emergency",
             COALESCE(pulses.is_solved, false) AS "is_solved",
             COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills",
@@ -161,7 +161,7 @@ export async function selectAdminRequests(limit = 50, offset = 0): Promise<Autho
             ST_X(location::geometry) AS lng,
             COALESCE(pulses.is_verified_info, false) AS verified,
             COALESCE(pulses.confirmation_count, 0) AS confirmations,
-            COALESCE(pulses.urgency_level, 1) AS "urgencyLevel",
+
             COALESCE(pulses.is_emergency, false) AS "is_emergency",
             COALESCE(pulses.is_solved, false) AS "is_solved",
             COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills",
@@ -196,7 +196,7 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
         content,
         location,
         pulse_type,
-        urgency_level,
+
         is_emergency,
         is_solved,
         required_skills
@@ -206,7 +206,7 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
         ${params.content},
         ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
         ${params.type},
-        ${params.urgencyLevel},
+
         ${isEmergency},
         false,
         ${JSON.stringify(params.requiredSkills)}::jsonb
@@ -242,17 +242,7 @@ export async function updatePulse(
         SET
             content = COALESCE(${content}, content),
             is_emergency = COALESCE(${isEmergency}::boolean, is_emergency),
-            urgency_level = CASE
-                WHEN ${isEmergency}::boolean IS NULL THEN urgency_level
-                WHEN ${isEmergency}::boolean = true THEN 5
-                ELSE CASE LOWER(COALESCE(pulse_type, 'update'))
-                    WHEN 'need' THEN 4
-                    WHEN 'skill' THEN 2
-                    WHEN 'item' THEN 1
-                    WHEN 'emergency' THEN 5
-                    ELSE 1
-                END
-            END,
+
             required_skills = COALESCE(${requiredSkills}::jsonb, required_skills)
         WHERE id = ${pulseId}::uuid
           AND author_id = ${authorId}::uuid
@@ -492,7 +482,7 @@ export async function selectPulseInteractionsByHelper(
             p.content AS pulse_content,
             LOWER(p.pulse_type) AS pulse_type,
             ROUND(EXTRACT(EPOCH FROM p.created_at) * 1000)::bigint AS pulse_timestamp,
-            p.urgency_level AS pulse_urgency_level,
+
             p.is_solved AS pulse_is_solved,
             COALESCE(NULLIF(author_user.display_name, ''), i.author_id::text) AS author_name
         FROM app.pulse_interactions AS i

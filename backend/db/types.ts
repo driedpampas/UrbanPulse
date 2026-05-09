@@ -23,7 +23,7 @@ export interface PulseFeedItem {
     lng: number;
     verified: boolean;
     confirmations: number;
-    urgencyLevel: number;
+
     isEmergency: boolean;
     isSolved: boolean;
     requiredSkills: string[];
@@ -62,7 +62,7 @@ export interface AcceptedInteraction {
         content: string;
         type: PulseType;
         timestamp: number;
-        urgencyLevel: number;
+
         isSolved: boolean;
     };
     author: {
@@ -202,7 +202,7 @@ export interface PulseCreateParams {
     location: Location;
     type: string;
     isEmergency?: boolean;
-    urgencyLevel: number;
+
     requiredSkills: string[];
 }
 
@@ -217,8 +217,8 @@ export type PulseRow = {
     lng?: number | string | null;
     verified?: boolean | null;
     confirmations?: number | string | null;
-    urgencyLevel?: number | string | null;
-    urgency_level?: number | string | null;
+
+
     isEmergency?: boolean | null;
     is_emergency?: boolean | null;
     isSolved?: boolean | null;
@@ -259,7 +259,7 @@ export type AcceptedInteractionRow = PulseInteractionRow & {
     pulse_content: string;
     pulse_type: string;
     pulse_timestamp: number | string | Date;
-    pulse_urgency_level: number | string | null;
+
     pulse_is_solved: boolean | null;
     author_name?: string | null;
 };

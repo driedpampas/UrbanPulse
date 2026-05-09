@@ -20,8 +20,7 @@ type BackendPulse = {
     lng: number | string;
     verified: boolean;
     confirmations: number | string;
-    urgencyLevel?: number;
-    urgency_level?: number;
+
     isEmergency?: boolean;
     is_emergency?: boolean;
     isSolved?: boolean;
@@ -36,7 +35,7 @@ type CreatePulseInput = {
     content: string;
     lat: number;
     lng: number;
-    urgencyLevel?: number;
+
     requiredSkills?: string[];
 };
 
@@ -76,7 +75,7 @@ type BackendAcceptedInteraction = {
         content: string;
         type: Pulse['type'];
         timestamp: number | string;
-        urgencyLevel: number | string;
+
         isSolved?: boolean;
     };
     author: {
@@ -92,15 +91,6 @@ export type PulseSocketEvent =
     | { event: 'pulse.deleted'; pulseId: string }
     | { event: 'pulse.updated'; pulse: Pulse }
     | { event: 'hero.alert'; pulse: Pulse; matchedResources?: string[] };
-
-const DEFAULT_URGENCY_BY_TYPE: Record<Pulse['type'], number> = {
-    need: 4,
-    emergency: 5,
-    skill: 2,
-    item: 1,
-    update: 1,
-    pet: 2,
-};
 
 const wsHandlers = new Set<PulseSocketHandler>();
 let socket: WebSocket | null = null;
@@ -165,7 +155,7 @@ function mapBackendPulse(pulse: BackendPulse): Pulse {
         lng: Number(pulse.lng),
         verified: Boolean(pulse.verified),
         confirmations: Number(pulse.confirmations ?? 0),
-        urgencyLevel: Number(pulse.urgencyLevel ?? pulse.urgency_level ?? 1),
+
         isEmergency,
         isSolved: Boolean(pulse.isSolved ?? pulse.is_solved),
         requiredSkills: pulse.requiredSkills ?? pulse.required_skills ?? [],
@@ -220,7 +210,7 @@ function mapBackendAcceptedInteraction(
             content: acceptedInteraction.pulse.content,
             type: normalizePulseType(acceptedInteraction.pulse.type),
             timestamp: Number(acceptedInteraction.pulse.timestamp),
-            urgencyLevel: Number(acceptedInteraction.pulse.urgencyLevel),
+
             isSolved: Boolean(acceptedInteraction.pulse.isSolved),
         },
         author: acceptedInteraction.author,
@@ -473,7 +463,7 @@ export async function postPulse(input: CreatePulseInput): Promise<Pulse> {
         type,
         isEmergency,
         timezone,
-        urgencyLevel: input.urgencyLevel ?? DEFAULT_URGENCY_BY_TYPE[type],
+
         content: input.content,
         location: {
             lat: input.lat,

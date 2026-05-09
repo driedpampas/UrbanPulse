@@ -36,7 +36,7 @@ export function mapPulseRow(row: PulseRow): PulseFeedItem {
         lng: Number(row.lng),
         verified: Boolean(row.verified),
         confirmations: Number(row.confirmations),
-        urgencyLevel: Number(row.urgencyLevel || row.urgency_level),
+
         isEmergency: Boolean(row.isEmergency || row.is_emergency),
         isSolved: Boolean(row.isSolved || row.is_solved),
         requiredSkills: row.required_skills || [],
@@ -73,7 +73,7 @@ export function mapAcceptedInteractionRow(row: AcceptedInteractionRow): Accepted
             content: String(row.pulse_content),
             type: (row.pulse_type || 'update') as PulseType,
             timestamp: Number(row.pulse_timestamp),
-            urgencyLevel: Number(row.pulse_urgency_level || 1),
+
             isSolved: Boolean(row.pulse_is_solved),
         },
         author: {

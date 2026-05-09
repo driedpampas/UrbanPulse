@@ -81,7 +81,7 @@ export async function selectAcceptedInteractionsForHelper(
             p.content AS pulse_content,
             LOWER(p.pulse_type) AS pulse_type,
             ROUND(EXTRACT(EPOCH FROM p.created_at) * 1000)::bigint AS pulse_timestamp,
-            COALESCE(p.urgency_level, 1) AS pulse_urgency_level,
+
             COALESCE(p.is_solved, false) AS pulse_is_solved,
             COALESCE(NULLIF(author.display_name, ''), pi.author_id::text) AS author_name
         FROM app.pulse_interactions AS pi

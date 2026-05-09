@@ -84,14 +84,6 @@ import {
 } from '../validators/http.validators';
 
 const PULSE_FEED_TOPIC = 'pulse-feed';
-const DEFAULT_PULSE_URGENCY: Record<PulseType, number> = {
-    update: 1,
-    emergency: 5,
-    skill: 2,
-    item: 1,
-    need: 4,
-    pet: 2,
-};
 
 const BACKEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROFILE_PICTURE_DIR = path.join(BACKEND_ROOT, 'storage', 'profile-pictures');
@@ -1658,11 +1650,7 @@ export const httpRoutes: HttpRoutes = {
                                 requestedType === 'item'
                                     ? 'need'
                                     : requestedType;
-                            const urgencyLevel =
-                                body.urgencyLevel ??
-                                (isEmergency
-                                    ? Math.max(DEFAULT_PULSE_URGENCY[pulseType], 5)
-                                    : DEFAULT_PULSE_URGENCY[pulseType]);
+
                             const selectedResources =
                                 pulseType === 'need'
                                     ? (body.selectedResources ?? body.requiredSkills ?? [])
@@ -1677,7 +1665,7 @@ export const httpRoutes: HttpRoutes = {
                                 authorId: payload.id,
                                 type: pulseType,
                                 isEmergency,
-                                urgencyLevel,
+
                                 content: body.content,
                                 location: body.location,
                                 requiredSkills: selectedResources,

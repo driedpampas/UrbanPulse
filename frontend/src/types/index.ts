@@ -39,7 +39,7 @@ export interface Pulse {
     lng: number;
     verified: boolean;
     confirmations: number;
-    urgencyLevel?: number;
+
     isEmergency?: boolean;
     isSolved?: boolean;
     distance?: number;
@@ -84,7 +84,7 @@ export interface AcceptedInteraction {
         content: string;
         type: Pulse['type'];
         timestamp: number;
-        urgencyLevel: number;
+
         isSolved?: boolean;
     };
     author: {

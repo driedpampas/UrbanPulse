@@ -47,7 +47,7 @@ export const createPulseSchema = z.strictObject({
     type: pulseTypeSchema,
     isEmergency: z.boolean().optional(),
     timezone: z.string().trim().min(1).optional(),
-    urgencyLevel: z.number().int().min(1).max(5).optional(),
+
     content: z.string().nonempty(),
     location: z.object({
         lat: z.number(),

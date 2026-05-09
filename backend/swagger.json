@@ -1588,7 +1588,7 @@
                                     "content": { "type": "string" },
                                     "type": { "type": "string", "enum": ["offer", "need", "emergency", "skill", "item"] },
                                     "isEmergency": { "type": "boolean" },
-                                    "urgencyLevel": { "type": "integer" },
+
                                     "selectedResources": { "type": "array", "items": { "type": "string" } },
                                     "requiredSkills": { "type": "array", "items": { "type": "string" } },
                                     "timezone": { "type": "string" },
