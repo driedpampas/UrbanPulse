@@ -9,12 +9,12 @@
 
 - **Stack**: PostgreSQL + PostGIS.
 - **ORM Usage**: No ORM is used. Database interaction is handled via a direct `postgres` client (see `backend/db/client.ts`).
-- **Schema Management**: Structural changes (creating tables, adding columns/indexes) should be implemented in `backend/db.ts` inside the `ensureSchema()` function using `IF NOT EXISTS` clauses.
-- **Manual Migrations**: New database structural changes should be placed in `backend/migrations/` using the `XXX_description.sql` naming convention (e.g., `006_new_feature.sql`). These are currently manual and the source of truth for the schema logic should be mirrored in `ensureSchema()`.
+- **Schema Management**: Structural changes (creating tables, adding columns/indexes) should be implemented in `backend/db/schema.ts` inside the `ensureSchema()` function using `IF NOT EXISTS` clauses.
+- **Manual Migrations**: New database structural changes should be placed in `backend/migrations/` using the `XXX_description.sql` naming convention (e.g., `006_new_feature.sql`). Name migrations descriptively based on the changes they contain. These are currently manual and the source of truth for the schema logic should be mirrored in `ensureSchema()`.
 
 ## Project Structure
 
-- **Backend**: Located in `./backend/`. Entry point is `index.ts`. Logic is mostly in `db.ts` and `routes/`.
+- **Backend**: Located in `./backend/`. Entry point is `index.ts`. Logic is modularized in `./backend/db/` and `routes/`.
 - **Frontend**: Located in `./frontend/`. Built with Vite + Preact + Tailwind CSS. Design system is in `index.css`.
 - **Auth Mailer**: Located in `./auth-mailer/` (Cloudflare Worker for emails).
 
