@@ -6,11 +6,9 @@ const sql = postgres(process.env.DATABASE_URL as string, { prepare: false });
 const db = drizzle(sql);
 
 try {
-    console.log("Running drizzle migrations...");
-    migrate(db, {migrationsFolder: "./drizzle/migrations"});
-    console.log("Migrations complete!");
-} catch(err) {
-    console.error("Drizzle migrations Failed: ", err);
+    console.log('Running drizzle migrations...');
+    migrate(db, { migrationsFolder: './drizzle/migrations' });
+    console.log('Migrations complete!');
+} catch (err) {
+    console.error('Drizzle migrations Failed: ', err);
 }
-
-

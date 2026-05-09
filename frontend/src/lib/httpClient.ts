@@ -5,7 +5,7 @@ type ErrorResponse = {
     error: string;
 };
 
-export async function httpClient<T>(path: string, options: RequestInit = {}): Promise<T>{
+export async function httpClient<T>(path: string, options: RequestInit = {}): Promise<T> {
     const session = readStoredAuthSession();
     const headers = new Headers(options.headers);
 
@@ -44,10 +44,10 @@ export async function httpClient<T>(path: string, options: RequestInit = {}): Pr
     //     return undefined as T;
     // }
 
-    try{
+    try {
         return (await response.json()) as T;
-    } catch(err) {
-        console.error("Error in httpClient: ", err);
+    } catch (err) {
+        console.error('Error in httpClient: ', err);
         throw err;
     }
 }

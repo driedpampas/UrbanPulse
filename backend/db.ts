@@ -390,12 +390,12 @@ type ChatSummaryRow = {
     timestamp: number | string | Date;
     name: string | null;
     participants:
-    | Array<{
-        userId: string;
-        displayName: string | null;
-        roles: string[];
-    }>
-    | unknown;
+        | Array<{
+              userId: string;
+              displayName: string | null;
+              roles: string[];
+          }>
+        | unknown;
     owner_id: string | null;
 };
 export interface Report {
@@ -747,20 +747,20 @@ function mapMessageRow(rawMessage: MessageRow): Message {
     const replySenderName = rawMessage.reply_to_sender_name?.trim().length
         ? String(rawMessage.reply_to_sender_name)
         : replySenderId
-            ? `Neighbor ${replySenderId.slice(0, 6)}`
-            : 'Unknown user';
+          ? `Neighbor ${replySenderId.slice(0, 6)}`
+          : 'Unknown user';
 
     const replyTo =
         replyToId && replySenderId
             ? {
-                id: replyToId,
-                senderId: replySenderId,
-                senderName: replySenderName,
-                snippet: replyToUnavailable
-                    ? 'Original message unavailable'
-                    : normalizeReplySnippet(rawMessage.reply_to_snippet),
-                isUnavailable: replyToUnavailable,
-            }
+                  id: replyToId,
+                  senderId: replySenderId,
+                  senderName: replySenderName,
+                  snippet: replyToUnavailable
+                      ? 'Original message unavailable'
+                      : normalizeReplySnippet(rawMessage.reply_to_snippet),
+                  isUnavailable: replyToUnavailable,
+              }
             : null;
 
     return {
@@ -2104,9 +2104,9 @@ export async function updateChatName(threadId: string, ownerId: string, newName:
 
     return updated
         ? {
-            threadId: updated.id,
-            name: updated.name ?? '',
-        }
+              threadId: updated.id,
+              name: updated.name ?? '',
+          }
         : null;
 }
 
@@ -3238,7 +3238,10 @@ export async function selectUserVerificationStateById(
     return user ?? null;
 }
 
-export async function updateUserVerificationToken(id: string, verificationToken: string): Promise<boolean> {
+export async function updateUserVerificationToken(
+    id: string,
+    verificationToken: string
+): Promise<boolean> {
     const [updatedUser] = await sql`
         UPDATE app.users
         SET verification_token = ${verificationToken}

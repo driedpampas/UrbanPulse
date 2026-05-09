@@ -384,15 +384,15 @@ export function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         radius: query.radius !== null && query.radius !== undefined ? String(query.radius) : null,
         location: query.location
             ? {
-                lat:
-                    query.location.lat !== null && query.location.lat !== undefined
-                        ? String(query.location.lat)
-                        : null,
-                lng:
-                    query.location.lng !== null && query.location.lng !== undefined
-                        ? String(query.location.lng)
-                        : null,
-            }
+                  lat:
+                      query.location.lat !== null && query.location.lat !== undefined
+                          ? String(query.location.lat)
+                          : null,
+                  lng:
+                      query.location.lng !== null && query.location.lng !== undefined
+                          ? String(query.location.lng)
+                          : null,
+              }
             : null,
         bio: query.bio ?? null,
         skillsAndResources: query.skillres && query.skillres.length !== 0 ? query.skillres : null,

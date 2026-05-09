@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import preact from '@preact/preset-vite';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig, loadEnv, type Plugin} from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import 'dotenv';
 
 function apiProxyPlugin(backendUrl: string, origin: string): Plugin {
@@ -78,14 +78,14 @@ function apiProxyPlugin(backendUrl: string, origin: string): Plugin {
 const commitHash = execSync('git rev-parse --short HEAD').toString().trim();
 
 // https://vite.dev/config/
-export default defineConfig( ({mode}) => {
+export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd());
 
-    if(!env.VITE_BACKEND_URL) {
-        throw new Error("VITE_BACKEND_URL not found in .env")
+    if (!env.VITE_BACKEND_URL) {
+        throw new Error('VITE_BACKEND_URL not found in .env');
     }
-    if(!env.VITE_ORIGIN) {
-        throw new Error("VITE_ORIGIN not found in .env")
+    if (!env.VITE_ORIGIN) {
+        throw new Error('VITE_ORIGIN not found in .env');
     }
 
     return {
@@ -93,5 +93,5 @@ export default defineConfig( ({mode}) => {
         define: {
             __COMMIT_HASH__: JSON.stringify(commitHash),
         },
-    }
+    };
 });

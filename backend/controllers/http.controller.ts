@@ -10,12 +10,12 @@ import * as db from '../db';
 import { adminAuthorize, authorize, unauthorize } from '../middleware/auth.middleware';
 import { isAllowedOrigin, validate, withCors } from '../middleware/cors.middleware';
 import {
-    SERVER_ERROR,
     BAD_REQUEST,
     caught,
     FORBIDDEN,
     NOT_FOUND,
     OPTIONS_RESPONSE,
+    SERVER_ERROR,
     SUCCESS,
     UNAUTHORIZED,
 } from '../middleware/error.middleware';
@@ -879,7 +879,7 @@ export const httpRoutes: HttpRoutes = {
                             );
                         } catch (err) {
                             await db.clearUserProfilePicture(parsedParams.data.userId);
-                            console.error("Profile picture not found: ", err);
+                            console.error('Profile picture not found: ', err);
                             return withCors(SERVER_ERROR);
                         }
                     })

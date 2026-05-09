@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import {Geometry} from "geojson";
 import {
     type AnyPgColumn,
     boolean,
@@ -16,33 +15,33 @@ import {
     uniqueIndex,
     uuid,
 } from 'drizzle-orm/pg-core';
+import { Geometry } from 'geojson';
 
-
-const point = customType<{ data: string; }>({
+const point = customType<{ data: string }>({
     dataType() {
         return 'geography(Point)';
     },
 });
 
-const timeRange = customType<{ 
-  data: [string, string];
-  driverData: string;
+const timeRange = customType<{
+    data: [string, string];
+    driverData: string;
 }>({
-  dataType() {
-    return 'app.timerange';
-  },
-  
-  toDriver(value: [string, string]): string {
-    return `[${value[0]},${value[1]})`;
-  },
-  
-  fromDriver(value: string): [string, string] {
-    const matches = value.match(/([0-9:]+),([0-9:]+)/);
-    if (matches && matches.length >= 3) {
-      return [matches[1], matches[2]];
-    }
-    return ['00:00:00', '00:00:00'];
-  },
+    dataType() {
+        return 'app.timerange';
+    },
+
+    toDriver(value: [string, string]): string {
+        return `[${value[0]},${value[1]})`;
+    },
+
+    fromDriver(value: string): [string, string] {
+        const matches = value.match(/([0-9:]+),([0-9:]+)/);
+        if (matches && matches.length >= 3) {
+            return [matches[1], matches[2]];
+        }
+        return ['00:00:00', '00:00:00'];
+    },
 });
 
 const timeMultirange = customType<{ data: [string, string][]; driverData: string }>({
@@ -51,35 +50,35 @@ const timeMultirange = customType<{ data: [string, string][]; driverData: string
     },
 
     toDriver(value: [string, string][]): string {
-        const range = value.map(v => `[${v[0]},${v[1]})`) 
-        return `{${range.join(",")}}`
+        const range = value.map((v) => `[${v[0]},${v[1]})`);
+        return `{${range.join(',')}}`;
     },
 
     fromDriver(value: string): [string, string][] {
-        const rawString = value.substring(1, value.length-1)
-        if(!rawString || rawString.length == 0) {
-            throw new Error(`Invalid app.timemultirange ${value}`)
+        const rawString = value.substring(1, value.length - 1);
+        if (!rawString || rawString.length == 0) {
+            throw new Error(`Invalid app.timemultirange ${value}`);
         }
 
-        if(value === "{}") {
-            return []
+        if (value === '{}') {
+            return [];
         }
 
         const regex = /\[([0-9:]+),([0-9:]+)\)/g;
 
-        const results: [string, string][] = []
+        const results: [string, string][] = [];
 
-        let found = null
-        while((found = regex.exec(value)) !== null) {
-            results.push([found[1], found[2]])
-        }
-    
-        if(results.length == 0) {
-            throw new Error(`Invalid app.timemultirange ${value}`)
+        let found = null;
+        while ((found = regex.exec(value)) !== null) {
+            results.push([found[1], found[2]]);
         }
 
-        return results
-    }
+        if (results.length == 0) {
+            throw new Error(`Invalid app.timemultirange ${value}`);
+        }
+
+        return results;
+    },
 });
 
 export const app = pgSchema('app');
@@ -145,7 +144,7 @@ export const pulses = app.table(
             .references(() => users.id, { onDelete: 'cascade' }),
         pulseType: text('pulse_type').notNull(),
         content: text('content').notNull(),
-        location: geometry('location', {type: "point", srid: 4326}).notNull(),
+        location: geometry('location', { type: 'point', srid: 4326 }).notNull(),
         isVerifiedInfo: boolean('is_verified_info').notNull().default(false),
         confirmationCount: integer('confirmation_count').notNull().default(0),
         urgencyLevel: integer('urgency_level').notNull().default(1),

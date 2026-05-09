@@ -30,11 +30,11 @@ export type ChatSocketEvent =
     | { event: 'chat.updated'; threadId: string; name?: string }
     | { event: 'chat.members.updated'; threadId: string }
     | {
-        event: 'notification.message';
-        message: ChatSocketMessage;
-        senderName: string;
-        threadName?: string;
-    };
+          event: 'notification.message';
+          message: ChatSocketMessage;
+          senderName: string;
+          threadName?: string;
+      };
 
 type ChatSocketHandler = (event: ChatSocketEvent) => void;
 
@@ -131,12 +131,12 @@ function updateStatus(newStatus: typeof connectionStatus) {
 function normalizeMessage(message: BackendChatMessage, senderName: string): ChatMessage {
     const replyTo = message.replyTo
         ? {
-            id: message.replyTo.id,
-            senderId: message.replyTo.senderId,
-            senderName: message.replyTo.senderName,
-            snippet: message.replyTo.snippet,
-            isUnavailable: Boolean(message.replyTo.isUnavailable),
-        }
+              id: message.replyTo.id,
+              senderId: message.replyTo.senderId,
+              senderName: message.replyTo.senderName,
+              snippet: message.replyTo.snippet,
+              isUnavailable: Boolean(message.replyTo.isUnavailable),
+          }
         : null;
 
     return {
@@ -216,8 +216,8 @@ function normalizeChat(summary: BackendChatSummary, messages: ChatMessage[]): Ch
             summary.isGroup && typeof summary.name === 'string' && summary.name.trim().length > 0
                 ? summary.name.trim()
                 : summary.isGroup
-                    ? participantNames.join(', ')
-                    : undefined,
+                  ? participantNames.join(', ')
+                  : undefined,
         lastMessage,
         messages,
     };
@@ -507,7 +507,7 @@ export async function sendMessage(
         'senderName' in response && typeof response.senderName === 'string'
             ? response.senderName
             : readStoredAuthSession()?.user.displayName ||
-            `Neighbor ${message.senderId.slice(0, 6)}`;
+              `Neighbor ${message.senderId.slice(0, 6)}`;
 
     const normalized = normalizeMessage(message, senderName);
     const sessionUserId = readStoredAuthSession()?.user.id;
@@ -669,8 +669,8 @@ export async function editChatMessage(messageId: string, content: string): Promi
         senderName:
             sessionUser && sessionUser.id === payload.message.senderId
                 ? sessionUser.displayName ||
-                sessionUser.email ||
-                `Neighbor ${sessionUser.id.slice(0, 6)}`
+                  sessionUser.email ||
+                  `Neighbor ${sessionUser.id.slice(0, 6)}`
                 : `Neighbor ${payload.message.senderId.slice(0, 6)}`,
         content: payload.message.content,
         isEdited: Boolean(payload.message.isEdited),
@@ -678,12 +678,12 @@ export async function editChatMessage(messageId: string, content: string): Promi
         replyToId: payload.message.replyToId ?? null,
         replyTo: payload.message.replyTo
             ? {
-                id: payload.message.replyTo.id,
-                senderId: payload.message.replyTo.senderId,
-                senderName: payload.message.replyTo.senderName,
-                snippet: payload.message.replyTo.snippet,
-                isUnavailable: Boolean(payload.message.replyTo.isUnavailable),
-            }
+                  id: payload.message.replyTo.id,
+                  senderId: payload.message.replyTo.senderId,
+                  senderName: payload.message.replyTo.senderName,
+                  snippet: payload.message.replyTo.snippet,
+                  isUnavailable: Boolean(payload.message.replyTo.isUnavailable),
+              }
             : null,
         timestamp: Number(payload.message.timestamp),
     };

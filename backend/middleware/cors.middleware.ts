@@ -1,7 +1,7 @@
 import { FORBIDDEN } from './error.middleware';
 
-if(!process.env.ORIGIN) {
-    throw new Error("ORIGIN not found in .env")
+if (!process.env.ORIGIN) {
+    throw new Error('ORIGIN not found in .env');
 }
 
 const corsHeaders = {
@@ -48,4 +48,3 @@ export async function validate(
     }
     return res;
 }
-

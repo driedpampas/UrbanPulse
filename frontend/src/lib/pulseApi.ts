@@ -394,8 +394,8 @@ function ensureSocket() {
     reconnectEnabled = true;
     try {
         socket = new WebSocket(`${PULSE_FEED_WS_URL}`);
-    } catch(err) {
-        console.error("WebSocket connection failed: ", err);
+    } catch (err) {
+        console.error('WebSocket connection failed: ', err);
         return;
     }
 

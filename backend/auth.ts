@@ -141,7 +141,7 @@ export async function requestVerificationEmail(userId: string): Promise<VerifyEm
         return { success: false, status: 404 };
     }
 
-    if (Boolean(user.is_email_verified)) {
+    if (user.is_email_verified) {
         return { success: false, status: 409 };
     }
 
@@ -374,12 +374,12 @@ function isUniqueViolation(error: unknown): boolean {
 
 type AuthMailerRequestPayload =
     | {
-        action: 'verification';
-        email: string;
-        verification_link: string;
-    }
+          action: 'verification';
+          email: string;
+          verification_link: string;
+      }
     | {
-        action: 'password_change';
-        email: string;
-        password_change_link: string;
-    };
+          action: 'password_change';
+          email: string;
+          password_change_link: string;
+      };
