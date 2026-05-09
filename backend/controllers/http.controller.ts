@@ -10,6 +10,7 @@ import * as db from '../db';
 import { adminAuthorize, authorize, unauthorize } from '../middleware/auth.middleware';
 import { isAllowedOrigin, validate, withCors } from '../middleware/cors.middleware';
 import {
+    SERVER_ERROR,
     BAD_REQUEST,
     caught,
     FORBIDDEN,
@@ -876,9 +877,10 @@ export const httpRoutes: HttpRoutes = {
                                     },
                                 })
                             );
-                        } catch {
+                        } catch (err) {
                             await db.clearUserProfilePicture(parsedParams.data.userId);
-                            return withCors(NOT_FOUND);
+                            console.error("Profile picture not found: ", err);
+                            return withCors(SERVER_ERROR);
                         }
                     })
                 )
@@ -899,10 +901,6 @@ export const httpRoutes: HttpRoutes = {
                                 email: url.searchParams.get('email'),
                                 anyskillres: url.searchParams.get('anyskillres'),
                                 skillres: url.searchParams.getAll('skillres'),
-                                min_trust: url.searchParams.get('min_trust'),
-                                max_trust: url.searchParams.get('max_trust'),
-                                created_before: url.searchParams.get('created_before'),
-                                created_after: url.searchParams.get('created_after'),
                                 displayName: url.searchParams.get('displayName'),
                                 role: url.searchParams.get('role'),
                                 verified: url.searchParams.get('verified'),
@@ -914,8 +912,6 @@ export const httpRoutes: HttpRoutes = {
                                               lng: url.searchParams.get('lng'),
                                           }
                                         : null,
-                                availableDays: url.searchParams.getAll('available_days'),
-                                availableHours: url.searchParams.getAll('available_hours'),
                                 bio: url.searchParams.get('bio'),
                                 limit: url.searchParams.get('limit'),
                                 offset: url.searchParams.get('offset'),

@@ -24,30 +24,30 @@ function DashboardToolbarComponent({
     onOpenPostForm,
 }: Props) {
     return (
-        <div class="stack-v gap-md pt-3 sm:flex-row sm:items-start sm:justify-start">
-            <div class="stack-v gap-md sm:flex-row sm:items-center sm:flex-wrap">
-                <div class="tab-switcher w-fit max-w-full">
+        <div class="flex flex-col gap-md pt-3 sm:flex-row sm:items-center sm:justify-between w-full overflow-hidden">
+            <div class="flex flex-row items-center gap-md flex-1 min-w-0">
+                <div class="tab-switcher flex-1">
                     <HoverButton
                         type="button"
                         id="view-feed-btn"
-                        class={cn('tab-btn justify-center', view === 'feed' && 'active')}
+                        class={cn('tab-btn', view === 'feed' && 'active')}
                         onClick={() => onViewChange('feed')}
                     >
                         <List size={14} strokeWidth={2.5} />
-                        <span class="hidden sm:inline">Feed</span>
+                        <span>Feed</span>
                     </HoverButton>
                     <HoverButton
                         type="button"
                         id="view-map-btn"
-                        class={cn('tab-btn justify-center', view === 'map' && 'active')}
+                        class={cn('tab-btn', view === 'map' && 'active')}
                         onClick={() => onViewChange('map')}
                     >
                         <MapIcon size={14} strokeWidth={2.5} />
-                        <span class="hidden sm:inline">Map</span>
+                        <span>Map</span>
                     </HoverButton>
                 </div>
 
-                <div class="stack-h gap-md flex-wrap">
+                <div class="stack-h gap-md shrink-0">
                     <HoverButton
                         type="button"
                         id="toggle-filters-btn"

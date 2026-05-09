@@ -1,1 +1,0 @@
-ALTER TABLE "app"."users" DROP COLUMN "skills_and_resources";

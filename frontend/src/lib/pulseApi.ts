@@ -392,7 +392,12 @@ function ensureSocket() {
     }
 
     reconnectEnabled = true;
-    socket = new WebSocket(PULSE_FEED_WS_URL);
+    try {
+        socket = new WebSocket(`${PULSE_FEED_WS_URL}`);
+    } catch(err) {
+        console.error("WebSocket connection failed: ", err);
+        return;
+    }
 
     socket.onopen = () => {
         if (!socket || socket.readyState !== WebSocket.OPEN) {

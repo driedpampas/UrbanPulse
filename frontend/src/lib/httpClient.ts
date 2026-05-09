@@ -5,7 +5,7 @@ type ErrorResponse = {
     error: string;
 };
 
-export async function httpClient<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function httpClient<T>(path: string, options: RequestInit = {}): Promise<T>{
     const session = readStoredAuthSession();
     const headers = new Headers(options.headers);
 
@@ -23,6 +23,10 @@ export async function httpClient<T>(path: string, options: RequestInit = {}): Pr
     });
 
     if (!response.ok) {
+        if (response.status === 401) {
+            window.dispatchEvent(new CustomEvent('urbanpulse:auth:unauthorized'));
+        }
+
         let errorBody: ErrorResponse;
         try {
             errorBody = await response.json();
@@ -36,5 +40,14 @@ export async function httpClient<T>(path: string, options: RequestInit = {}): Pr
         return {} as T;
     }
 
-    return response.json();
+    // if(!response.headers.has('Content-Type') || response.headers.get('Content-Type') !== "application/json") {
+    //     return undefined as T;
+    // }
+
+    try{
+        return (await response.json()) as T;
+    } catch(err) {
+        console.error("Error in httpClient: ", err);
+        throw err;
+    }
 }

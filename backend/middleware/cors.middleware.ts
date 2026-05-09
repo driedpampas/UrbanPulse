@@ -1,7 +1,11 @@
 import { FORBIDDEN } from './error.middleware';
 
+if(!process.env.ORIGIN) {
+    throw new Error("ORIGIN not found in .env")
+}
+
 const corsHeaders = {
-    'Access-Control-Allow-Origin': 'https://urbanpulse.syu.nl.eu.org',
+    'Access-Control-Allow-Origin': process.env.ORIGIN,
     'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS, PATCH, DELETE',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -23,7 +27,7 @@ export function withCors(response: Response): Response {
 
 export function isAllowedOrigin(origin: string): boolean {
     return (
-        origin === 'https://urbanpulse.syu.nl.eu.org' ||
+        origin === process.env.ORIGIN ||
         origin === 'https://pets.urbanpulse-1rw.pages.dev' ||
         /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
     );

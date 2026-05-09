@@ -16,13 +16,13 @@ export const profilePictureRouteParamsSchema = z.strictObject({
 });
 
 export const registerUserSchema = z.strictObject({
-    email: z.string().email(),
+    email: z.email(),
     displayName: z.string().nonempty(),
     password: z.string().min(8),
 });
 
 export const loginUserSchema = z.strictObject({
-    email: z.string().email(),
+    email: z.email(),
     password: z.string(),
 });
 
@@ -38,7 +38,7 @@ export const passwordConfirmSchema = z.strictObject({
 });
 
 export const updateEmailSchema = z.strictObject({
-    email: z.string().email(),
+    email: z.email(),
 });
 
 export const pulseTypeSchema = z.union([z.enum(PULSE_TYPES), z.enum(PULSE_TYPE_ALIASES)]);
@@ -394,12 +394,6 @@ export function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
                         : null,
             }
             : null,
-        availableHours:
-            query.availableHours && query.availableHours.length > 0 ? query.availableHours : null,
-        availableDays:
-            query.availableDays && query.availableDays.length > 0
-                ? query.availableDays.map(String)
-                : null,
         bio: query.bio ?? null,
         skillsAndResources: query.skillres && query.skillres.length !== 0 ? query.skillres : null,
         anySkillRes: query.anyskillres ?? null,

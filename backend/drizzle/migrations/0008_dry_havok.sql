@@ -1,1 +1,0 @@
-ALTER TABLE "app"."chat_threads" ADD COLUMN "name" text;

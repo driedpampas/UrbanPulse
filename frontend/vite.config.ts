@@ -1,9 +1,10 @@
 import { execSync } from 'node:child_process';
 import preact from '@preact/preset-vite';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin} from 'vite';
+import 'dotenv';
 
-function apiProxyPlugin(): Plugin {
+function apiProxyPlugin(backendUrl: string, origin: string): Plugin {
     return {
         name: 'api-proxy',
         configureServer(server) {
@@ -12,7 +13,6 @@ function apiProxyPlugin(): Plugin {
                     return next();
                 }
 
-                const backendUrl = 'https://urbanpulse-api.syu.nl.eu.org';
                 const targetUrl = `${backendUrl}${req.url}`;
 
                 try {
@@ -33,7 +33,7 @@ function apiProxyPlugin(): Plugin {
                         }
                     }
 
-                    headers.set('Origin', 'https://urbanpulse.syu.nl.eu.org');
+                    headers.set('Origin', origin);
 
                     const chunks: Uint8Array[] = [];
                     for await (const chunk of req) {
@@ -78,9 +78,20 @@ function apiProxyPlugin(): Plugin {
 const commitHash = execSync('git rev-parse --short HEAD').toString().trim();
 
 // https://vite.dev/config/
-export default defineConfig({
-    plugins: [preact(), tailwindcss(), apiProxyPlugin()],
-    define: {
-        __COMMIT_HASH__: JSON.stringify(commitHash),
-    },
+export default defineConfig( ({mode}) => {
+    const env = loadEnv(mode, process.cwd());
+
+    if(!env.VITE_BACKEND_URL) {
+        throw new Error("VITE_BACKEND_URL not found in .env")
+    }
+    if(!env.VITE_ORIGIN) {
+        throw new Error("VITE_ORIGIN not found in .env")
+    }
+
+    return {
+        plugins: [preact(), tailwindcss(), apiProxyPlugin(env.VITE_BACKEND_URL, env.VITE_ORIGIN)],
+        define: {
+            __COMMIT_HASH__: JSON.stringify(commitHash),
+        },
+    }
 });

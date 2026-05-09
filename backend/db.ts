@@ -3109,7 +3109,6 @@ export async function searchUsers(
 ): Promise<User[]> {
     await ensureSchema();
 
-    const availableDaysQuery = (userSearch.availableDays ?? []).map((day) => Number(day));
     const safeLimit = Number.isFinite(limit)
         ? Math.max(1, Math.min(Math.floor(limit), 100))
         : SEARCH_LIMIT;
@@ -3166,16 +3165,6 @@ export async function searchUsers(
                 )::geography,
                 (${userSearch.radius})::double precision
             )
-        )
-        AND (
-            ${userSearch.availableDays}::jsonb IS NULL
-            OR (quiet_days != '{}'::integer[] AND NOT (
-                quiet_days && app.jsonb_to_integer_array(${JSON.stringify(availableDaysQuery)}::jsonb)
-            ))
-        )
-        AND (
-            ${userSearch.availableHours}::jsonb IS NULL
-            OR ( quiet_hours != '{}'::app.timemultirange AND NOT (quiet_hours && app.text_array_to_timemultirange(${userSearch.availableHours ? JSON.stringify(userSearch.availableHours) : null}::jsonb)))
         )
         AND (${userSearch.bio}::text IS NULL OR bio ILIKE ${userSearch.bio ? `%${userSearch.bio}%` : null})
         AND (${userSearch.created_before}::timestamptz IS NULL OR created_at <= ${userSearch.created_before}::timestamptz)
@@ -3316,7 +3305,7 @@ export async function updateUserProfile(user: User) {
 
       quiet_hours = CASE 
                 WHEN ${shouldClearQuietHours} THEN '{}'::app.timemultirange 
-                WHEN ${quietHoursProvided} THEN app.jsonb_to_timemultirange(${quietHoursJson}::jsonb)
+                WHEN ${quietHoursProvided} THEN app.text_array_to_timemultirange(${quietHoursJson}::jsonb)
         ELSE quiet_hours 
       END,
 

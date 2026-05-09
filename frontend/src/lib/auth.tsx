@@ -180,6 +180,17 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
         setIsReady(true);
     }, []);
 
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            logout();
+        };
+
+        window.addEventListener('urbanpulse:auth:unauthorized', handleUnauthorized);
+        return () => {
+            window.removeEventListener('urbanpulse:auth:unauthorized', handleUnauthorized);
+        };
+    }, []);
+
     function persistSession(nextSession: AuthSession): AuthSession;
     function persistSession(nextSession: null): null;
     function persistSession(nextSession: AuthSession | null) {
