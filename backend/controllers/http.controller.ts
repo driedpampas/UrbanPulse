@@ -23,6 +23,8 @@ import swaggerDoc from '../swagger.json';
 import type {
     AddChatParticipantsBody,
     CreateChatBody,
+    CreateIncidentAdminBody,
+    CreateIncidentTypeBody,
     CreateLibraryItemBody,
     CreateMessageBody,
     CreatePulseBody,
@@ -42,7 +44,10 @@ import type {
     UpdatePassBody,
     UpdatePulseBody,
     UpdateUserBody,
+    UpdateUserLocationBody,
+    UpdateUserStatusBody,
     VerifyEmailQuery,
+    VerifyIncidentBody,
 } from '../validators/http.validators';
 import {
     addChatParticipantsSchema,
@@ -52,6 +57,8 @@ import {
     buildSearchParams,
     chatSocketMessageSchema,
     createChatSchema,
+    createIncidentAdminSchema,
+    createIncidentTypeSchema,
     createLibraryItemSchema,
     createMessageReportSchema,
     createMessageSchema,
@@ -80,8 +87,11 @@ import {
     updatePassSchema,
     updatePulseSchema,
     updateReportStatusSchema,
+    updateUserLocationSchema,
     updateUserSchema,
+    updateUserStatusSchema,
     verifyEmailQuerySchema,
+    verifyIncidentSchema,
 } from '../validators/http.validators';
 
 const PULSE_FEED_TOPIC = 'pulse-feed';
@@ -2966,6 +2976,178 @@ export const httpRoutes: HttpRoutes = {
                         }
 
                         return withCors(SUCCESS);
+                    })
+                )
+            ),
+    },
+    '/api/user/location': {
+        PATCH: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const body: UpdateUserLocationBody = await req
+                            .json()
+                            .then((raw) => updateUserLocationSchema.parse(raw));
+
+                        await db.updateUserProfile({
+                            id: payload.id,
+                            displayName: undefined,
+                            bio: undefined,
+                            radius: undefined,
+                            location: { lat: body.lat, lng: body.lng },
+                            quietHours: undefined,
+                            quietDays: undefined,
+                            timezone: undefined,
+                        });
+
+                        return withCors(SUCCESS);
+                    })
+                )
+            ),
+        GET: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const user = await db.selectFullUser(payload.id);
+                        if (!user) return withCors(NOT_FOUND);
+                        return withCors(Response.json({ location: user.location }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/user/status': {
+        PATCH: async (req) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const body: UpdateUserStatusBody = await req
+                            .json()
+                            .then((raw) => updateUserStatusSchema.parse(raw));
+
+                        void payload;
+                        void body;
+
+                        return withCors(NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/admin/location': {
+        GET: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const url = new URL(req.url);
+                        const limit = Number(url.searchParams.get('limit') ?? '50');
+                        const offset = Number(url.searchParams.get('offset') ?? '0');
+
+                        const users = await db.searchUsers(
+                            buildSearchParams({
+                                id: null,
+                                email: null,
+                                anyskillres: null,
+                                skillres: null,
+                                min_trust: null,
+                                max_trust: null,
+                                created_before: null,
+                                created_after: null,
+                                displayName: null,
+                                role: null,
+                                verified: null,
+                                radius: null,
+                                location: null,
+                                availableDays: null,
+                                availableHours: null,
+                                bio: null,
+                            }),
+                            Number.isFinite(limit) ? limit : 50,
+                            Number.isFinite(offset) ? offset : 0
+                        );
+
+                        const locations = users
+                            .filter((u) => u.location != null)
+                            .map((u) => ({ id: u.id, location: u.location }));
+
+                        return withCors(Response.json({ locations }, { status: 200 }));
+                    })
+                )
+            ),
+    },
+    '/api/crisis': {
+        GET: async (req) =>
+            validate(req, async () =>
+                authorize(req, async () =>
+                    caught(async () => {
+                        return withCors(NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/incident/type': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const body: CreateIncidentTypeBody = await req
+                            .json()
+                            .then((raw) => createIncidentTypeSchema.parse(raw));
+
+                        void body;
+
+                        return withCors(NOT_FOUND);
+                    })
+                )
+            ),
+        GET: async (req) =>
+            validate(req, async () =>
+                authorize(req, async () =>
+                    caught(async () => {
+                        return withCors(NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/incident/admin': {
+        POST: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const body: CreateIncidentAdminBody = await req
+                            .json()
+                            .then((raw) => createIncidentAdminSchema.parse(raw));
+
+                        void body;
+
+                        return withCors(NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/incident/verify': {
+        PUT: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const body: VerifyIncidentBody = await req
+                            .json()
+                            .then((raw) => verifyIncidentSchema.parse(raw));
+
+                        void body;
+
+                        return withCors(NOT_FOUND);
+                    })
+                )
+            ),
+    },
+    '/api/incident': {
+        GET: async (req) =>
+            validate(req, async () =>
+                authorize(req, async () =>
+                    caught(async () => {
+                        return withCors(NOT_FOUND);
                     })
                 )
             ),
