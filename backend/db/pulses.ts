@@ -32,7 +32,8 @@ export async function selectPulses(
     radius?: number | null,
     offset = 0,
     type?: PulseType | null,
-    excludePets = false
+    excludePets = false,
+    since?: number | null
 ): Promise<PulseFeedItem[]> {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
     const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
@@ -64,8 +65,10 @@ export async function selectPulses(
             ST_SetSRID(ST_MakePoint(${lng ?? null}::double precision, ${lat ?? null}::double precision), 4326)::geography,
             ${radius ?? null}::double precision
         ))
+<<<<<<< HEAD
         AND (${type ?? null}::text IS NULL OR pulses.pulse_type::text = LOWER(${type ?? null}::text))
         AND (${excludePets}::boolean IS FALSE OR pulses.pulse_type::text != 'pet')
+>>>>>>> refs/remotes/origin/main
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}

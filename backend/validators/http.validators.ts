@@ -349,11 +349,43 @@ export type CreateMessageReportBody = z.infer<typeof createMessageReportSchema>;
 export type AdminMessageReportsQuery = z.infer<typeof adminMessageReportsQuerySchema>;
 export type AdminMessageReportActionBody = z.infer<typeof adminMessageReportActionSchema>;
 export type UpdateReportStatusBody = z.infer<typeof updateReportStatusSchema>;
+export type UpdateUserLocationBody = z.infer<typeof updateUserLocationSchema>;
+export type UpdateUserStatusBody = z.infer<typeof updateUserStatusSchema>;
+export type CreateIncidentTypeBody = z.infer<typeof createIncidentTypeSchema>;
+export type CreateIncidentAdminBody = z.infer<typeof createIncidentAdminSchema>;
+export type VerifyIncidentBody = z.infer<typeof verifyIncidentSchema>;
 
 export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned']);
 
 export const updateAdminUserRoleBodySchema = z.strictObject({
     role: adminRoleSchema,
+});
+
+export const updateUserLocationSchema = z.strictObject({
+    lat: z.number(),
+    lng: z.number(),
+});
+
+export const updateUserStatusSchema = z.strictObject({
+    status: z.enum(['available', 'busy', 'offline']),
+});
+
+export const createIncidentTypeSchema = z.strictObject({
+    label: z.string().nonempty().max(255),
+});
+
+export const createIncidentAdminSchema = z.strictObject({
+    typeId: z.uuid(),
+    location: z.object({
+        lat: z.number(),
+        lng: z.number(),
+    }),
+    confidenceScore: z.number().int().min(0).max(100),
+    confirmed: z.boolean(),
+});
+
+export const verifyIncidentSchema = z.strictObject({
+    incidentId: z.uuid(),
 });
 
 export const adminUsersQuerySchema = z.strictObject({

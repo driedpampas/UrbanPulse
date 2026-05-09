@@ -42,8 +42,6 @@ export function useBatterySaver({ crisisMode }: UseBatterySaverOptions) {
 
     useEffect(() => {
         if (!crisisMode) {
-            setDialogDismissed(false);
-            writeDismissedFlag(false);
             setWakeLockActive(false);
             if (wakeLockRef.current) {
                 void wakeLockRef.current.release();
@@ -52,7 +50,8 @@ export function useBatterySaver({ crisisMode }: UseBatterySaverOptions) {
             return;
         }
 
-        setDialogDismissed(readDismissedFlag());
+        const dismissed = readDismissedFlag();
+        setDialogDismissed(dismissed);
     }, [crisisMode]);
 
     useEffect(() => {
@@ -121,6 +120,8 @@ export function useBatterySaver({ crisisMode }: UseBatterySaverOptions) {
             const sentinel = await navigator.wakeLock.request('screen');
             wakeLockRef.current = sentinel;
             setWakeLockActive(true);
+            setDialogDismissed(true);
+            writeDismissedFlag(true);
             sentinel.addEventListener('release', () => {
                 wakeLockRef.current = null;
                 setWakeLockActive(false);

@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter';
+import { useBatterySaver } from './hooks/useBatterySaver';
 import { AccessibilityProvider } from './lib/accessibility';
 import { AuthProvider, useAuth } from './lib/auth';
-import { type ChatSocketEvent, connectChatWebSocket, disconnectChatWebSocket } from './lib/chatApi';
+import {
+    type ChatSocketEvent,
+    connectChatWebSocket,
+    disconnectChatWebSocket,
+    setChatBatteryLevel,
+    setChatCrisisMode,
+} from './lib/chatApi';
 import { isActiveChatThread, markThreadUnread, useUnreadChatCount } from './lib/chatNotifications';
-import { CrisisModeProvider } from './lib/crisisMode';
+import { CrisisModeProvider, useCrisisMode } from './lib/crisisMode';
 import {
     connectWebSocket as connectPulseWebSocket,
     disconnectWebSocket as disconnectPulseWebSocket,
     type PulseSocketEvent,
+    setPulseBatteryLevel,
+    setPulseCrisisMode,
 } from './lib/pulseApi';
 import { ThemeProvider } from './lib/theme';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -107,6 +116,8 @@ function AppRoutes() {
 
 function ChatNotificationsBridge() {
     const { isAuthenticated } = useAuth();
+    const { crisisMode } = useCrisisMode();
+    const { battery } = useBatterySaver({ crisisMode: crisisMode });
     const [location] = useLocation();
     const [toasts, setToasts] = useState<Array<{ id: string; title: string; body: string }>>([]);
     const seenMessageIdsRef = useRef<Map<string, number>>(new Map());
@@ -139,6 +150,17 @@ function ChatNotificationsBridge() {
             window.removeEventListener('blur', refresh);
         };
     }, []);
+
+    useEffect(() => {
+        setChatCrisisMode(crisisMode);
+        setPulseCrisisMode(crisisMode);
+    }, [crisisMode]);
+
+    useEffect(() => {
+        const level = battery ? battery.level : null;
+        setChatBatteryLevel(level);
+        setPulseBatteryLevel(level);
+    }, [battery]);
 
     const unreadCount = useUnreadChatCount();
 

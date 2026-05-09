@@ -198,7 +198,11 @@ export async function selectChatSummaryById(chatId: string): Promise<ChatSummary
     };
 }
 
-export async function selectMessages(threadId: string, currentUser: string): Promise<Message[]> {
+export async function selectMessages(
+    threadId: string,
+    currentUser: string,
+    since?: number | null
+): Promise<Message[]> {
     await ensureSchema();
     const messages = (await sql.begin(async (tx) => {
         await tx`
@@ -241,6 +245,7 @@ export async function selectMessages(threadId: string, currentUser: string): Pro
                 ON reply_hidden.message_id = reply.id
                AND reply_hidden.user_id = ${currentUser}::uuid
             WHERE m.thread_id = ${threadId}::uuid
+                AND (${since ?? null}::bigint IS NULL OR (EXTRACT(EPOCH FROM m.created_at) * 1000) > ${since ?? null}::bigint)
                 AND NOT EXISTS (
                     SELECT 1
                     FROM app.hidden_messages AS hidden
