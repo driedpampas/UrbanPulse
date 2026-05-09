@@ -2,21 +2,34 @@
 
 - If `bun` is not found on the system `PATH`, use `~/.bun/bin/bun` as the executable path.
 - In JS and TS projects, use `bun` all the time, unless there is no `bun.lock` file.
-- **Frontend**: Before finishing, run `bun run build` in `frontend/` to ensure builds succeed.
 - **Backend**: Run with `bun run app` and ensure `backend/.env` has all required variables.
+- **Frontend**: Built with Vite + Preact + Tailwind CSS. Run `bun run dev` for local development.
+
+## Code Style & Quality
+
+- **Consistency**: Follow the current code style and design patterns. Keep code correct, structured, and clean.
+- **Backend**: Use direct SQL via `postgres` client (no ORM). Maintain the `ensureSchema()` pattern for database modules. Use explicit TypeScript types.
+- **Frontend**: Use Preact functional components and hooks. Avoid inline styles; use the design system classes and CSS variables.
 
 ## Database & Migrations
 
 - **Stack**: PostgreSQL + PostGIS.
 - **ORM Usage**: No ORM is used. Database interaction is handled via a direct `postgres` client (see `backend/db/client.ts`).
-- **Schema Management**: Structural changes (creating tables, adding columns/indexes) should be implemented in `backend/db/schema.ts` inside the `ensureSchema()` function using `IF NOT EXISTS` clauses.
-- **Manual Migrations**: New database structural changes should be placed in `backend/migrations/` using the `XXX_description.sql` naming convention (e.g., `006_new_feature.sql`). Name migrations descriptively based on the changes they contain. These are currently manual and the source of truth for the schema logic should be mirrored in `ensureSchema()`.
+- **Schema Management**: Structural changes should be implemented in `backend/db/schema.ts` inside `ensureSchema()` using `IF NOT EXISTS`.
+- **Manual Migrations**: New changes should also be placed in `backend/migrations/` using `XXX_description.sql` (e.g., `006_new_feature.sql`).
+
+## Verification & Finishing
+
+- **Linting**: Before finishing, run `bun x @biomejs/biome check --write <changed_files>` to ensure code follows the project's formatting and linting rules.
+- **Type Safety**: Run `tsc --noEmit` in the respective directory (`backend/` or `frontend/`) for any changed files to ensure no type errors.
+- **Build Check**: Always run `bun run build` in `frontend/` to ensure the production bundle builds successfully.
+- **Fix Issues**: All problems found during verification MUST be resolved before the task is considered complete.
 
 ## Project Structure
 
-- **Backend**: Located in `./backend/`. Entry point is `index.ts`. Logic is modularized in `./backend/db/` and `routes/`.
-- **Frontend**: Located in `./frontend/`. Built with Vite + Preact + Tailwind CSS. Design system is in `index.css`.
-- **Auth Mailer**: Located in `./auth-mailer/` (Cloudflare Worker for emails).
+- **Backend**: `./backend/`. Entry point is `index.ts`. Logic in `db/` and `routes/`.
+- **Frontend**: `./frontend/`. Design system in `index.css`.
+- **Auth Mailer**: `./auth-mailer/` (Cloudflare Worker).
 
 ## UI & Theme Rules
 
