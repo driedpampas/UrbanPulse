@@ -117,6 +117,11 @@ let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 let disconnectTimer: number | null = null;
 let reconnectEnabled = false;
+let crisisMode = false;
+let batteryLevel: number | null = null;
+let lastChatUpdateTimestamp = Date.now();
+const lastThreadMessageTimestamps: Record<string, number> = {};
+let pollTimer: number | null = null;
 let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'disconnected';
 const statusHandlers = new Set<(status: 'connected' | 'connecting' | 'disconnected') => void>();
 
@@ -436,8 +441,15 @@ function parseSocketMessage(rawMessage: string): ChatSocketEvent | null {
     return null;
 }
 
-async function fetchChatMessages(threadId: string): Promise<BackendChatMessage[]> {
-    const messages = await request<BackendChatMessage[]>(`/chats/${threadId}/messages`, {
+async function fetchChatMessages(
+    threadId: string,
+    since?: number | null
+): Promise<BackendChatMessage[]> {
+    let path = `/chats/${threadId}/messages`;
+    if (since !== undefined && since !== null) {
+        path += `?since=${since}`;
+    }
+    const messages = await request<BackendChatMessage[]>(path, {
         method: 'GET',
     });
 
@@ -747,7 +759,7 @@ function resubscribeAllThreads() {
 }
 
 function scheduleReconnect() {
-    if (!reconnectEnabled || wsHandlers.size === 0 || reconnectTimer !== null) {
+    if (crisisMode || !reconnectEnabled || wsHandlers.size === 0 || reconnectTimer !== null) {
         return;
     }
 
@@ -755,6 +767,68 @@ function scheduleReconnect() {
         reconnectTimer = null;
         ensureSocket();
     }, 1500);
+}
+
+function getPollingInterval(): number {
+    if (batteryLevel === null) return 15000;
+    if (batteryLevel > 0.5) return 15000;
+    if (batteryLevel > 0.2) return 30000;
+    return 60000;
+}
+
+function schedulePoll() {
+    if (pollTimer !== null) {
+        globalThis.clearTimeout(pollTimer);
+    }
+    pollTimer = globalThis.setTimeout(poll, getPollingInterval());
+}
+
+async function poll() {
+    if (!crisisMode || wsHandlers.size === 0) {
+        pollTimer = null;
+        return;
+    }
+
+    try {
+        // Poll for general chat updates (new threads, etc)
+        const threads = await fetchChats();
+        for (const thread of threads) {
+            if (thread.lastMessage && thread.lastMessage.timestamp > lastChatUpdateTimestamp) {
+                dispatchEvent({
+                    event: 'notification.message',
+                    message: { ...thread.lastMessage, threadId: thread.id },
+                    senderName: thread.lastMessage.senderName,
+                    threadName: thread.name,
+                });
+                if (thread.lastMessage.timestamp > lastChatUpdateTimestamp) {
+                    lastChatUpdateTimestamp = thread.lastMessage.timestamp;
+                }
+            }
+        }
+
+        // Poll for specific subscribed threads
+        for (const threadId of subscribedThreadIds) {
+            const since = lastThreadMessageTimestamps[threadId] || lastChatUpdateTimestamp;
+            const newMessages = await fetchChatMessages(threadId, since);
+            for (const msg of newMessages) {
+                const normalized = normalizeMessage(
+                    msg,
+                    `Neighbor ${msg.senderId.slice(0, 6)}` // fallback name
+                );
+                dispatchEvent({
+                    event: 'message.created',
+                    message: { ...normalized, threadId },
+                });
+                if (normalized.timestamp > (lastThreadMessageTimestamps[threadId] || 0)) {
+                    lastThreadMessageTimestamps[threadId] = normalized.timestamp;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Chat polling failed:', err);
+    }
+
+    schedulePoll();
 }
 
 function ensureSocket() {
@@ -769,9 +843,20 @@ function ensureSocket() {
         return;
     }
 
-    if (disconnectTimer !== null) {
-        globalThis.clearTimeout(disconnectTimer);
-        disconnectTimer = null;
+    if (crisisMode) {
+        if (socket) {
+            socket.close();
+            socket = null;
+        }
+        if (pollTimer === null) {
+            poll();
+        }
+        return;
+    }
+
+    if (pollTimer !== null) {
+        globalThis.clearTimeout(pollTimer);
+        pollTimer = null;
     }
 
     updateStatus('connecting');
@@ -905,4 +990,15 @@ export function onChatConnectionStatusChange(
 
 export function getChatConnectionStatus() {
     return connectionStatus;
+}
+
+export function setChatCrisisMode(enabled: boolean) {
+    if (crisisMode === enabled) return;
+    crisisMode = enabled;
+    ensureSocket();
+}
+
+export function setChatBatteryLevel(level: number | null) {
+    batteryLevel = level;
+    // Interval will be updated on next poll
 }

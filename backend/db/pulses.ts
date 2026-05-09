@@ -32,7 +32,8 @@ export async function selectPulses(
     radius?: number | null,
     offset = 0,
     type?: PulseType | null,
-    excludePets = false
+    excludePets = false,
+    since?: number | null
 ): Promise<PulseFeedItem[]> {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : 50;
     const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
@@ -66,6 +67,7 @@ export async function selectPulses(
         ))
         AND (${type ?? null}::text IS NULL OR LOWER(pulses.pulse_type) = LOWER(${type ?? null}::text))
         AND (${excludePets}::boolean IS FALSE OR LOWER(pulses.pulse_type) != 'pet')
+        AND (${since ?? null}::bigint IS NULL OR (EXTRACT(EPOCH FROM pulses.created_at) * 1000) > ${since ?? null}::bigint)
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}

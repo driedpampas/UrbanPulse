@@ -97,6 +97,10 @@ let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 let disconnectTimer: number | null = null;
 let reconnectEnabled = false;
+let crisisMode = false;
+let batteryLevel: number | null = null;
+let lastPulseTimestamp = Date.now();
+let pollTimer: number | null = null;
 
 class PulseApiError extends Error {
     status: number;
@@ -354,7 +358,7 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
 }
 
 function scheduleReconnect() {
-    if (!reconnectEnabled || wsHandlers.size === 0 || reconnectTimer !== null) {
+    if (crisisMode || !reconnectEnabled || wsHandlers.size === 0 || reconnectTimer !== null) {
         return;
     }
 
@@ -362,6 +366,52 @@ function scheduleReconnect() {
         reconnectTimer = null;
         ensureSocket();
     }, 1500);
+}
+
+function getPollingInterval(): number {
+    if (batteryLevel === null) return 15000;
+    if (batteryLevel > 0.7) return 15000;
+    if (batteryLevel > 0.4) return 30000;
+    if (batteryLevel > 0.2) return 60000;
+    return 120000;
+}
+
+function schedulePoll() {
+    if (pollTimer !== null) {
+        globalThis.clearTimeout(pollTimer);
+    }
+    pollTimer = globalThis.setTimeout(poll, getPollingInterval());
+}
+
+async function poll() {
+    if (!crisisMode || wsHandlers.size === 0) {
+        pollTimer = null;
+        return;
+    }
+
+    try {
+        const newPulses = await fetchPulses(
+            undefined,
+            undefined,
+            undefined,
+            50,
+            0,
+            undefined,
+            lastPulseTimestamp
+        );
+        if (newPulses.length > 0) {
+            for (const pulse of newPulses) {
+                dispatchPulseEvent({ event: 'pulse.created', pulse });
+                if (pulse.timestamp > lastPulseTimestamp) {
+                    lastPulseTimestamp = pulse.timestamp;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Polling failed:', err);
+    }
+
+    schedulePoll();
 }
 
 function ensureSocket() {
@@ -379,6 +429,22 @@ function ensureSocket() {
     if (disconnectTimer !== null) {
         globalThis.clearTimeout(disconnectTimer);
         disconnectTimer = null;
+    }
+
+    if (crisisMode) {
+        if (socket) {
+            socket.close();
+            socket = null;
+        }
+        if (pollTimer === null) {
+            poll();
+        }
+        return;
+    }
+
+    if (pollTimer !== null) {
+        globalThis.clearTimeout(pollTimer);
+        pollTimer = null;
     }
 
     reconnectEnabled = true;
@@ -434,7 +500,8 @@ export async function fetchPulses(
     radius?: number,
     limit = 50,
     offset = 0,
-    type?: string
+    type?: string,
+    since?: number
 ): Promise<Pulse[]> {
     let path = '/pulse';
     const params = new URLSearchParams();
@@ -445,6 +512,7 @@ export async function fetchPulses(
     if (type) params.append('type', type);
     params.append('limit', limit.toString());
     if (offset > 0) params.append('offset', offset.toString());
+    if (since !== undefined) params.append('since', since.toString());
 
     const queryString = params.toString();
     if (queryString) {
@@ -759,4 +827,15 @@ export function disconnectWebSocket(handler: PulseSocketHandler) {
             }
         }, 100);
     }
+}
+
+export function setPulseCrisisMode(enabled: boolean) {
+    if (crisisMode === enabled) return;
+    crisisMode = enabled;
+    ensureSocket();
+}
+
+export function setPulseBatteryLevel(level: number | null) {
+    batteryLevel = level;
+    // Interval will be updated on next poll
 }
