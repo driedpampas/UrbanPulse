@@ -12,7 +12,7 @@ type Props = {
 
 function LibraryItemsListComponent({ items, canManageItem, onEdit, onDelete }: Props) {
     return (
-        <div style="display:flex;flex-direction:column;gap:8px;">
+        <div id="library-items-list" style="display:flex;flex-direction:column;gap:8px;">
             {items.map((item, index) => {
                 const isItem = item.type === 'item';
                 const canManage = canManageItem(item);

@@ -9,6 +9,7 @@ import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 import { HoverButton } from '../components/ui/HoverButton';
+import { useCrisisMode } from '../hooks/useCrisisMode';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
 import { useAuth } from '../lib/auth';
 import { requestVerificationEmail } from '../lib/settingsApi';
@@ -64,9 +65,19 @@ export function Dashboard() {
         toggleFilters,
     } = useDashboardViewState();
 
+    const { crisisMode, crisisFeedTab, setCrisisFeedTab } = useCrisisMode();
+
+    const crisisFilter = !crisisMode
+        ? null
+        : view === 'feed'
+          ? crisisFeedTab === 'emergency'
+              ? 'emergency'
+              : 'other'
+          : null;
+
     return (
-        <AppLayout title="UrbanPulse" headerRight={null}>
-            <div class={cn('stack-v', view === 'map' && 'flex-1')}>
+        <AppLayout id="page-dashboard" title="UrbanPulse" headerRight={null}>
+            <div id="dashboard-content" class={cn('stack-v', view === 'map' && 'flex-1')}>
                 <div class="mx-4">
                     <DashboardToolbar
                         view={view}
@@ -76,6 +87,9 @@ export function Dashboard() {
                         onViewChange={setView}
                         onToggleFilters={toggleFilters}
                         onOpenPostForm={openPostForm}
+                        crisisMode={crisisMode}
+                        crisisFeedTab={crisisFeedTab}
+                        onCrisisFeedTabChange={setCrisisFeedTab}
                     />
                 </div>
                 <DashboardFiltersPanel
@@ -131,7 +145,11 @@ export function Dashboard() {
                 </div>
                 <HeroAlert />
                 {view === 'feed' ? (
-                    <LiveFeed radiusFilter={radius} pulseLimit={limit} />
+                    <LiveFeed
+                        radiusFilter={radius}
+                        pulseLimit={limit}
+                        crisisFilter={crisisFilter}
+                    />
                 ) : (
                     <div class="stack-v mt-3 flex-1 min-h-[55dvh]">
                         <PulseMap expanded radiusFilter={radius} pulseLimit={limit} />

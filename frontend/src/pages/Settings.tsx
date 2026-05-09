@@ -77,7 +77,7 @@ export function Settings() {
     };
 
     return (
-        <AppLayout title="Account Settings" headerRight={null}>
+        <AppLayout id="page-settings" title="Account Settings" headerRight={null}>
             <div class="stack-v gap-lg p-4">
                 <section class="section">
                     <div class="section-header bg-(--bg-subtle)">

@@ -94,7 +94,7 @@ export function VerifyEmail() {
     const nextPath = isAuthenticated ? '/' : '/auth';
 
     return (
-        <div class="page-shell bg-(--bg) px-4 py-10">
+        <div id="page-verify-email" class="page-shell bg-(--bg) px-4 py-10">
             <div class="app-container">
                 <div class="mb-8 text-center animate-slide-up">
                     <p class="label-caps" style="margin-bottom: 4px;">

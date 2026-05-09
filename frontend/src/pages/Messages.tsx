@@ -518,6 +518,7 @@ export function Messages() {
 
     return (
         <AppLayout
+            id="page-messages"
             title="Messages"
             headerRight={
                 <div class="stack-h gap-sm flex-nowrap">

@@ -89,6 +89,7 @@ export function WeatherAlert() {
 
     return (
         <div
+            id="weather-alert"
             class="animate-fade-in"
             style="margin:12px 0 0;padding:8px 12px;border-radius:8px;background:var(--bg-subtle);border:1px solid var(--border);display:inline-flex;align-items:center;gap:8px;width:100%;"
         >

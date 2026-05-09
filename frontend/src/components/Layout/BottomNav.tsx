@@ -80,6 +80,7 @@ export function BottomNav() {
 
     return (
         <nav
+            id="bottom-nav"
             class="nav-bar"
             style="position:fixed;bottom:0;left:0;right:0;z-index:50;height:var(--nav-h);"
         >

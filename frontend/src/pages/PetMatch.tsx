@@ -237,7 +237,7 @@ export function PetMatch() {
     const matchCount = Object.values(matches).reduce((s, m) => s + m.length, 0);
 
     return (
-        <AppLayout title="Pet Guardian">
+        <AppLayout id="page-pet-match" title="Pet Guardian">
             <div class="stack-v" style="padding:16px;gap:20px;max-width:760px;margin:0 auto;">
                 {/* Page Header */}
                 <div class="section animate-slide-up">

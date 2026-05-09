@@ -10,7 +10,7 @@ type Props = {
 
 function LibrarySearchBarComponent({ search, onSearchChange, onClear }: Props) {
     return (
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
+        <div id="library-search-bar" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);">
             <Search size={14} style="color:var(--text-tertiary);flex-shrink:0;" />
             <input
                 value={search}

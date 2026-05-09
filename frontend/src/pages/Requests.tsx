@@ -20,7 +20,7 @@ export function Requests() {
     } = useRequestsData();
 
     return (
-        <AppLayout title="Requests">
+        <AppLayout id="page-requests" title="Requests">
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
                 {loading && (
                     <div

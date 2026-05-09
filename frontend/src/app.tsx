@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Route, Switch, useLocation } from 'wouter';
+import { AccessibilityProvider } from './lib/accessibility';
 import { AuthProvider, useAuth } from './lib/auth';
 import { type ChatSocketEvent, connectChatWebSocket, disconnectChatWebSocket } from './lib/chatApi';
 import { isActiveChatThread, markThreadUnread, useUnreadChatCount } from './lib/chatNotifications';
+import { CrisisModeProvider } from './lib/crisisMode';
 import {
     connectWebSocket as connectPulseWebSocket,
     disconnectWebSocket as disconnectPulseWebSocket,
@@ -354,10 +356,14 @@ function ChatNotificationsBridge() {
 export function App() {
     return (
         <ThemeProvider>
-            <AuthProvider>
-                <ChatNotificationsBridge />
-                <AppRoutes />
-            </AuthProvider>
+            <CrisisModeProvider>
+                <AccessibilityProvider>
+                    <AuthProvider>
+                        <ChatNotificationsBridge />
+                        <AppRoutes />
+                    </AuthProvider>
+                </AccessibilityProvider>
+            </CrisisModeProvider>
         </ThemeProvider>
     );
 }

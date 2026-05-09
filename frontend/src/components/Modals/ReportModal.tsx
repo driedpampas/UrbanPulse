@@ -51,6 +51,7 @@ export function ReportModal({ targetId, targetType, contentSnippet, offender, on
 
     return (
         <div
+            id="report-modal"
             role="dialog"
             aria-modal="true"
             aria-label="Report content"

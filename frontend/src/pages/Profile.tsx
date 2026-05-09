@@ -2,6 +2,7 @@ import {
     Ban,
     CalendarDays,
     Camera,
+    Contrast,
     Crosshair,
     Flag,
     Globe,
@@ -17,6 +18,7 @@ import {
     Slash,
     Trash2,
     X,
+    Zap,
 } from 'lucide-preact';
 import type { ErrorEvent, Map as MapInstance, Marker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -29,6 +31,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { invalidateUserAvatarCache } from '../components/ui/UserAvatar';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { HoverButton } from '../components/ui/HoverButton';
+import { useAccessibility } from '../lib/accessibility';
 import { useAuth } from '../lib/auth';
 import {
     blockUser,
@@ -112,6 +115,8 @@ function locationText(location: { lat: number; lng: number } | null) {
 
 export function Profile() {
     const { theme } = useTheme();
+    const { highContrast, limitedMotion, toggleHighContrast, toggleLimitedMotion } =
+        useAccessibility();
     const [location, setLocation] = useLocation();
     const { logout, session, updateLocalUser } = useAuth();
     const [user, setUser] = useState<User | null>(null);
@@ -580,7 +585,7 @@ export function Profile() {
 
     if (!user) {
         return (
-            <AppLayout title="Profile">
+            <AppLayout id="page-profile" title="Profile">
                 <div class="section-body gap-md">
                     {[80, 120, 100].map((h, i) => (
                         <div
@@ -1159,6 +1164,57 @@ export function Profile() {
                         </div>
                     </div>
                 </div>
+
+                {/* Accessibility */}
+                {isOwnProfile && (
+                    <div class="section animate-slide-up" style="animation-delay:200ms">
+                        <div class="section-header">
+                            <p class="label-caps" style="margin:0;">
+                                ACCESSIBILITY
+                            </p>
+                        </div>
+                        <div class="section-body gap-md">
+                            <div class="flex-between">
+                                <div class="stack-h gap-sm">
+                                    <Contrast
+                                        size={13}
+                                        style="color:var(--text-tertiary);flex-shrink:0;"
+                                    />
+                                    <span style="font-size:13px;color:var(--text-secondary);">
+                                        High contrast theme
+                                    </span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={highContrast}
+                                        onChange={toggleHighContrast}
+                                    />
+                                    <span class="toggle-switch-track" />
+                                </label>
+                            </div>
+                            <div class="flex-between">
+                                <div class="stack-h gap-sm">
+                                    <Zap
+                                        size={13}
+                                        style="color:var(--text-tertiary);flex-shrink:0;"
+                                    />
+                                    <span style="font-size:13px;color:var(--text-secondary);">
+                                        Reduce motion
+                                    </span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input
+                                        type="checkbox"
+                                        checked={limitedMotion}
+                                        onChange={toggleLimitedMotion}
+                                    />
+                                    <span class="toggle-switch-track" />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Edit action bar */}
                 {isOwnProfile && editing && (

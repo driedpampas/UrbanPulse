@@ -124,7 +124,7 @@ export function AdminDashboard() {
     }, []);
 
     return (
-        <AppLayout title="Admin">
+        <AppLayout id="page-admin" title="Admin">
             <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
                 <div
                     style={`${surfaceCard};padding:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;`}

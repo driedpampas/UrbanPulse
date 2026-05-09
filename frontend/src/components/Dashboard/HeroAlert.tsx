@@ -167,7 +167,7 @@ export function HeroAlert() {
     }
 
     return (
-        <div class="animate-slide-up fixed top-6 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-100 bg-(--surface) border border-(--type-emergency-border) rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl">
+        <div id="hero-alert" class="animate-slide-up fixed top-6 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-100 bg-(--surface) border border-(--type-emergency-border) rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl">
             <div class="p-4 bg-linear-to-br from-(--type-emergency-bg) to-white/5">
                 <div class="flex-between mb-3">
                     <div class="stack-h gap-sm">

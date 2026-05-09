@@ -67,6 +67,7 @@ function timeAgo(ts: number): string {
 interface Props {
     radiusFilter: number;
     pulseLimit?: number;
+    crisisFilter?: 'emergency' | 'other' | null;
 }
 
 const MIN_RESOURCE_TOKEN_LENGTH = 3;
@@ -132,7 +133,7 @@ function pulseCanBeAcceptedByUser(pulse: Pulse, userTokens: Set<string>): boolea
     return false;
 }
 
-export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
+export function LiveFeed({ radiusFilter, pulseLimit = 50, crisisFilter = null }: Props) {
     const { session } = useAuth();
     const [, setLocation] = useLocation();
     const [pulses, setPulses] = useState<Pulse[]>([]);
@@ -426,7 +427,16 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
         };
     }, [handleWS]);
 
-    const visible = pulses.filter((pulse) => !pulse.isSolved);
+    const visible = pulses.filter((pulse) => {
+        if (pulse.isSolved) return false;
+        if (crisisFilter === 'emergency') {
+            return Boolean(pulse.isEmergency) || pulse.type === 'emergency';
+        }
+        if (crisisFilter === 'other') {
+            return !pulse.isEmergency && pulse.type !== 'emergency';
+        }
+        return true;
+    });
 
     const handleDelete = async (id: string) => {
         try {
@@ -556,7 +566,10 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     /* ── States ── */
     if (loading) {
         return (
-            <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+            <div
+                id="live-feed-loading"
+                style="padding:16px;display:flex;flex-direction:column;gap:10px;"
+            >
                 {[1, 2, 3].map((i) => (
                     <div
                         key={i}
@@ -579,7 +592,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
     if (loadError) {
         return (
-            <div style="padding:16px;">
+            <div id="live-feed-error" style="padding:16px;">
                 <div style="padding:12px 14px;border-radius:8px;background:var(--danger-subtle);border:1px solid var(--type-emergency-border);color:var(--danger);font-size:13px;">
                     {loadError}
                 </div>
@@ -589,7 +602,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
     if (pulses.length === 0) {
         return (
-            <div style="padding:16px;">
+            <div id="live-feed-empty" style="padding:16px;">
                 <div class="card" style="padding:40px 24px;text-align:center;">
                     <MapPin size={28} style="color:var(--text-tertiary);margin:0 auto 10px;" />
                     <p style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 4px;">
@@ -607,7 +620,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
 
     if (visible.length === 0) {
         return (
-            <div style="padding:16px;">
+            <div id="live-feed-no-visible" style="padding:16px;">
                 <div class="card" style="padding:32px 24px;text-align:center;">
                     <p style="font-size:13px;font-weight:600;color:var(--text);margin:0 0 4px;">
                         Nothing within {radiusFilter}m
@@ -621,7 +634,7 @@ export function LiveFeed({ radiusFilter, pulseLimit = 50 }: Props) {
     }
 
     return (
-        <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+        <div id="live-feed" style="padding:16px;display:flex;flex-direction:column;gap:8px;">
             {visible.map((pulse, i) => {
                 const isEmergencyPulse = Boolean(pulse.isEmergency) || pulse.type === 'emergency';
                 const def = isEmergencyPulse

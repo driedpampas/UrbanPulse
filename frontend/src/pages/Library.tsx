@@ -32,7 +32,7 @@ export function Library() {
     } = useLibraryData();
 
     return (
-        <AppLayout title="Library">
+        <AppLayout id="page-library" title="Library">
             <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
                 {actionError && (
                     <div style="padding:10px 12px;border-radius:10px;border:1px solid var(--danger-muted);background:var(--danger-subtle);color:var(--danger);font-size:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">

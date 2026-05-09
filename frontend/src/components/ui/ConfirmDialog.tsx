@@ -28,6 +28,7 @@ export function ConfirmDialog({
 
     return (
         <div
+            id="confirm-dialog"
             role="dialog"
             aria-modal="true"
             aria-label={title}

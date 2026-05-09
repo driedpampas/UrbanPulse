@@ -2,13 +2,13 @@ import type { ComponentChildren } from 'preact';
 import { createContext } from 'preact';
 import { useContext, useEffect, useState } from 'preact/hooks';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'high-contrast';
 
 const STORAGE_KEY = 'up-theme';
 
 function getInitialTheme(): Theme {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
+    if (stored === 'light' || stored === 'dark' || stored === 'high-contrast') return stored;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
@@ -18,21 +18,32 @@ function applyTheme(theme: Theme) {
 
 interface ThemeCtx {
     theme: Theme;
+    setTheme: (theme: Theme) => void;
     toggle: () => void;
 }
 
-const ThemeContext = createContext<ThemeCtx>({ theme: 'dark', toggle: () => {} });
+const ThemeContext = createContext<ThemeCtx>({
+    theme: 'dark',
+    setTheme: () => {},
+    toggle: () => {},
+});
 
 export function ThemeProvider({ children }: { children: ComponentChildren }) {
-    const [theme, setTheme] = useState<Theme>(() => {
+    const [theme, _setTheme] = useState<Theme>(() => {
         const t = getInitialTheme();
         applyTheme(t);
         return t;
     });
 
+    const setTheme = (t: Theme) => {
+        _setTheme(t);
+        localStorage.setItem(STORAGE_KEY, t);
+        applyTheme(t);
+    };
+
     const toggle = () => {
-        setTheme((t) => {
-            const next = t === 'dark' ? 'light' : 'dark';
+        _setTheme((t) => {
+            const next = t === 'light' ? 'dark' : 'light';
             localStorage.setItem(STORAGE_KEY, next);
             applyTheme(next);
             return next;
@@ -43,7 +54,11 @@ export function ThemeProvider({ children }: { children: ComponentChildren }) {
         applyTheme(theme);
     }, [theme]);
 
-    return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
+    return (
+        <ThemeContext.Provider value={{ theme, setTheme, toggle }}>
+            {children}
+        </ThemeContext.Provider>
+    );
 }
 
 export function useTheme() {

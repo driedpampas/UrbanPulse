@@ -9,7 +9,7 @@ type Props = {
 
 function AcceptedRequestsSectionComponent({ acceptedByMe }: Props) {
     return (
-        <section class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+        <section id="accepted-requests-section" class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;align-items:center;gap:7px;">
                 <CheckCircle size={14} style="color:var(--success);" />
                 <h2 style="margin:0;font-size:13px;color:var(--text);">Requests I Accepted</h2>

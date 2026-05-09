@@ -228,6 +228,7 @@ export function NeedPostingForm({ onClose }: Props) {
     return (
         /* Overlay */
         <div
+            id="need-posting-form"
             role="dialog"
             aria-modal="true"
             aria-label="Post a pulse"

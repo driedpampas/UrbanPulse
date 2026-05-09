@@ -20,7 +20,7 @@ function DashboardFiltersPanelComponent({
     }
 
     return (
-        <div class="section animate-slide-up mt-2 p-4 stack-v gap-md">
+        <div id="dashboard-filters-panel" class="section animate-slide-up mt-2 p-4 stack-v gap-md">
             <div>
                 <div class="flex-between mb-2">
                     <label

@@ -70,7 +70,7 @@ export function ConfirmPassword() {
     const nextPath = isAuthenticated ? '/settings' : '/auth';
 
     return (
-        <div class="page-shell bg-(--bg) min-h-screen">
+        <div id="page-confirm-password" class="page-shell bg-(--bg) min-h-screen">
             {/* Header / Logo */}
             <div class="stack-h flex-between w-full app-container px-6 py-5">
                 <div class="flex-1">

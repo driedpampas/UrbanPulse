@@ -1,6 +1,7 @@
 import { AlertCircle, Clock, MapPin } from 'lucide-preact';
 import type { ErrorEvent, GeoJSONSource, Map as MapInstance } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { useCrisisMode } from '../../lib/crisisMode';
 import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
     connectWebSocket,
@@ -188,6 +189,7 @@ export function PulseMap({
     pulseLimit?: number;
 }) {
     const { theme } = useTheme();
+    const { crisisMode } = useCrisisMode();
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<MapInstance | null>(null);
     const mapLibreGlRef = useRef<MapLibreGL | null>(null);
@@ -201,7 +203,7 @@ export function PulseMap({
     const [locationResolved, setLocationResolved] = useState(false);
     const themeColors = getThemeColors();
     const pulseTypeColors = getPulseTypeColors();
-    const mapStyle = theme === 'dark' ? DARK_STYLE_URL : LIGHT_STYLE_URL;
+    const mapStyle = theme === 'dark' || crisisMode ? DARK_STYLE_URL : LIGHT_STYLE_URL;
 
     useEffect(() => {
         let cancelled = false;
@@ -413,9 +415,9 @@ export function PulseMap({
                             ['linear'],
                             ['zoom'],
                             10,
-                            0.78,
+                            0.92,
                             15,
-                            0.52,
+                            0.72,
                         ],
                         'heatmap-color': buildHeatmapColors(colors) as never,
                     },
@@ -642,32 +644,10 @@ export function PulseMap({
                 expanded ? 'flex-1 min-h-[50dvh]' : ''
             }`}
         >
-            <div
-                class="absolute left-4 top-4 z-20 rounded-2xl px-3 py-2 text-[11px] font-medium shadow-lg backdrop-blur-sm"
-                style={`border:1px solid ${themeColors.border};background:${themeColors.overlay};color:${themeColors.muted};`}
-            >
-                Heatmap shows pulse density and urgency
-            </div>
-            {pulseError && (
-                <div
-                    class="border-b px-4 py-3 text-xs"
-                    style={`border-color:${toRgba(themeColors.danger, 0.2)};background:${toRgba(themeColors.danger, 0.06)};color:${themeColors.danger};`}
-                >
-                    Live pulse feed unavailable. {pulseError}
-                </div>
-            )}
-            {!loadingPulses && visiblePulses.length === 0 && !pulseError && (
-                <div
-                    class="absolute left-4 top-4 z-10 rounded-2xl px-3 py-2 text-xs shadow-lg backdrop-blur-sm"
-                    style={`border:1px solid ${themeColors.border};background:${themeColors.overlay};color:${themeColors.muted};`}
-                >
-                    No pulses within {radiusFilter}m.
-                </div>
-            )}
             {!mapLoaded && (
                 <div
                     class={`flex items-center justify-center ${
-                        expanded ? 'min-h-[50dvh] flex-1' : 'h-52'
+                        expanded ? 'min-h-[50dvh] flex-1' : 'h-72'
                     }`}
                     style={`background:${toRgba(themeColors.text, 0.03)};`}
                 >
@@ -678,7 +658,7 @@ export function PulseMap({
             )}
             <div
                 ref={mapContainer}
-                class={`w-full ${expanded ? 'flex-1 min-h-[50dvh]' : 'h-52'}`}
+                class={`w-full ${expanded ? 'flex-1 min-h-[50dvh]' : 'h-72'}`}
                 style={{ display: mapLoaded ? 'block' : 'none' }}
             />
         </div>
@@ -702,6 +682,7 @@ function MapOfflineFallback({
 }) {
     return (
         <div
+            id="pulse-map"
             class={`mx-4 mt-3 section p-5 animate-fade-up ${
                 expanded ? 'flex-1 min-h-[50dvh]' : ''
             }`}

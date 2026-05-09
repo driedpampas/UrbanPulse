@@ -114,7 +114,7 @@ export function Auth() {
     };
 
     return (
-        <div class="page-shell bg-(--bg) min-h-screen flex flex-col">
+        <div id="page-auth" class="page-shell bg-(--bg) min-h-screen flex flex-col">
             <div class="stack-h flex-between app-container px-5 py-4">
                 <p class="text-base font-bold text-(--text) m-0 tracking-tight">UrbanPulse</p>
                 <HoverButton

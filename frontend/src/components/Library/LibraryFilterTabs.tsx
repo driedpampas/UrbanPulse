@@ -20,7 +20,7 @@ const TAB_BTN = (active: boolean) => `
 
 function LibraryFilterTabsComponent({ filter, onFilterChange }: Props) {
     return (
-        <div style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);align-self:flex-start;">
+        <div id="library-filter-tabs" style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);align-self:flex-start;">
             {(['all', 'item', 'skill'] as const).map((tab) => (
                 <HoverButton
                     key={tab}
