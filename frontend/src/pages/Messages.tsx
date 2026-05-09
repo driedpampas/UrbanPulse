@@ -657,14 +657,14 @@ export function Messages() {
                         aria-hidden="true"
                     />
                     <div class="sheet-content animate-slide-up">
-                        <div class="px-5 py-4 border-b border-[var(--border)] flex items-start justify-between gap-3 shrink-0">
+                        <div class="px-5 py-4 border-b border-(--border) flex items-start justify-between gap-3 shrink-0">
                             <div class="stack-v gap-xs">
-                                <p class="text-base font-bold text-[var(--text)] tracking-tight m-0">
+                                <p class="text-base font-bold text-(--text) tracking-tight m-0">
                                     {composeMode === 'group'
                                         ? 'Create Group Chat'
                                         : 'New conversation'}
                                 </p>
-                                <p class="text-xs text-[var(--text-secondary)] m-0">
+                                <p class="text-xs text-(--text-secondary) m-0">
                                     {composeMode === 'group'
                                         ? 'Select neighbors to add to the group.'
                                         : 'Search a neighbor to start chatting.'}
@@ -672,7 +672,7 @@ export function Messages() {
                             </div>
                             <HoverButton
                                 type="button"
-                                class="btn-icon !h-8 !w-8 !text-[var(--text-tertiary)] hover:!text-[var(--text-secondary)]"
+                                class="btn-icon h-8! w-8! text-(--text-tertiary)! hover:text-(--text-secondary)!"
                                 onClick={resetCompose}
                                 aria-label="Close"
                             >
@@ -680,31 +680,31 @@ export function Messages() {
                             </HoverButton>
                         </div>
 
-                        <div class="p-4 border-b border-[var(--border)] shrink-0 bg-[var(--bg-subtle)]/30">
+                        <div class="p-4 border-b border-(--border) shrink-0 bg-(--bg-subtle)/30">
                             <div class="stack-h gap-sm mb-3">
                                 <HoverButton
                                     type="button"
-                                    class={`btn-ghost !h-7 !px-3 !text-[11px] !font-bold !uppercase !tracking-wider ${composeMode === 'direct' ? '!bg-[var(--accent-subtle)] !text-[var(--accent)] !border-[var(--accent)]/20' : ''}`}
+                                    class={`btn-ghost h-7! px-3! text-[11px]! font-bold! uppercase! tracking-wider! ${composeMode === 'direct' ? 'bg-(--accent-subtle)! text-(--accent)! border-(--accent)/20!' : ''}`}
                                     onClick={() => setComposeMode('direct')}
                                 >
                                     Direct
                                 </HoverButton>
                                 <HoverButton
                                     type="button"
-                                    class={`btn-ghost !h-7 !px-3 !text-[11px] !font-bold !uppercase !tracking-wider ${composeMode === 'group' ? '!bg-[var(--accent-subtle)] !text-[var(--accent)] !border-[var(--accent)]/20' : ''}`}
+                                    class={`btn-ghost h-7! px-3! text-[11px]! font-bold! uppercase! tracking-wider! ${composeMode === 'group' ? 'bg-(--accent-subtle)! text-(--accent)! border-(--accent)/20!' : ''}`}
                                     onClick={() => setComposeMode('group')}
                                 >
                                     Group
                                 </HoverButton>
                             </div>
-                            <div class="stack-h gap-sm px-3 h-11 border border-[var(--border)] rounded-xl bg-[var(--surface)] focus-within:border-[var(--accent)] transition-colors shadow-sm">
-                                <Search size={14} class="text-[var(--text-tertiary)] shrink-0" />
+                            <div class="stack-h gap-sm px-3 h-11 border border-(--border) rounded-xl bg-(--surface) focus-within:border-(--accent) transition-colors shadow-sm">
+                                <Search size={14} class="text-(--text-tertiary) shrink-0" />
                                 <input
                                     id="chat-user-search"
                                     value={query}
                                     onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
                                     placeholder="Search by name…"
-                                    class="flex-1 border-none outline-none bg-transparent text-[var(--text)] text-sm font-medium"
+                                    class="flex-1 border-none outline-none bg-transparent text-(--text) text-sm font-medium"
                                 />
                             </div>
                             {composeError && (
@@ -1843,10 +1843,10 @@ function ChatView({
                                         ref={(element) => setMessageElementRef(msg.id, element)}
                                     >
                                         <div
-                                            class={`stack-h gap-sm items-end relative rounded-xl p-1 transition-all ${isMe ? 'justify-end' : 'justify-start'} ${isHighlightedMessage ? 'shadow-[0_0_0_2px_var(--accent)] bg-[var(--accent-subtle)]' : ''}`}
+                                            class={`stack-h gap-sm items-end relative rounded-xl p-1 transition-all ${isMe ? 'justify-end' : 'justify-start'} ${isHighlightedMessage ? 'shadow-[0_0_0_2px_var(--accent)] bg-(--accent-subtle)' : ''}`}
                                         >
                                             {!isMe && (
-                                                <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border-2 border-[var(--border)] bg-[var(--bg-subtle)] shadow-sm">
+                                                <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border-2 border-(--border) bg-(--bg-subtle) shadow-sm">
                                                     <UserAvatar
                                                         userId={msg.senderId}
                                                         fallbackSrc={getAvatarUrl(msg.senderId)}
@@ -1876,8 +1876,8 @@ function ChatView({
                                                 }}
                                                 class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${
                                                     isMe
-                                                        ? 'bg-[var(--accent)] text-white rounded-br-none shadow-md'
-                                                        : 'bg-[var(--surface-raised)] text-[var(--text)] border border-[var(--border)] rounded-bl-none shadow-sm'
+                                                        ? 'bg-(--accent) text-white rounded-br-none shadow-md'
+                                                        : 'bg-(--surface-raised) text-(--text) border border-(--border) rounded-bl-none shadow-sm'
                                                 }`}
                                                 style={`max-width:${wideChatView ? 'min(85%, 900px)' : '80%'}; cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'}`}
                                             >
@@ -2064,7 +2064,7 @@ function ChatView({
                                                     <HoverButton
                                                         type="button"
                                                         aria-label="Close menu"
-                                                        class="fixed inset-0 z-[49] bg-none border-none p-0 w-full h-full cursor-default"
+                                                        class="fixed inset-0 z-49 bg-none border-none p-0 w-full h-full cursor-default"
                                                         onClick={() => {
                                                             setContextMenuMessageId(null);
                                                             setContextMenuPosition(null);
@@ -2076,7 +2076,7 @@ function ChatView({
                                                         }}
                                                     />
                                                     <div
-                                                        class="fixed z-[50] bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl shadow-lg overflow-hidden min-w-[160px]"
+                                                        class="fixed z-50 bg-(--surface-raised) border border-(--border) rounded-xl shadow-lg overflow-hidden min-w-[160px]"
                                                         style={`left:${contextMenuPosition.x}px;top:${contextMenuPosition.y}px;`}
                                                         role="menu"
                                                     >
@@ -2087,7 +2087,7 @@ function ChatView({
                                                             }
                                                             role="menuitem"
                                                             key="copy-text"
-                                                            class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--text)] stack-h gap-sm text-left hover:bg-[var(--bg-muted)] transition-colors"
+                                                            class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-(--text) stack-h gap-sm text-left hover:bg-(--bg-muted) transition-colors"
                                                         >
                                                             <Copy size={14} />
                                                             Copy text
@@ -2101,14 +2101,14 @@ function ChatView({
                                                                 }
                                                                 role="menuitem"
                                                                 key="edit-message"
-                                                                class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--text)] stack-h gap-sm text-left hover:bg-[var(--bg-muted)] transition-colors"
+                                                                class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-(--text) stack-h gap-sm text-left hover:bg-(--bg-muted) transition-colors"
                                                             >
                                                                 <Pencil size={14} />
                                                                 Edit message
                                                             </HoverButton>
                                                         )}
 
-                                                        <div class="h-px bg-[var(--border)] mx-1 my-1" />
+                                                        <div class="h-px bg-(--border) mx-1 my-1" />
 
                                                         <HoverButton
                                                             type="button"
@@ -2120,7 +2120,7 @@ function ChatView({
                                                             disabled={deletingMessageId !== null}
                                                             role="menuitem"
                                                             key="delete-me"
-                                                            class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--text)] stack-h gap-sm text-left hover:bg-[var(--bg-muted)] transition-colors"
+                                                            class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-(--text) stack-h gap-sm text-left hover:bg-(--bg-muted) transition-colors"
                                                         >
                                                             <Trash2 size={14} />
                                                             Delete for me
@@ -2136,7 +2136,7 @@ function ChatView({
                                                                 }}
                                                                 role="menuitem"
                                                                 key="report-message"
-                                                                class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--text)] stack-h gap-sm text-left hover:bg-[var(--bg-muted)] transition-colors"
+                                                                class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-(--text) stack-h gap-sm text-left hover:bg-(--bg-muted) transition-colors"
                                                             >
                                                                 <Flag size={14} />
                                                                 Report message
@@ -2151,7 +2151,7 @@ function ChatView({
                                                                     ]?.includes('admin') ??
                                                                         false)))) && (
                                                             <>
-                                                                <div class="h-px bg-[var(--border)] mx-1" />
+                                                                <div class="h-px bg-(--border) mx-1" />
                                                                 <HoverButton
                                                                     type="button"
                                                                     onClick={() => {
@@ -2171,7 +2171,7 @@ function ChatView({
                                                                     }
                                                                     role="menuitem"
                                                                     key="delete-everyone"
-                                                                    class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-[var(--danger)] stack-h gap-sm text-left hover:bg-[var(--danger-subtle)] transition-colors"
+                                                                    class="w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] text-(--danger) stack-h gap-sm text-left hover:bg-(--danger-subtle) transition-colors"
                                                                 >
                                                                     <Trash2 size={14} />
                                                                     Delete for everyone

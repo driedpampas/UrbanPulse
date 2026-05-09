@@ -17,7 +17,6 @@ import {
     OPTIONS_RESPONSE,
     SERVER_ERROR,
     SUCCESS,
-    UNAUTHORIZED,
 } from '../middleware/error.middleware';
 import swaggerDoc from '../swagger.json';
 import type {

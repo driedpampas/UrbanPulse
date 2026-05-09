@@ -287,7 +287,7 @@ function isNonRetriableDeliveryError(error: unknown): boolean {
 }
 
 export default {
-    async fetch(request, env, ctx) {
+    async fetch(request, env, _ctx) {
         if (request.method !== 'POST') {
             return jsonResponse({ error: 'Method not allowed' }, 405);
         }
@@ -350,7 +350,7 @@ export default {
         }
     },
 
-    async queue(batch, env, ctx) {
+    async queue(batch, env, _ctx) {
         for (const msg of batch.messages) {
             try {
                 await sendVerificationEmail(env, msg.body);

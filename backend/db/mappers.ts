@@ -1,37 +1,35 @@
-import {
-    PULSE_TYPE_VALUES,
-    type PulseFeedItem,
-    type PulseRow,
-    type AuthorPulseRequest,
-    type PulseInteraction,
-    type PulseInteractionRow,
-    type AcceptedInteraction,
-    type AcceptedInteractionRow,
-    type Message,
-    type MessageRow,
-    type MessageReply,
-    type UserRow,
-    type User,
-    type ChatParticipantRole,
-    type LibraryItem,
-    type LibraryItemRow,
-    type Report,
-    type ReportRow,
-    type AdminMessageReport,
-    type AdminMessageReportRow,
-    type Timerange,
+import { MESSAGE_REPLY_SNIPPET_MAX_LENGTH } from './constants.ts';
+import type {
+    AcceptedInteraction,
+    AcceptedInteractionRow,
+    AdminMessageReport,
+    AdminMessageReportRow,
+    AuthorPulseRequest,
+    ChatParticipantRole,
+    InteractionStatus,
+    LibraryItem,
+    LibraryItemRow,
+    Message,
+    MessageReportStatus,
+    MessageRow,
+    PulseFeedItem,
+    PulseInteraction,
+    PulseInteractionRow,
+    PulseRow,
+    PulseType,
+    Report,
+    ReportRow,
+    Timerange,
+    User,
+    UserRow,
 } from './types';
-import {
-    WEEKDAY_INDEX,
-    MESSAGE_REPLY_SNIPPET_MAX_LENGTH,
-} from './constants';
 
 export function mapPulseRow(row: PulseRow): PulseFeedItem {
     return {
         id: String(row.id),
         userId: String(row.userId || row.author_id),
         userName: String(row.userName),
-        type: (row.type || 'update') as any,
+        type: (row.type || 'update') as PulseType,
         content: String(row.content),
         timestamp: Number(row.timestamp),
         lat: Number(row.lat),
@@ -59,8 +57,8 @@ export function mapPulseInteractionRow(row: PulseInteractionRow): PulseInteracti
         pulseId: String(row.pulse_id),
         authorId: String(row.author_id),
         helperId: String(row.helper_id),
-        helperName: String(row.helper_name || 'Neighbor ' + String(row.helper_id).slice(0, 6)),
-        status: row.status as any,
+        helperName: String(row.helper_name || `Neighbor ${String(row.helper_id).slice(0, 6)}`),
+        status: row.status as InteractionStatus,
         acceptedAt: Number(row.accepted_at),
         confirmedAt: row.confirmed_at ? Number(row.confirmed_at) : null,
         trustAwarded: Number(row.trust_awarded || 0),
@@ -73,14 +71,14 @@ export function mapAcceptedInteractionRow(row: AcceptedInteractionRow): Accepted
         pulse: {
             id: String(row.pulse_id),
             content: String(row.pulse_content),
-            type: (row.pulse_type || 'update') as any,
+            type: (row.pulse_type || 'update') as PulseType,
             timestamp: Number(row.pulse_timestamp),
             urgencyLevel: Number(row.pulse_urgency_level || 1),
             isSolved: Boolean(row.pulse_is_solved),
         },
         author: {
             id: String(row.author_id),
-            name: String(row.author_name || 'Neighbor ' + String(row.author_id).slice(0, 6)),
+            name: String(row.author_name || `Neighbor ${String(row.author_id).slice(0, 6)}`),
         },
     };
 }
@@ -92,14 +90,17 @@ export function mapMessageRow(row: MessageRow): Message {
         senderId: String(row.sender_id),
         content: String(row.content),
         isEdited: Boolean(row.is_edited),
-        messageType: (row.message_type || 'text') as any,
+        messageType: (row.message_type || 'text') as 'text' | 'notice',
         replyToId: row.reply_to_id ? String(row.reply_to_id) : null,
         replyTo: row.reply_to_id
             ? {
                   id: String(row.reply_to_id),
                   senderId: String(row.reply_to_sender_id),
                   senderName: String(row.reply_to_sender_name),
-                  snippet: String(row.reply_to_snippet || '').slice(0, MESSAGE_REPLY_SNIPPET_MAX_LENGTH),
+                  snippet: String(row.reply_to_snippet || '').slice(
+                      0,
+                      MESSAGE_REPLY_SNIPPET_MAX_LENGTH
+                  ),
                   isUnavailable: Boolean(row.reply_to_unavailable),
               }
             : null,
@@ -115,7 +116,9 @@ export function mapUserRow(row: UserRow): User {
         isEmailVerified: Boolean(row.is_email_verified),
         verificationToken: row.verification_token,
         passwordResetToken: row.password_reset_token,
-        passwordResetExpires: row.password_reset_expires ? new Date(row.password_reset_expires) : null,
+        passwordResetExpires: row.password_reset_expires
+            ? new Date(row.password_reset_expires)
+            : null,
         displayName: row.display_name,
         radius: row.distance_limit_meters ? Number(row.distance_limit_meters) : null,
         location:
@@ -145,8 +148,8 @@ export function mapLibraryItemRow(row: LibraryItemRow): LibraryItem {
     return {
         id: String(row.id),
         userId: String(row.author_id),
-        userName: String(row.userName || 'Neighbor ' + String(row.author_id).slice(0, 6)),
-        type: row.item_type as any,
+        userName: String(row.userName || `Neighbor ${String(row.author_id).slice(0, 6)}`),
+        type: row.item_type as 'item' | 'skill',
         title: String(row.title),
         description: String(row.description || ''),
         tags: row.tags || [],
@@ -159,11 +162,11 @@ export function mapReportRow(row: ReportRow): Report {
     return {
         id: String(row.id),
         targetId: String(row.target_id),
-        targetType: row.target_type as any,
+        targetType: row.target_type as 'pulse' | 'user' | 'message',
         reason: String(row.reason),
         reportedBy: String(row.reported_by),
         timestamp: Number(row.created_at),
-        status: row.status as any,
+        status: row.status as 'pending' | 'resolved' | 'dismissed',
         content: String(row.content || ''),
     };
 }
@@ -174,7 +177,7 @@ export function mapAdminMessageReportRow(row: AdminMessageReportRow): AdminMessa
         messageId: String(row.message_id),
         messageContent: String(row.message_content),
         reason: String(row.reason),
-        status: row.status as any,
+        status: row.status as MessageReportStatus,
         timestamp: Number(row.created_at),
         reporter: {
             id: String(row.reporter_id),
@@ -194,7 +197,10 @@ export function normalizeChatRoles(roles: string[]): ChatParticipantRole[] {
 }
 
 export function normalizeResourceText(text: string): string {
-    return text.trim().toLowerCase().replace(/[^a-z0-9 ]/g, '');
+    return text
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9 ]/g, '');
 }
 
 export function isSuppressedByQuietWindow(
@@ -205,7 +211,7 @@ export function isSuppressedByQuietWindow(
 ): boolean {
     const tzNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
     const day = tzNow.getDay();
-    if (quietDays && quietDays.includes(day)) {
+    if (quietDays?.includes(day)) {
         return true;
     }
 

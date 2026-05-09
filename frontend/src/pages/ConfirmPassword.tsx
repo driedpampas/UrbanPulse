@@ -70,11 +70,11 @@ export function ConfirmPassword() {
     const nextPath = isAuthenticated ? '/settings' : '/auth';
 
     return (
-        <div class="page-shell bg-[var(--bg)] min-h-screen">
+        <div class="page-shell bg-(--bg) min-h-screen">
             {/* Header / Logo */}
             <div class="stack-h flex-between w-full app-container px-6 py-5">
                 <div class="flex-1">
-                    <p class="text-sm font-bold tracking-tight text-[var(--text)]">UrbanPulse</p>
+                    <p class="text-sm font-bold tracking-tight text-(--text)">UrbanPulse</p>
                 </div>
                 <div class="flex-1" />
             </div>
@@ -82,41 +82,41 @@ export function ConfirmPassword() {
             <div class="flex-1 flex items-center justify-center p-5">
                 <div class="w-full max-w-[400px] animate-slide-up">
                     <div class="mb-7 text-center stack-v gap-xs">
-                        <p class="text-[11px] font-bold text-[var(--accent)] uppercase tracking-[0.1em]">
+                        <p class="text-[11px] font-bold text-(--accent) uppercase tracking-widest">
                             Security
                         </p>
-                        <h1 class="text-[32px] font-bold tracking-tight text-[var(--text)]">
+                        <h1 class="text-[32px] font-bold tracking-tight text-(--text)">
                             Reset Password
                         </h1>
                     </div>
 
                     <div
-                        class="section animate-slide-up shadow-xl border-[var(--border)]"
+                        class="section animate-slide-up shadow-xl border-(--border)"
                         style="animation-delay: 0.1s;"
                     >
-                        <div class="section-header bg-[var(--bg-subtle)]/50 border-b border-[var(--border)] h-10 px-4">
+                        <div class="section-header bg-(--bg-subtle)/50 border-b border-(--border) h-10 px-4">
                             <div class="stack-h gap-sm">
-                                <KeyRound class="h-3.5 w-3.5 text-[var(--accent)]" />
-                                <p class="text-[13px] font-semibold text-[var(--text)]">
+                                <KeyRound class="h-3.5 w-3.5 text-(--accent)" />
+                                <p class="text-[13px] font-semibold text-(--text)">
                                     Identity Verification
                                 </p>
                             </div>
                         </div>
 
                         <div class="section-body p-6">
-                            <p class="text-sm leading-relaxed text-[var(--text-secondary)] mb-6">
+                            <p class="text-sm leading-relaxed text-(--text-secondary) mb-6">
                                 {message}
                             </p>
 
                             {state === 'success' && (
-                                <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-4 py-3 text-sm font-semibold text-[var(--success)] animate-fade-in mb-6">
+                                <div class="stack-h gap-sm rounded-xl border border-(--success)/30 bg-(--success-subtle) px-4 py-3 text-sm font-semibold text-(--success) animate-fade-in mb-6">
                                     <CheckCircle2 class="h-4 w-4" />
                                     Password changed successfully.
                                 </div>
                             )}
 
                             {state === 'error' && (
-                                <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-4 py-3 text-sm font-semibold text-[var(--danger)] animate-fade-in mb-6">
+                                <div class="stack-h gap-sm rounded-xl border border-(--danger-muted) bg-(--danger-subtle) px-4 py-3 text-sm font-semibold text-(--danger) animate-fade-in mb-6">
                                     <AlertTriangle class="h-4 w-4" />
                                     Unable to complete password update.
                                 </div>
@@ -172,11 +172,11 @@ export function ConfirmPassword() {
                 {/* Back Link */}
                 <HoverButton
                     onClick={() => setLocation(nextPath)}
-                    class="section bg-[var(--bg-subtle)] p-3 mt-6 hover:bg-[var(--bg-muted)] transition-all cursor-pointer border-none shadow-sm group"
+                    class="section bg-(--bg-subtle) p-3 mt-6 hover:bg-(--bg-muted) transition-all cursor-pointer border-none shadow-sm group"
                 >
                     <div class="flex-between w-full px-1">
-                        <span class="text-sm text-[var(--text-secondary)]">Changed your mind?</span>
-                        <span class="text-sm font-bold text-[var(--accent)] group-hover:-translate-x-1 transition-transform">
+                        <span class="text-sm text-(--text-secondary)">Changed your mind?</span>
+                        <span class="text-sm font-bold text-(--accent) group-hover:-translate-x-1 transition-transform">
                             ← Back to Account
                         </span>
                     </div>

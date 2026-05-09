@@ -24,12 +24,12 @@ function DashboardFiltersPanelComponent({
             <div>
                 <div class="flex-between mb-2">
                     <label
-                        class="text-[12px] font-semibold text-[var(--text-secondary)]"
+                        class="text-[12px] font-semibold text-(--text-secondary)"
                         for="radius-input"
                     >
                         Radius filter
                     </label>
-                    <span class="text-[12px] font-bold text-[var(--accent)] tabular-nums">
+                    <span class="text-[12px] font-bold text-(--accent) tabular-nums">
                         {radius} m
                     </span>
                 </div>
@@ -48,15 +48,15 @@ function DashboardFiltersPanelComponent({
                 />
             </div>
 
-            <div class="pt-3 border-t border-[var(--border)]">
+            <div class="pt-3 border-t border-(--border)">
                 <div class="flex-between mb-2">
                     <label
-                        class="text-[12px] font-semibold text-[var(--text-secondary)]"
+                        class="text-[12px] font-semibold text-(--text-secondary)"
                         for="limit-input"
                     >
                         Pulse capacity
                     </label>
-                    <span class="text-[10px] font-extrabold text-[var(--accent)] uppercase tracking-wider">
+                    <span class="text-[10px] font-extrabold text-(--accent) uppercase tracking-wider">
                         {limit} PER BATCH
                     </span>
                 </div>

@@ -126,12 +126,12 @@ export function HeroAlert() {
             !notificationPromptDismissed
         ) {
             return (
-                <div class="fixed bottom-6 right-6 z-[90] stack-h items-start gap-md p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg border-l-4 border-l-[var(--accent)] animate-fade-in max-w-[min(360px,calc(100vw-24px))]">
+                <div class="fixed bottom-6 right-6 z-90 stack-h items-start gap-md p-4 bg-(--surface) border border-(--border) rounded-xl shadow-lg border-l-4 border-l-(--accent) animate-fade-in max-w-[min(360px,calc(100vw-24px))]">
                     <div class="flex-1 min-w-0">
-                        <p class="m-0 text-[12px] font-bold text-[var(--text)]">
+                        <p class="m-0 text-[12px] font-bold text-(--text)">
                             Enable Hero Notifications?
                         </p>
-                        <p class="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+                        <p class="mt-0.5 text-[11px] text-(--text-secondary)">
                             Get alerted instantly when your skills are needed.
                         </p>
                         <div class="stack-h gap-sm mt-3">
@@ -154,7 +154,7 @@ export function HeroAlert() {
                     <HoverButton
                         type="button"
                         onClick={dismissNotificationPrompt}
-                        class="btn-icon w-6 h-6 text-[var(--text-secondary)] shrink-0"
+                        class="btn-icon w-6 h-6 text-(--text-secondary) shrink-0"
                         aria-label="Dismiss notification prompt"
                         title="Dismiss"
                     >
@@ -167,42 +167,42 @@ export function HeroAlert() {
     }
 
     return (
-        <div class="animate-slide-up fixed top-6 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-[100] bg-[var(--surface)] border border-[var(--type-emergency-border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl">
-            <div class="p-4 bg-gradient-to-br from-[var(--type-emergency-bg)] to-white/5">
+        <div class="animate-slide-up fixed top-6 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-100 bg-(--surface) border border-(--type-emergency-border) rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden backdrop-blur-xl">
+            <div class="p-4 bg-linear-to-br from-(--type-emergency-bg) to-white/5">
                 <div class="flex-between mb-3">
                     <div class="stack-h gap-sm">
-                        <div class="bg-[var(--danger)] text-white p-1.5 rounded-lg flex-center">
+                        <div class="bg-(--danger) text-white p-1.5 rounded-lg flex-center">
                             <ShieldAlert size={18} />
                         </div>
-                        <span class="font-extrabold text-[14px] text-[var(--type-emergency-text)] tracking-wider uppercase">
+                        <span class="font-extrabold text-[14px] text-(--type-emergency-text) tracking-wider uppercase">
                             Hero Alert
                         </span>
                     </div>
                     <HoverButton
                         type="button"
                         onClick={() => setActiveAlert(null)}
-                        class="bg-black/10 text-[var(--text)] p-1 rounded-full flex hover:brightness-110 transition-all"
+                        class="bg-black/10 text-(--text) p-1 rounded-full flex hover:brightness-110 transition-all"
                     >
                         <X size={16} />
                     </HoverButton>
                 </div>
 
-                <div class="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3 mb-3">
+                <div class="bg-white/3 border border-white/5 rounded-xl p-3 mb-3">
                     <div class="stack-h gap-md mb-2">
                         <UserAvatar
                             userId={activeAlert.userId}
                             fallbackSrc={activeAlert.userAvatar}
-                            className="w-7 h-7 rounded-full border-2 border-[var(--accent-muted)]"
+                            className="w-7 h-7 rounded-full border-2 border-(--accent-muted)"
                             alt={`${activeAlert.userName}'s profile picture`}
                         />
-                        <span class="text-[13px] font-bold text-[var(--text)]">
+                        <span class="text-[13px] font-bold text-(--text)">
                             {activeAlert.userName}
                         </span>
-                        <span class="text-[11px] text-[var(--text-secondary)] ml-auto">
+                        <span class="text-[11px] text-(--text-secondary) ml-auto">
                             Just now
                         </span>
                     </div>
-                    <p class="m-0 text-[14px] text-[var(--text)] leading-relaxed font-medium">
+                    <p class="m-0 text-[14px] text-(--text) leading-relaxed font-medium">
                         {activeAlert.content}
                     </p>
                 </div>
@@ -214,7 +214,7 @@ export function HeroAlert() {
                     ).map((skill) => (
                         <span
                             key={skill}
-                            class="bg-[var(--accent)] text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-sm"
+                            class="bg-(--accent) text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-sm"
                         >
                             {skill}
                         </span>
@@ -226,7 +226,7 @@ export function HeroAlert() {
                         type="button"
                         onClick={handleAcceptRequest}
                         disabled={accepting}
-                        class="btn-primary flex-1 h-[42px] rounded-xl font-bold shadow-lg shadow-[var(--accent-muted)]/20"
+                        class="btn-primary flex-1 h-[42px] rounded-xl font-bold shadow-lg shadow-(--accent-muted)/20"
                     >
                         <CheckCircle size={14} />
                         {accepting ? 'Accepting...' : 'Accept Request'}
@@ -235,8 +235,8 @@ export function HeroAlert() {
             </div>
 
             <div class="bg-black/20 px-4 py-2 stack-h gap-xs">
-                <Bell size={10} class="text-[var(--text-tertiary)]" />
-                <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest font-bold opacity-80">
+                <Bell size={10} class="text-(--text-tertiary)" />
+                <span class="text-[10px] text-(--text-tertiary) uppercase tracking-widest font-bold opacity-80">
                     Targeted alert based on your location and skills
                 </span>
             </div>

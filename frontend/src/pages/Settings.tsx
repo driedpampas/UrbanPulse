@@ -80,15 +80,15 @@ export function Settings() {
         <AppLayout title="Account Settings" headerRight={null}>
             <div class="stack-v gap-lg p-4">
                 <section class="section">
-                    <div class="section-header bg-[var(--bg-subtle)]">
+                    <div class="section-header bg-(--bg-subtle)">
                         <div class="stack-h gap-sm">
-                            <Mail class="h-4 w-4 text-[var(--accent)]" />
-                            <h2 class="text-sm font-semibold text-[var(--text)]">Email Address</h2>
+                            <Mail class="h-4 w-4 text-(--accent)" />
+                            <h2 class="text-sm font-semibold text-(--text)">Email Address</h2>
                         </div>
                     </div>
 
                     <div class="section-body">
-                        <p class="text-xs text-[var(--text-secondary)]">
+                        <p class="text-xs text-(--text-secondary)">
                             Changing your email resets verification until you confirm the new inbox.
                         </p>
 
@@ -108,12 +108,12 @@ export function Settings() {
                             </div>
 
                             {emailError && (
-                                <p class="rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-3 py-2 text-xs text-[var(--danger)]">
+                                <p class="rounded-xl border border-(--danger-muted) bg-(--danger-subtle) px-3 py-2 text-xs text-(--danger)">
                                     {emailError}
                                 </p>
                             )}
                             {emailSuccess && (
-                                <p class="rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-3 py-2 text-xs text-[var(--success)]">
+                                <p class="rounded-xl border border-(--success)/30 bg-(--success-subtle) px-3 py-2 text-xs text-(--success)">
                                     {emailSuccess}
                                 </p>
                             )}
@@ -131,24 +131,24 @@ export function Settings() {
                 </section>
 
                 <section class="section">
-                    <div class="section-header bg-[var(--bg-subtle)]">
+                    <div class="section-header bg-(--bg-subtle)">
                         <div class="stack-h gap-sm">
-                            <KeyRound class="h-4 w-4 text-[var(--warning)]" />
-                            <h2 class="text-sm font-semibold text-[var(--text)]">
+                            <KeyRound class="h-4 w-4 text-(--warning)" />
+                            <h2 class="text-sm font-semibold text-(--text)">
                                 Password Security
                             </h2>
                         </div>
                     </div>
 
                     <div class="section-body">
-                        <p class="text-xs text-[var(--text-secondary)]">
+                        <p class="text-xs text-(--text-secondary)">
                             Password updates require a secure email confirmation token.
                         </p>
 
-                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-4">
-                            <p class="text-xs text-[var(--text-secondary)]">
+                        <div class="rounded-xl border border-(--border) bg-(--bg-subtle) p-4">
+                            <p class="text-xs text-(--text-secondary)">
                                 We will send a password change link to
-                                <span class="ml-1 font-semibold text-[var(--text)]">
+                                <span class="ml-1 font-semibold text-(--text)">
                                     {session?.user.email || 'your current email'}
                                 </span>
                                 .
@@ -156,13 +156,13 @@ export function Settings() {
                         </div>
 
                         {passwordError && (
-                            <p class="rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] px-3 py-2 text-xs text-[var(--danger)]">
+                            <p class="rounded-xl border border-(--danger-muted) bg-(--danger-subtle) px-3 py-2 text-xs text-(--danger)">
                                 {passwordError}
                             </p>
                         )}
 
                         {passwordSuccess && (
-                            <p class="rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] px-3 py-2 text-xs text-[var(--success)]">
+                            <p class="rounded-xl border border-(--success)/30 bg-(--success-subtle) px-3 py-2 text-xs text-(--success)">
                                 {passwordSuccess}
                             </p>
                         )}
@@ -181,10 +181,10 @@ export function Settings() {
                     </div>
                 </section>
 
-                <section class="section p-4 bg-[var(--bg-subtle)]">
+                <section class="section p-4 bg-(--bg-subtle)">
                     <div class="stack-h gap-sm">
-                        <ShieldCheck class="h-4 w-4 text-[var(--accent)]" />
-                        <p class="text-xs text-[var(--text-secondary)]">
+                        <ShieldCheck class="h-4 w-4 text-(--accent)" />
+                        <p class="text-xs text-(--text-secondary)">
                             UrbanPulse enforces token-based confirmation for sensitive account
                             changes.
                         </p>

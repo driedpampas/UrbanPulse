@@ -65,12 +65,9 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
 
     const hashedPass = await bun.password.hash(user.password);
     const verificationToken = randomBytes(32).toString('hex');
-    const dbUser = db.one(await db.insertUser(
-        user.email,
-        hashedPass,
-        user.displayName,
-        verificationToken
-    ));
+    const dbUser = db.one(
+        await db.insertUser(user.email, hashedPass, user.displayName, verificationToken)
+    );
 
     const token = createAuthToken(dbUser.id);
 
@@ -360,7 +357,6 @@ async function triggerAuthMailerRequest(payload: AuthMailerRequestPayload): Prom
         throw new Error(`Mailer worker returned ${response.status}`);
     }
 }
-
 
 type AuthMailerRequestPayload =
     | {

@@ -3,8 +3,8 @@ import { mapLibraryItemRow, normalizeResourceText } from './mappers';
 import type {
     LibraryItem,
     LibraryItemRow,
-    ResourceCatalogEntry,
     LibraryResourceRow,
+    ResourceCatalogEntry,
     UpdateLibraryItemParams,
 } from './types';
 
@@ -179,7 +179,10 @@ export async function insertLibraryItem(params: {
         WHERE li.id = ${row.id}
     `) as LibraryItemRow[];
 
-    return mapLibraryItemRow(fullRow!);
+    if (!fullRow) {
+        throw new Error('Failed to retrieve inserted library item.');
+    }
+    return mapLibraryItemRow(fullRow);
 }
 
 export async function updateLibraryItemAvailability(

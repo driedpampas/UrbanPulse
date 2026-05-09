@@ -55,25 +55,31 @@ function levenshteinDistance(left: string, right: string): number {
     );
 
     for (let i = 0; i <= leftLength; i += 1) {
-        matrix[i]![0] = i;
+        const row = matrix[i];
+        if (row) row[0] = i;
     }
 
     for (let j = 0; j <= rightLength; j += 1) {
-        matrix[0]![j] = j;
+        const row = matrix[0];
+        if (row) row[j] = j;
     }
 
     for (let i = 1; i <= leftLength; i += 1) {
         for (let j = 1; j <= rightLength; j += 1) {
             const substitutionCost = left[i - 1] === right[j - 1] ? 0 : 1;
-            matrix[i]![j] = Math.min(
-                matrix[i - 1]![j]! + 1,
-                matrix[i]![j - 1]! + 1,
-                matrix[i - 1]![j - 1]! + substitutionCost
-            );
+            const currentRow = matrix[i];
+            const prevRow = matrix[i - 1];
+            if (currentRow && prevRow) {
+                currentRow[j] = Math.min(
+                    (prevRow[j] ?? 0) + 1,
+                    (currentRow[j - 1] ?? 0) + 1,
+                    (prevRow[j - 1] ?? 0) + substitutionCost
+                );
+            }
         }
     }
 
-    return matrix[leftLength]![rightLength]!;
+    return matrix[leftLength]?.[rightLength] ?? 0;
 }
 
 function similarity(left: string, right: string): number {

@@ -1,12 +1,7 @@
 import { sql } from './client';
-import { ensureSchema } from './schema';
 import { SEARCH_LIMIT } from './constants';
-import type {
-    User,
-    UserRow,
-    UserSearchParams,
-    ScheduledUserDeletion,
-} from './types';
+import { ensureSchema } from './schema';
+import type { ScheduledUserDeletion, User, UserRow, UserSearchParams } from './types';
 
 export async function insertUser(
     email: string,
@@ -193,7 +188,9 @@ export async function searchUsers(
     limit = SEARCH_LIMIT,
     offset = 0
 ): Promise<User[]> {
-    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.floor(limit), 100)) : SEARCH_LIMIT;
+    const safeLimit = Number.isFinite(limit)
+        ? Math.max(1, Math.min(Math.floor(limit), 100))
+        : SEARCH_LIMIT;
     const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
 
     const skillsAndResources = search.skillsAndResources ?? [];
@@ -308,13 +305,15 @@ export async function searchUsers(
     }));
 }
 
-export async function selectUserAuth(email: string): Promise<Array<{
-    id: string;
-    email: string;
-    password_hash: string;
-    role: string;
-    is_email_verified: boolean;
-}>> {
+export async function selectUserAuth(email: string): Promise<
+    Array<{
+        id: string;
+        email: string;
+        password_hash: string;
+        role: string;
+        is_email_verified: boolean;
+    }>
+> {
     return (await sql`
         SELECT id, email, password_hash, role, is_email_verified
         FROM app.users

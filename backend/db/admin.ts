@@ -1,25 +1,24 @@
+import type postgres from 'postgres';
 import { sql } from './client';
-import { ensureSchema } from './schema';
-import { mapReportRow, mapAdminMessageReportRow } from './mappers';
-import { selectPulseById } from './pulses';
-import { searchUsers } from './users';
 import { SEARCH_LIMIT } from './constants';
+import { mapAcceptedInteractionRow, mapAdminMessageReportRow, mapReportRow } from './mappers';
+import { selectPulseById, selectPulseInteraction } from './pulses';
+import { ensureSchema } from './schema';
 import type {
-    Report,
-    ReportRow,
-    AdminMessageReport,
-    AdminMessageReportRow,
-    MessageReportStatus,
-    MessageReportAction,
-    PulseFeedItem,
     AcceptedInteraction,
     AcceptedInteractionRow,
+    AdminMessageReport,
+    AdminMessageReportRow,
+    MessageReportAction,
+    MessageReportStatus,
+    PulseFeedItem,
+    PulseInteraction,
+    Report,
+    ReportRow,
     User,
     UserSearchParams,
-    PulseInteraction,
 } from './types';
-import { mapAcceptedInteractionRow } from './mappers';
-import { selectPulseInteraction } from './pulses';
+import { searchUsers } from './users';
 
 export async function markPulseSolvedAsAdmin(
     pulseId: string
@@ -116,7 +115,10 @@ export async function insertReport(params: {
                       status, content
         `) as ReportRow[];
 
-        return mapReportRow(row!);
+        if (!row) {
+            throw new Error('Failed to retrieve inserted report.');
+        }
+        return mapReportRow(row);
     });
 }
 
@@ -193,16 +195,20 @@ export async function insertMessageReport(params: {
         offender_name: string;
     }>;
 
+    if (!row) {
+        throw new Error('Failed to insert message report.');
+    }
+
     return mapAdminMessageReportRow({
-        id: row!.id,
-        message_id: row!.message_id,
+        id: row.id,
+        message_id: row.message_id,
         message_content: details?.message_content ?? '',
-        reason: row!.reason,
-        status: row!.status,
-        created_at: row!.created_at,
-        reporter_id: row!.reporter_id,
+        reason: row.reason,
+        status: row.status,
+        created_at: row.created_at,
+        reporter_id: row.reporter_id,
         reporter_name: details?.reporter_name ?? `Neighbor ${params.reporterId.slice(0, 6)}`,
-        offender_id: row!.offender_id,
+        offender_id: row.offender_id,
         offender_name: details?.offender_name ?? `Neighbor ${params.offenderId.slice(0, 6)}`,
     });
 }
@@ -447,7 +453,7 @@ export async function updateUserRole(id: string, role: string): Promise<boolean>
 }
 
 async function applyTrustProgressionForInteraction(
-    tx: any,
+    tx: postgres.TransactionSql,
     helperId: string
 ): Promise<{ trust_score: number; awarded: number }> {
     const [user] = (await tx`
@@ -493,7 +499,8 @@ export async function confirmPulseInteractionAsAdmin(params: {
 
         if (!pulse) return { success: false };
         if (pulse.is_solved) return { success: false, solved: true };
-        if (pulse.pulse_type?.toLowerCase() !== 'need') return { success: false, nonRequestType: true };
+        if (pulse.pulse_type?.toLowerCase() !== 'need')
+            return { success: false, nonRequestType: true };
 
         const [interaction] = (await tx`
             SELECT id, helper_id, status
@@ -507,10 +514,7 @@ export async function confirmPulseInteractionAsAdmin(params: {
             return { success: false };
         }
 
-        const trustProgress = await applyTrustProgressionForInteraction(
-            tx,
-            interaction.helper_id
-        );
+        const trustProgress = await applyTrustProgressionForInteraction(tx, interaction.helper_id);
 
         await tx`
             UPDATE app.pulse_interactions
@@ -525,6 +529,6 @@ export async function confirmPulseInteractionAsAdmin(params: {
 
     if (!result.success) return result;
 
-    const interaction = await selectPulseInteraction(result.interactionId!);
+    const interaction = await selectPulseInteraction(result.interactionId as string);
     return interaction ? { success: true, interaction } : { success: false };
 }

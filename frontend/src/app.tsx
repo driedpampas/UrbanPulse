@@ -29,7 +29,7 @@ function RouteRedirect({ to }: { to: string }) {
     }, [setLocation, to]);
     return (
         <div class="page-shell flex-center">
-            <span class="text-sm text-[var(--text-tertiary)] animate-pulse">Redirecting…</span>
+            <span class="text-sm text-(--text-tertiary) animate-pulse">Redirecting…</span>
         </div>
     );
 }
@@ -41,19 +41,19 @@ function AppRoutes() {
 
     if (!isReady) {
         return (
-            <div class="page-shell flex-center bg-[var(--bg)]">
+            <div class="page-shell flex-center bg-(--bg)">
                 <div class="stack-v gap-sm text-center">
-                    <p class="text-lg font-bold text-[var(--text)] tracking-tight">UrbanPulse</p>
+                    <p class="text-lg font-bold text-(--text) tracking-tight">UrbanPulse</p>
                     <div class="stack-h gap-sm justify-center">
                         <div
-                            class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce"
+                            class="h-1.5 w-1.5 rounded-full bg-(--accent) animate-bounce"
                             style="animation-delay:-0.3s"
                         />
                         <div
-                            class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce"
+                            class="h-1.5 w-1.5 rounded-full bg-(--accent) animate-bounce"
                             style="animation-delay:-0.15s"
                         />
-                        <div class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-bounce" />
+                        <div class="h-1.5 w-1.5 rounded-full bg-(--accent) animate-bounce" />
                     </div>
                 </div>
             </div>
@@ -96,7 +96,7 @@ function AppRoutes() {
             </Route>
             <Route>
                 <div class="page-shell flex-center">
-                    <span class="text-sm text-[var(--text-tertiary)]">Page not found</span>
+                    <span class="text-sm text-(--text-tertiary)">Page not found</span>
                 </div>
             </Route>
         </Switch>

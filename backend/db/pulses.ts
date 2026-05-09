@@ -1,27 +1,28 @@
+import type postgres from 'postgres';
+import { buildResourceTokenSet, findMatchedRequestedResources } from '../resourceMatching';
 import { sql } from './client';
-import { ensureSchema } from './schema';
+import { TRUST_SCORE_INCREMENT, TRUST_SCORE_SUCCESS_THRESHOLD } from './constants';
 import {
-    mapPulseRow,
+    isSuppressedByQuietWindow,
+    mapAcceptedInteractionRow,
     mapAuthorPulseRow,
     mapPulseInteractionRow,
-    mapAcceptedInteractionRow,
-    isSuppressedByQuietWindow,
+    mapPulseRow,
 } from './mappers';
-import { buildResourceTokenSet, findMatchedRequestedResources } from '../resourceMatching';
-import { TRUST_SCORE_SUCCESS_THRESHOLD, TRUST_SCORE_INCREMENT } from './constants';
+import { ensureSchema } from './schema';
 import type {
-    PulseType,
-    PulseFeedItem,
-    AuthorPulseRequest,
-    PulseInteraction,
     AcceptedInteraction,
-    PulseCreateParams,
-    PulseRow,
-    HeroCandidateRow,
-    UserResourceRow,
-    HeroMatchUser,
-    PulseInteractionRow,
     AcceptedInteractionRow,
+    AuthorPulseRequest,
+    HeroCandidateRow,
+    HeroMatchUser,
+    PulseCreateParams,
+    PulseFeedItem,
+    PulseInteraction,
+    PulseInteractionRow,
+    PulseRow,
+    PulseType,
+    UserResourceRow,
 } from './types';
 
 export async function selectPulses(
@@ -213,7 +214,11 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     RETURNING id
     `;
 
-    return (await selectPulseById(insertedPulse?.id))!;
+    const pulse = await selectPulseById(insertedPulse?.id);
+    if (!pulse) {
+        throw new Error('Failed to retrieve inserted pulse');
+    }
+    return pulse;
 }
 
 export async function updatePulse(
@@ -405,7 +410,10 @@ export async function findHeroesForPulse(pulseId: string): Promise<string[]> {
     return matches.filter((match) => !match.suppressedByQuietHours).map((match) => match.id);
 }
 
-export async function confirmPulse(pulseId: string, userId: string): Promise<{ success: boolean; alreadyConfirmed?: boolean }> {
+export async function confirmPulse(
+    pulseId: string,
+    userId: string
+): Promise<{ success: boolean; alreadyConfirmed?: boolean }> {
     return await sql.begin(async (tx) => {
         const [inserted] = await tx`
             INSERT INTO app.pulse_confirmations (pulse_id, user_id)
@@ -444,7 +452,9 @@ export async function solvePulse(pulseId: string, authorId: string): Promise<boo
     return Boolean(solved);
 }
 
-export async function selectPulseInteractionsByAuthor(authorId: string): Promise<PulseInteraction[]> {
+export async function selectPulseInteractionsByAuthor(
+    authorId: string
+): Promise<PulseInteraction[]> {
     const rows = (await sql`
         SELECT
             i.id,
@@ -465,7 +475,9 @@ export async function selectPulseInteractionsByAuthor(authorId: string): Promise
     return rows.map((row) => mapPulseInteractionRow(row));
 }
 
-export async function selectPulseInteractionsByHelper(helperId: string): Promise<AcceptedInteraction[]> {
+export async function selectPulseInteractionsByHelper(
+    helperId: string
+): Promise<AcceptedInteraction[]> {
     const rows = (await sql`
         SELECT
             i.id,
@@ -563,7 +575,7 @@ export async function insertPulseInteraction(params: {
 }
 
 async function applyTrustProgressionForInteraction(
-    tx: any, // SqlRunner
+    tx: postgres.TransactionSql, // SqlRunner
     helperId: string
 ): Promise<{ trust_score: number; awarded: number }> {
     const [user] = (await tx`
@@ -610,7 +622,8 @@ export async function confirmPulseInteraction(params: {
 
         if (!pulse) return { success: false };
         if (pulse.is_solved) return { success: false, solved: true };
-        if (pulse.pulse_type?.toLowerCase() !== 'need') return { success: false, nonRequestType: true };
+        if (pulse.pulse_type?.toLowerCase() !== 'need')
+            return { success: false, nonRequestType: true };
 
         const [interaction] = (await tx`
             SELECT id, helper_id, status
@@ -625,10 +638,7 @@ export async function confirmPulseInteraction(params: {
             return { success: false };
         }
 
-        const trustProgress = await applyTrustProgressionForInteraction(
-            tx,
-            interaction.helper_id
-        );
+        const trustProgress = await applyTrustProgressionForInteraction(tx, interaction.helper_id);
 
         await tx`
             UPDATE app.pulse_interactions
@@ -639,7 +649,9 @@ export async function confirmPulseInteraction(params: {
         `;
 
         const updatedInteraction = await selectPulseInteraction(interaction.id);
-        return updatedInteraction ? { success: true, interaction: updatedInteraction } : { success: false };
+        return updatedInteraction
+            ? { success: true, interaction: updatedInteraction }
+            : { success: false };
     });
 }
 
@@ -683,7 +695,10 @@ export async function markPulseSolved(
     return { pulse: await selectPulseById(updated.id) };
 }
 
-export async function selectPulseInteractions(pulseId: string, userId: string): Promise<PulseInteraction[]> {
+export async function selectPulseInteractions(
+    pulseId: string,
+    userId: string
+): Promise<PulseInteraction[]> {
     const [pulse] = (await sql`
         SELECT author_id FROM app.pulses WHERE id = ${pulseId}::uuid
     `) as Array<{ author_id: string }>;
@@ -754,7 +769,13 @@ export async function submitInteractionFeedback(params: {
             FROM app.pulse_interactions
             WHERE id = ${params.interactionId}::uuid
             FOR UPDATE
-        `) as Array<{ id: string; pulse_id: string; author_id: string; helper_id: string; status: string }>;
+        `) as Array<{
+            id: string;
+            pulse_id: string;
+            author_id: string;
+            helper_id: string;
+            status: string;
+        }>;
 
         if (!interaction) return { success: false, notFound: true };
         if (interaction.author_id !== params.actorId) return { success: false, forbidden: true };
@@ -770,12 +791,10 @@ export async function submitInteractionFeedback(params: {
 
         if (!pulse) return { success: false };
         if (pulse.is_solved) return { success: false, solved: true };
-        if (pulse.pulse_type?.toLowerCase() !== 'need') return { success: false, nonRequestType: true };
+        if (pulse.pulse_type?.toLowerCase() !== 'need')
+            return { success: false, nonRequestType: true };
 
-        const trustProgress = await applyTrustProgressionForInteraction(
-            tx,
-            interaction.helper_id
-        );
+        const trustProgress = await applyTrustProgressionForInteraction(tx, interaction.helper_id);
 
         await tx`
             UPDATE app.pulse_interactions
@@ -797,7 +816,7 @@ export async function submitInteractionFeedback(params: {
 
         return {
             success: true,
-            interaction: updatedInteraction!,
+            interaction: updatedInteraction as PulseInteraction,
             trustIncremented: true,
             helperSuccessfulCount: Number(helperStats?.successful_count ?? 0),
             helperTrustScore: Number(helperStats?.trust_score ?? 0),

@@ -1,19 +1,19 @@
 import { sql } from './client';
-import { ensureSchema } from './schema';
 import { mapMessageRow, normalizeChatRoles } from './mappers';
-import { selectUserSummary } from './users';
+import { ensureSchema } from './schema';
 import type {
     Chat,
-    ChatSummary,
-    Message,
     ChatParticipantRole,
     ChatParticipantRow,
-    ChatThreadRow,
     ChatRoleRow,
-    MessageRow,
-    EditMessageResult,
+    ChatSummary,
     ChatSummaryRow,
+    ChatThreadRow,
+    EditMessageResult,
+    Message,
+    MessageRow,
 } from './types';
+import { selectUserSummary } from './users.ts';
 
 export async function selectChats(userId: string): Promise<{ chatId: string }[]> {
     const chats = await sql`
@@ -22,7 +22,7 @@ export async function selectChats(userId: string): Promise<{ chatId: string }[]>
         WHERE user_id = ${userId}
     `;
 
-    return (chats as unknown) as { chatId: string }[];
+    return chats as unknown as { chatId: string }[];
 }
 
 export async function selectChatSummaries(userId: string): Promise<ChatSummary[]> {
@@ -62,7 +62,7 @@ export async function selectChatSummaries(userId: string): Promise<ChatSummary[]
         `) as ChatSummaryRow[];
     })) as ChatSummaryRow[];
 
-    return chats.map((chat: any) => ({
+    return chats.map((chat) => ({
         id: chat.id,
         isGroup: chat.is_group,
         name: chat.name,
@@ -376,19 +376,23 @@ export async function selectChat(chatId: string, currentUser: string): Promise<C
     for (const roleRow of roleRows) {
         const next = participantRoles[roleRow.user_id] ?? [];
         if (roleRow.role === 'owner' || roleRow.role === 'admin') {
-            if (!next.includes(roleRow.role as ChatParticipantRole)) next.push(roleRow.role as ChatParticipantRole);
+            if (!next.includes(roleRow.role as ChatParticipantRole))
+                next.push(roleRow.role as ChatParticipantRole);
         }
         participantRoles[roleRow.user_id] = next;
     }
 
+    const firstRow = chatRows[0];
+    if (!firstRow) return null;
+
     return {
         id: chatId,
         participants,
-        isGroup: chatRows[0]!.is_group,
-        ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
-        name: chatRows[0]!.name?.trim() ? String(chatRows[0]!.name) : null,
+        isGroup: !!firstRow.is_group,
+        ownerId: firstRow.owner_id ? String(firstRow.owner_id) : null,
+        name: firstRow.name?.trim() ? String(firstRow.name) : null,
         participantRoles,
-        timestamp: Number(chatRows[0]!.timestamp),
+        timestamp: Number(firstRow.timestamp),
     };
 }
 
@@ -425,23 +429,25 @@ export async function selectChatById(chatId: string): Promise<Chat | null> {
     for (const roleRow of roleRows) {
         const next = participantRoles[roleRow.user_id] ?? [];
         if (roleRow.role === 'owner' || roleRow.role === 'admin') {
-            if (!next.includes(roleRow.role as ChatParticipantRole)) next.push(roleRow.role as ChatParticipantRole);
+            if (!next.includes(roleRow.role as ChatParticipantRole))
+                next.push(roleRow.role as ChatParticipantRole);
         }
         participantRoles[roleRow.user_id] = next;
     }
 
+    const firstRow = chatRows[0];
+    if (!firstRow) return null;
+
     return {
         id: chatId,
         participants,
-        isGroup: chatRows[0]!.is_group,
-        ownerId: chatRows[0]!.owner_id ? String(chatRows[0]!.owner_id) : null,
-        name: chatRows[0]!.name?.trim() ? String(chatRows[0]!.name) : null,
+        isGroup: !!firstRow.is_group,
+        ownerId: firstRow.owner_id ? String(firstRow.owner_id) : null,
+        name: firstRow.name?.trim() ? String(firstRow.name) : null,
         participantRoles,
-        timestamp: Number(chatRows[0]!.timestamp),
+        timestamp: Number(firstRow.timestamp),
     };
 }
-
-
 
 export async function findDirectChatId(userAId: string, userBId: string): Promise<string | null> {
     const [row] = (await sql`
@@ -513,7 +519,11 @@ export async function insertChat(
         await insertMessage(threadId, currentUser, `${creatorName} created the group`, 'notice');
     }
 
-    return (await selectChat(threadId, currentUser))!;
+    const chat = await selectChat(threadId, currentUser);
+    if (!chat) {
+        throw new Error('Failed to create or retrieve chat');
+    }
+    return chat;
 }
 
 export async function updateChatName(threadId: string, ownerId: string, newName: string) {

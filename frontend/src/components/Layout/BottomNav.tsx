@@ -158,7 +158,7 @@ export function BottomNav() {
                         {showMoreMenu && (
                             <div
                                 ref={menuRef}
-                                class="absolute z-[50] bg-[var(--surface-raised)] border border-[var(--border)] rounded-xl shadow-lg overflow-hidden min-w-[160px]"
+                                class="absolute z-50 bg-(--surface-raised) border border-(--border) rounded-xl shadow-lg overflow-hidden min-w-[160px]"
                                 style="bottom:calc(100% + 8px);right:0;"
                                 role="menu"
                             >
@@ -178,7 +178,7 @@ export function BottomNav() {
                                                 setShowMoreMenu(false);
                                             }}
                                             role="menuitem"
-                                            class={`w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] stack-h gap-sm text-left transition-colors ${active ? 'bg-[var(--bg-muted)] text-[var(--accent)] font-semibold' : 'text-[var(--text)] hover:bg-[var(--bg-muted)]'}`}
+                                            class={`w-full px-3 py-2.5 border-none bg-none cursor-pointer text-[13px] stack-h gap-sm text-left transition-colors ${active ? 'bg-(--bg-muted) text-(--accent) font-semibold' : 'text-(--text) hover:bg-(--bg-muted)'}`}
                                         >
                                             <div style="position:relative;display:inline-flex;">
                                                 <Icon size={14} />

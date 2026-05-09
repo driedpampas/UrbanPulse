@@ -54,8 +54,8 @@ function DashboardToolbarComponent({
                         class={cn(
                             'btn-icon w-[34px] h-[34px] shrink-0',
                             showFilters
-                                ? 'text-[var(--accent)] bg-[var(--accent-subtle)]'
-                                : 'text-[var(--text-secondary)]'
+                                ? 'text-(--accent) bg-(--accent-subtle)'
+                                : 'text-(--text-secondary)'
                         )}
                         onClick={onToggleFilters}
                         aria-label="Filters"
@@ -76,11 +76,11 @@ function DashboardToolbarComponent({
             </div>
 
             {!showFilters && (
-                <div class="stack-v items-start gap-[1px] sm:pl-2">
-                    <span class="text-[11px] text-[var(--text-tertiary)] leading-none whitespace-nowrap">
+                <div class="stack-v items-start gap-px sm:pl-2">
+                    <span class="text-[11px] text-(--text-tertiary) leading-none whitespace-nowrap">
                         {radius}m radius
                     </span>
-                    <span class="text-[9px] text-[var(--text-tertiary)] opacity-70 font-semibold tracking-wide uppercase whitespace-nowrap">
+                    <span class="text-[9px] text-(--text-tertiary) opacity-70 font-semibold tracking-wide uppercase whitespace-nowrap">
                         {limit} PER BATCH
                     </span>
                 </div>

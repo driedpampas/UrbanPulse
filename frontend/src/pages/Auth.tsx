@@ -114,9 +114,9 @@ export function Auth() {
     };
 
     return (
-        <div class="page-shell bg-[var(--bg)] min-h-screen flex flex-col">
+        <div class="page-shell bg-(--bg) min-h-screen flex flex-col">
             <div class="stack-h flex-between app-container px-5 py-4">
-                <p class="text-base font-bold text-[var(--text)] m-0 tracking-tight">UrbanPulse</p>
+                <p class="text-base font-bold text-(--text) m-0 tracking-tight">UrbanPulse</p>
                 <HoverButton
                     type="button"
                     class="btn-icon"
@@ -130,12 +130,12 @@ export function Auth() {
             <div class="flex-1 flex items-center justify-center p-5">
                 <div class="w-full max-w-[400px] animate-slide-up">
                     <div class="mb-7 text-center stack-v gap-2">
-                        <h1 class="text-2xl font-bold tracking-tight text-[var(--text)]">
+                        <h1 class="text-2xl font-bold tracking-tight text-(--text)">
                             {mode === 'login' && 'Welcome back'}
                             {mode === 'register' && 'Join UrbanPulse'}
                             {mode === 'forgot-password' && 'Reset Password'}
                         </h1>
-                        <p class="text-sm text-[var(--text-secondary)]">
+                        <p class="text-sm text-(--text-secondary)">
                             {mode === 'login' && 'Sign in to access your neighborhood feed.'}
                             {mode === 'register' && 'Create an account to connect with neighbors.'}
                             {mode === 'forgot-password' &&
@@ -148,7 +148,7 @@ export function Auth() {
                             <div class="mb-6">
                                 <HoverButton
                                     type="button"
-                                    class="btn-ghost border-none h-8 px-0 text-xs text-[var(--text-secondary)] hover:text-[var(--text)]"
+                                    class="btn-ghost border-none h-8 px-0 text-xs text-(--text-secondary) hover:text-(--text)"
                                     onClick={() => reset('login')}
                                 >
                                     <ArrowLeft size={14} />
@@ -163,7 +163,7 @@ export function Auth() {
                                     <div class="stack-v gap-sm">
                                         <label class="label-caps">Display name</label>
                                         <input
-                                            class={`input-field ${errors.displayName ? 'border-[var(--danger)]' : ''}`}
+                                            class={`input-field ${errors.displayName ? 'border-(--danger)' : ''}`}
                                             value={displayName}
                                             onInput={(e) =>
                                                 setDisplayName((e.target as HTMLInputElement).value)
@@ -172,7 +172,7 @@ export function Auth() {
                                             autoComplete="name"
                                         />
                                         {errors.displayName && (
-                                            <p class="text-[11px] text-[var(--danger)] mt-1">
+                                            <p class="text-[11px] text-(--danger) mt-1">
                                                 {errors.displayName}
                                             </p>
                                         )}
@@ -183,7 +183,7 @@ export function Auth() {
                                     <label class="label-caps">Email</label>
                                     <input
                                         type="email"
-                                        class={`input-field ${errors.email ? 'border-[var(--danger)]' : ''}`}
+                                        class={`input-field ${errors.email ? 'border-(--danger)' : ''}`}
                                         value={email}
                                         onInput={(e) =>
                                             setEmail((e.target as HTMLInputElement).value)
@@ -192,7 +192,7 @@ export function Auth() {
                                         autoComplete="email"
                                     />
                                     {errors.email && (
-                                        <p class="text-[11px] text-[var(--danger)] mt-1">
+                                        <p class="text-[11px] text-(--danger) mt-1">
                                             {errors.email}
                                         </p>
                                     )}
@@ -201,12 +201,12 @@ export function Auth() {
                                 {mode !== 'forgot-password' && (
                                     <div class="stack-v gap-sm">
                                         <div class="stack-h flex-between">
-                                            <label class="label-caps !m-0">Password</label>
+                                            <label class="label-caps m-0!">Password</label>
                                             {mode === 'login' && (
                                                 <HoverButton
                                                     type="button"
                                                     onClick={() => reset('forgot-password')}
-                                                    class="text-[11px] font-bold text-[var(--accent)] bg-transparent border-none p-0 h-auto uppercase tracking-wide hover:underline"
+                                                    class="text-[11px] font-bold text-(--accent) bg-transparent border-none p-0 h-auto uppercase tracking-wide hover:underline"
                                                 >
                                                     Forgot?
                                                 </HoverButton>
@@ -215,7 +215,7 @@ export function Auth() {
                                         <div class="relative">
                                             <input
                                                 type={showPw ? 'text' : 'password'}
-                                                class={`input-field pr-10 ${errors.password ? 'border-[var(--danger)]' : ''}`}
+                                                class={`input-field pr-10 ${errors.password ? 'border-(--danger)' : ''}`}
                                                 value={password}
                                                 onInput={(e) =>
                                                     setPassword(
@@ -239,7 +239,7 @@ export function Auth() {
                                             </HoverButton>
                                         </div>
                                         {errors.password && (
-                                            <p class="text-[11px] text-[var(--danger)] mt-1">
+                                            <p class="text-[11px] text-(--danger) mt-1">
                                                 {errors.password}
                                             </p>
                                         )}
@@ -252,7 +252,7 @@ export function Auth() {
                                         <div class="relative">
                                             <input
                                                 type={showCPw ? 'text' : 'password'}
-                                                class={`input-field pr-10 ${errors.confirmPassword ? 'border-[var(--danger)]' : ''}`}
+                                                class={`input-field pr-10 ${errors.confirmPassword ? 'border-(--danger)' : ''}`}
                                                 value={confirmPassword}
                                                 onInput={(e) =>
                                                     setConfirmPassword(
@@ -272,7 +272,7 @@ export function Auth() {
                                             </HoverButton>
                                         </div>
                                         {errors.confirmPassword && (
-                                            <p class="text-[11px] text-[var(--danger)] mt-1">
+                                            <p class="text-[11px] text-(--danger) mt-1">
                                                 {errors.confirmPassword}
                                             </p>
                                         )}
@@ -280,24 +280,24 @@ export function Auth() {
                                 )}
 
                                 {errors.form && (
-                                    <div class="stack-h gap-sm rounded-xl border border-[var(--danger-muted)] bg-[var(--danger-subtle)] p-3">
+                                    <div class="stack-h gap-sm rounded-xl border border-(--danger-muted) bg-(--danger-subtle) p-3">
                                         <AlertCircle
                                             size={14}
-                                            class="text-[var(--danger)] shrink-0 mt-0.5"
+                                            class="text-(--danger) shrink-0 mt-0.5"
                                         />
-                                        <p class="text-xs text-[var(--danger)] leading-tight">
+                                        <p class="text-xs text-(--danger) leading-tight">
                                             {errors.form}
                                         </p>
                                     </div>
                                 )}
 
                                 {successMsg && (
-                                    <div class="stack-h gap-sm rounded-xl border border-[var(--success)]/30 bg-[var(--success-subtle)] p-3">
+                                    <div class="stack-h gap-sm rounded-xl border border-(--success)/30 bg-(--success-subtle) p-3">
                                         <CheckCircle2
                                             size={14}
-                                            class="text-[var(--success)] shrink-0 mt-0.5"
+                                            class="text-(--success) shrink-0 mt-0.5"
                                         />
-                                        <p class="text-xs text-[var(--success)] leading-tight">
+                                        <p class="text-xs text-(--success) leading-tight">
                                             {successMsg}
                                         </p>
                                     </div>
@@ -333,12 +333,12 @@ export function Auth() {
                                             onClick={() =>
                                                 reset(mode === 'login' ? 'register' : 'login')
                                             }
-                                            class="text-sm text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors py-2"
+                                            class="text-sm text-(--text-secondary) hover:text-(--text) transition-colors py-2"
                                         >
                                             {mode === 'login'
                                                 ? "Don't have an account? "
                                                 : 'Already have an account? '}
-                                            <span class="font-bold text-[var(--accent)]">
+                                            <span class="font-bold text-(--accent)">
                                                 {mode === 'login' ? 'Register' : 'Sign In'}
                                             </span>
                                         </button>
@@ -349,7 +349,7 @@ export function Auth() {
                     </div>
 
                     <div class="mt-12 text-center">
-                        <span class="text-[10px] text-[var(--text-tertiary)] uppercase tracking-widest opacity-50">
+                        <span class="text-[10px] text-(--text-tertiary) uppercase tracking-widest opacity-50">
                             UrbanPulse Version {__COMMIT_HASH__}
                         </span>
                     </div>

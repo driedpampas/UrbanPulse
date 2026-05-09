@@ -94,33 +94,33 @@ export function VerifyEmail() {
     const nextPath = isAuthenticated ? '/' : '/auth';
 
     return (
-        <div class="page-shell bg-[var(--bg)] px-4 py-10">
+        <div class="page-shell bg-(--bg) px-4 py-10">
             <div class="app-container">
                 <div class="mb-8 text-center animate-slide-up">
                     <p class="label-caps" style="margin-bottom: 4px;">
                         UrbanPulse Security
                     </p>
-                    <h1 class="text-2xl font-bold tracking-[-0.03em] text-[var(--text)]">
+                    <h1 class="text-2xl font-bold tracking-[-0.03em] text-(--text)">
                         Email Verification
                     </h1>
                 </div>
 
                 <div
-                    class="section animate-slide-up shadow-[var(--shadow-lg)]"
+                    class="section animate-slide-up shadow-(--shadow-lg)"
                     style="animation-delay: 0.1s;"
                 >
-                    <div class="section-header bg-[var(--bg-subtle)]">
+                    <div class="section-header bg-(--bg-subtle)">
                         <div class="stack-h gap-sm">
                             {state === 'loading' && (
-                                <LoaderCircle class="h-5 w-5 animate-spin text-[var(--accent)]" />
+                                <LoaderCircle class="h-5 w-5 animate-spin text-(--accent)" />
                             )}
                             {state === 'success' && (
-                                <CheckCircle2 class="h-5 w-5 text-[var(--success)]" />
+                                <CheckCircle2 class="h-5 w-5 text-(--success)" />
                             )}
                             {state === 'error' && (
-                                <AlertTriangle class="h-5 w-5 text-[var(--danger)]" />
+                                <AlertTriangle class="h-5 w-5 text-(--danger)" />
                             )}
-                            <p class="text-sm font-semibold text-[var(--text)]">
+                            <p class="text-sm font-semibold text-(--text)">
                                 {state === 'loading' && 'Checking verification token…'}
                                 {state === 'success' && 'Verification complete'}
                                 {state === 'error' && 'Verification failed'}
@@ -129,12 +129,12 @@ export function VerifyEmail() {
                     </div>
 
                     <div class="section-body p-6">
-                        <div class="rounded-xl border border-[var(--border)] bg-[var(--bg-subtle)] p-5">
+                        <div class="rounded-xl border border-(--border) bg-(--bg-subtle) p-5">
                             <div class="stack-h gap-md items-start">
-                                <div class="mt-0.5 rounded-full bg-[var(--accent-muted)] p-2">
-                                    <MailCheck class="h-5 w-5 text-[var(--accent)]" />
+                                <div class="mt-0.5 rounded-full bg-(--accent-muted) p-2">
+                                    <MailCheck class="h-5 w-5 text-(--accent)" />
                                 </div>
-                                <p class="text-sm leading-6 text-[var(--text-secondary)]">
+                                <p class="text-sm leading-6 text-(--text-secondary)">
                                     {message}
                                 </p>
                             </div>

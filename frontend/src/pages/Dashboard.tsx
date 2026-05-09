@@ -87,16 +87,16 @@ export function Dashboard() {
                 />
                 {showEmailVerificationBanner && (
                     <div class="mx-4 mt-3 animate-slide-up">
-                        <div class="section border-[var(--warning)] bg-[var(--warning-subtle)]/30">
+                        <div class="section border-(--warning) bg-(--warning-subtle)/30">
                             <div class="p-4 stack-h gap-md">
-                                <div class="rounded-full bg-[var(--warning-subtle)] p-2 border border-[var(--warning)]/20">
-                                    <ShieldCheck class="h-5 w-5 text-[var(--warning)]" />
+                                <div class="rounded-full bg-(--warning-subtle) p-2 border border-(--warning)/20">
+                                    <ShieldCheck class="h-5 w-5 text-(--warning)" />
                                 </div>
                                 <div class="stack-v">
-                                    <p class="text-sm font-bold text-[var(--text)]">
+                                    <p class="text-sm font-bold text-(--text)">
                                         Verify your email address
                                     </p>
-                                    <p class="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                    <p class="text-xs text-(--text-secondary) leading-relaxed">
                                         High-trust features require a verified account. Check your
                                         inbox for the link.
                                     </p>

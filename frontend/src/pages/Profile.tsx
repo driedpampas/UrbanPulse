@@ -613,7 +613,7 @@ export function Profile() {
                 {/* Identity card */}
                 <div class="section animate-slide-up">
                     <div class="section-header gap-md">
-                        <p class="label-caps !m-0">IDENTITY</p>
+                        <p class="label-caps m-0!">IDENTITY</p>
                         {isOwnProfile && !editing ? (
                             <HoverButton
                                 type="button"
@@ -631,7 +631,7 @@ export function Profile() {
                         ) : null}
                     </div>
                     <div
-                        class="section-body !p-5 stack-v gap-md"
+                        class="section-body p-5! stack-v gap-md"
                         style="align-items:center;text-align:center;"
                     >
                         <div class="stack-v gap-sm" style="align-items:center;">
@@ -720,8 +720,8 @@ export function Profile() {
                     </div>
 
                     {/* Bio row */}
-                    <div class="section-body !px-5 !pb-5 !pt-0">
-                        <p class="label-caps !mb-2">Bio</p>
+                    <div class="section-body px-5! pb-5! pt-0!">
+                        <p class="label-caps mb-2!">Bio</p>
                         {editing ? (
                             <textarea
                                 value={draft.bio ?? ''}
@@ -1324,14 +1324,13 @@ export function Profile() {
                 }}
             />
             {toastMessage && (
-                <div
-                    role="status"
+                <output
                     aria-live="polite"
                     class="animate-fade-in"
                     style="position:fixed;right:16px;bottom:88px;z-index:140;max-width:min(92vw,320px);padding:10px 12px;border-radius:10px;border:1px solid var(--accent-muted);background:var(--accent-subtle);color:var(--accent);font-size:12px;font-weight:700;box-shadow:var(--shadow-lg);"
                 >
                     {toastMessage}
-                </div>
+                </output>
             )}
         </AppLayout>
     );

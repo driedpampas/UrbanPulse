@@ -18,7 +18,10 @@ interface AiMatch {
     reason: string;
 }
 
-export const onRequestPost = async (context: { request: Request; env: { AI: any } }) => {
+export const onRequestPost = async (context: {
+    request: Request;
+    env: { AI: { run: (model: string, options: unknown) => Promise<unknown> } };
+}) => {
     const { request, env } = context;
 
     if (!env.AI) {
