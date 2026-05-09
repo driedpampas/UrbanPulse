@@ -9,6 +9,29 @@ export async function ensureSchema() {
     await sql.begin(async (tx) => {
         await tx`CREATE SCHEMA IF NOT EXISTS app`;
 
+        // Create ENUM types if they don't exist
+        const enumTypes = [
+            { name: 'user_role', values: ['admin', 'mod', 'user', 'banned'] },
+            { name: 'pulse_type', values: ['update', 'emergency', 'skill', 'item', 'pet', 'need'] },
+            { name: 'library_item_type', values: ['item', 'skill'] },
+            { name: 'report_target_type', values: ['pulse', 'user', 'message'] },
+            { name: 'message_type', values: ['text', 'notice'] },
+            { name: 'report_status', values: ['pending', 'resolved', 'dismissed'] },
+        ] as const;
+
+        for (const enumType of enumTypes) {
+            const existing = await tx`
+                SELECT 1 FROM pg_type t
+                JOIN pg_namespace n ON n.oid = t.typnamespace
+                WHERE t.typname = ${enumType.name} AND n.nspname = 'app'
+                LIMIT 1
+            `;
+            if (existing.length === 0) {
+                const values = enumType.values.map((v) => `'${v}'`).join(', ');
+                await tx.unsafe(`CREATE TYPE app.${enumType.name} AS ENUM (${values})`);
+            }
+        }
+
         await tx`
             CREATE OR REPLACE FUNCTION app.jsonb_to_integer_array(json_val jsonb)
             RETURNS integer[]
@@ -72,6 +95,43 @@ export async function ensureSchema() {
                 CREATE TABLE app.incident_type (
                     id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
                     label text NOT NULL
+                )
+            `;
+        }
+
+        // Check incidents table
+        const incidentsTable = await tx`
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'app' AND table_name = 'incidents'
+            LIMIT 1
+        `;
+        if (incidentsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.incidents (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                    type uuid NOT NULL REFERENCES app.incident_type(id) ON DELETE CASCADE,
+                    location geography(Polygon, 4326) NOT NULL,
+                    confidence_score smallint NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 100),
+                    confirmed boolean NOT NULL
+                )
+            `;
+        }
+
+        // Check incident_reports table
+        const incidentReportsTable = await tx`
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'app' AND table_name = 'incident_reports'
+            LIMIT 1
+        `;
+        if (incidentReportsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.incident_reports (
+                    id_incident uuid NOT NULL REFERENCES app.incidents(id) ON DELETE CASCADE,
+                    id_user uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    created_at timestamp NOT NULL DEFAULT now(),
+                    title varchar NOT NULL,
+                    description varchar NOT NULL,
+                    PRIMARY KEY (id_incident, id_user)
                 )
             `;
         }
@@ -417,45 +477,18 @@ export async function ensureSchema() {
             ADD COLUMN IF NOT EXISTS profile_picture_updated_at timestamptz
         `;
 
-        const usersRoleConstraint = (await tx`
-            SELECT pg_get_constraintdef(c.oid) AS constraint_def
-            FROM pg_constraint AS c
-            WHERE c.conrelid = 'app.users'::regclass
-              AND c.conname = 'users_role_check'
-            LIMIT 1
-        `) as Array<{ constraint_def?: string | null }>;
-
-        const usersRoleConstraintDef = String(
-            usersRoleConstraint[0]?.constraint_def ?? ''
-        ).toLowerCase();
-
+        // Migrate any legacy 'resident' roles to 'user' before the enum was applied
         await tx`
             UPDATE app.users
             SET role = 'user'
-            WHERE LOWER(role) = 'resident'
+            WHERE role::text = 'resident'
         `;
 
-        const usersRoleConstraintNeedsUpdate =
-            usersRoleConstraint.length === 0 ||
-            !usersRoleConstraintDef.includes('admin') ||
-            !usersRoleConstraintDef.includes('mod') ||
-            !usersRoleConstraintDef.includes('banned') ||
-            !usersRoleConstraintDef.includes('user') ||
-            usersRoleConstraintDef.includes('resident');
-
-        if (usersRoleConstraintNeedsUpdate) {
-            await tx`
-                ALTER TABLE app.users
-                DROP CONSTRAINT IF EXISTS users_role_check
-            `;
-
-            await tx`
-                ALTER TABLE app.users
-                ADD CONSTRAINT users_role_check CHECK (
-                    LOWER(role) = ANY (ARRAY['admin', 'mod', 'user', 'banned'])
-                )
-            `;
-        }
+        // Drop the old CHECK constraint (superseded by the app.user_role enum type)
+        await tx`
+            ALTER TABLE app.users
+            DROP CONSTRAINT IF EXISTS users_role_check
+        `;
 
         const pulseVerifiedInfoCol = (await tx`
             SELECT is_generated
