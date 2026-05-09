@@ -1,0 +1,23 @@
+{
+    "name": "urbanpulse",
+    "private": true,
+    "scripts": {
+        "dev:backend": "bun run app --cwd backend",
+        "dev:frontend": "bun run dev --cwd frontend",
+        "dev:auth-mailer": "bun run dev --cwd auth-mailer",
+        "dev": "bun run dev:backend & bun run dev:frontend & bun run dev:auth-mailer",
+        "build:frontend": "bun run build --cwd frontend",
+        "build": "bun run build:frontend",
+        "lint": "bun x @biomejs/biome check --write backend/ frontend/",
+        "typecheck:backend": "bun run typecheck --cwd backend",
+        "typecheck:frontend": "tsc --noEmit --cwd frontend",
+        "typecheck": "bun run typecheck:backend && bun run typecheck:frontend",
+        "update": "bun update --cwd backend && bun update --cwd frontend && bun update --cwd auth-mailer",
+        "update:backend": "bun update --cwd backend",
+        "update:frontend": "bun update --cwd frontend",
+        "update:auth-mailer": "bun update --cwd auth-mailer",
+        "install:all": "bun install --cwd backend && bun install --cwd frontend && bun install --cwd auth-mailer",
+        "check": "bun run lint && bun run typecheck && bun run build",
+        "deploy:auth-mailer": "bun run deploy --cwd auth-mailer"
+    }
+}

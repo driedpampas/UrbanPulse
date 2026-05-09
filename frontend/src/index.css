@@ -668,14 +668,14 @@
     animation: toast-progress 5s linear forwards;
 }
 
-/* ─── Mapbox overrides ───────────────────────────────────────── */
+/* ─── MapLibre overrides ───────────────────────────────────────── */
 
-.mapboxgl-ctrl-bottom-left,
-.mapboxgl-ctrl-bottom-right {
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-bottom-right {
     display: none !important;
 }
 
-.mapboxgl-popup-content {
+.maplibregl-popup-content {
     background: var(--surface-overlay) !important;
     border: 1px solid var(--border) !important;
     color: var(--text) !important;
@@ -687,7 +687,7 @@
     box-shadow: var(--shadow-md) !important;
 }
 
-.mapboxgl-popup-tip {
+.maplibregl-popup-tip {
     display: none !important;
 }
 

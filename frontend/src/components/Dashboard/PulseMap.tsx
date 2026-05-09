@@ -1,5 +1,5 @@
 import { AlertCircle, Clock, MapPin } from 'lucide-preact';
-import type { GeoJSONSource, ErrorEvent as MapboxErrorEvent, Map as MapboxMap } from 'mapbox-gl';
+import type { ErrorEvent, GeoJSONSource, Map as MapInstance } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { PulseSocketEvent } from '../../lib/pulseApi';
 import {
@@ -14,12 +14,10 @@ import { fetchCurrentUser } from '../../lib/userApi';
 import { getCurrentBrowserLocation, isUsableCoordinates } from '../../lib/utils';
 import { UserAvatar } from '../ui/UserAvatar';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
-const MAPBOX_LIGHT_STYLE_ID = 'mapbox/light-v11';
-const MAPBOX_DARK_STYLE_ID = 'mapbox/dark-v11';
-const MAPBOX_STYLE_URL = (styleId: string) => `https://api.mapbox.com/styles/v1/${styleId}`;
+const LIGHT_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+const DARK_STYLE_URL = 'https://tiles.openfreemap.org/styles/dark';
 
-type MapboxGL = typeof import('mapbox-gl')['default'];
+type MapLibreGL = typeof import('maplibre-gl');
 type MarkerHandle = { remove(): void };
 
 const PULSE_DENSITY_SOURCE_ID = 'pulse-density-source';
@@ -178,33 +176,7 @@ function buildDensityData(pulses: Pulse[]): DensityFeatureCollection {
     };
 }
 
-function ensureMapboxToken(token: string) {
-    if (!token) {
-        throw new Error(
-            'Missing VITE_MAPBOX_TOKEN. Set a public Mapbox token before loading the map.'
-        );
-    }
-}
-
-async function verifyMapboxToken(token: string) {
-    ensureMapboxToken(token);
-
-    const response = await fetch(
-        `${MAPBOX_STYLE_URL(MAPBOX_LIGHT_STYLE_ID)}?access_token=${encodeURIComponent(token)}`
-    );
-    if (response.ok) {
-        return;
-    }
-
-    const responseBody = await response.text().catch(() => '');
-    const details = responseBody.includes('Not Authorized')
-        ? ' Token is not authorized for this style or domain.'
-        : '';
-
-    throw new Error(
-        `Invalid Mapbox token. Style request failed with ${response.status} ${response.statusText}.${details}`
-    );
-}
+// MapLibre doesn't require a token for OSM tiles.
 
 export function PulseMap({
     expanded = false,
@@ -217,8 +189,8 @@ export function PulseMap({
 }) {
     const { theme } = useTheme();
     const mapContainer = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<MapboxMap | null>(null);
-    const mapboxGlRef = useRef<MapboxGL | null>(null);
+    const mapRef = useRef<MapInstance | null>(null);
+    const mapLibreGlRef = useRef<MapLibreGL | null>(null);
     const markersRef = useRef<MarkerHandle[]>([]);
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
@@ -229,7 +201,7 @@ export function PulseMap({
     const [locationResolved, setLocationResolved] = useState(false);
     const themeColors = getThemeColors();
     const pulseTypeColors = getPulseTypeColors();
-    const mapStyleId = theme === 'dark' ? MAPBOX_DARK_STYLE_ID : MAPBOX_LIGHT_STYLE_ID;
+    const mapStyle = theme === 'dark' ? DARK_STYLE_URL : LIGHT_STYLE_URL;
 
     useEffect(() => {
         let cancelled = false;
@@ -361,7 +333,7 @@ export function PulseMap({
         markersRef.current = [];
         mapRef.current?.remove();
         mapRef.current = null;
-        mapboxGlRef.current = null;
+        mapLibreGlRef.current = null;
         setMapLoaded(false);
     }, [mapError]);
 
@@ -383,10 +355,10 @@ export function PulseMap({
         }
 
         let disposed = false;
-        let map: MapboxMap | undefined;
+        let map: MapInstance | undefined;
         let resizeObserver: ResizeObserver | undefined;
 
-        const applyLayers = (activeMap: MapboxMap, colors = getThemeColors()) => {
+        const applyLayers = (activeMap: MapInstance, colors = getThemeColors()) => {
             if (!activeMap.getSource(PULSE_DENSITY_SOURCE_ID)) {
                 activeMap.addSource(PULSE_DENSITY_SOURCE_ID, {
                     type: 'geojson',
@@ -479,22 +451,19 @@ export function PulseMap({
         };
 
         const initMap = async () => {
-            await verifyMapboxToken(MAPBOX_TOKEN);
-
-            const [{ default: mapboxgl }] = await Promise.all([
-                import('mapbox-gl'),
-                import('mapbox-gl/dist/mapbox-gl.css'),
+            const [maplibregl] = await Promise.all([
+                import('maplibre-gl'),
+                import('maplibre-gl/dist/maplibre-gl.css'),
             ]);
 
             if (disposed || !mapContainer.current) {
                 return;
             }
 
-            mapboxGlRef.current = mapboxgl;
-            mapboxgl.accessToken = MAPBOX_TOKEN;
-            map = new mapboxgl.Map({
+            mapLibreGlRef.current = maplibregl;
+            map = new maplibregl.Map({
                 container: mapContainer.current,
-                style: `mapbox://styles/${mapStyleId}`,
+                style: mapStyle,
                 center: [-74.006, 40.7128],
                 zoom: 14,
             });
@@ -524,21 +493,8 @@ export function PulseMap({
                 map.resize();
             });
 
-            map.on('error', (event: MapboxErrorEvent) => {
-                const message = event.error?.message || 'Mapbox failed to render the map.';
-                const status = (event.error as { status?: number } | undefined)?.status;
-
-                if (
-                    status === 401 ||
-                    status === 403 ||
-                    /token|authorized|authentication/i.test(message)
-                ) {
-                    const error = new Error(`Invalid Mapbox token. ${message}`);
-                    console.error(error);
-                    setMapError(error.message);
-                    return;
-                }
-
+            map.on('error', (event: ErrorEvent) => {
+                const message = event.error?.message || 'Map failed to render.';
                 setMapError(message);
             });
         };
@@ -549,7 +505,7 @@ export function PulseMap({
             }
 
             const mapInitError =
-                error instanceof Error ? error : new Error('Mapbox failed to initialize.');
+                error instanceof Error ? error : new Error('Map failed to initialize.');
             console.error(mapInitError);
             setMapError(mapInitError.message);
         });
@@ -563,15 +519,23 @@ export function PulseMap({
             markersRef.current = [];
             if (map) map.remove();
             mapRef.current = null;
-            mapboxGlRef.current = null;
+            mapLibreGlRef.current = null;
         };
-    }, [mapStyleId]);
+    }, []);
 
     useEffect(() => {
         const activeMap = mapRef.current;
-        const mapboxgl = mapboxGlRef.current;
+        if (!activeMap) {
+            return;
+        }
+        activeMap.setStyle(mapStyle);
+    }, [mapStyle]);
 
-        if (!mapLoaded || !activeMap || !mapboxgl || !mapCenter) {
+    useEffect(() => {
+        const activeMap = mapRef.current;
+        const maplibregl = mapLibreGlRef.current;
+
+        if (!mapLoaded || !activeMap || !maplibregl || !mapCenter) {
             return;
         }
 
@@ -597,10 +561,10 @@ export function PulseMap({
             markerElement.style.boxShadow = `0 0 0 3px ${toRgba(themeColors.accent, 0.12)}, 0 2px 8px ${toRgba(themeColors.text, 0.2)}`;
             markerElement.title = `${pulse.userName}: ${pulse.content}`;
 
-            return new mapboxgl.Marker(markerElement)
+            return new maplibregl.Marker(markerElement)
                 .setLngLat([pulse.lng, pulse.lat])
                 .setPopup(
-                    new mapboxgl.Popup({ offset: 12 }).setText(
+                    new maplibregl.Popup({ offset: 12 }).setText(
                         `${pulse.userName}: ${pulse.content}`
                     )
                 )
@@ -708,7 +672,7 @@ export function PulseMap({
                     style={`background:${toRgba(themeColors.text, 0.03)};`}
                 >
                     <div class="animate-pulse text-sm" style={`color:${themeColors.muted};`}>
-                        Loading map…
+                        Loading live map…
                     </div>
                 </div>
             )}

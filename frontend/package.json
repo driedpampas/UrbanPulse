@@ -13,7 +13,7 @@
         "clsx": "^2.1.1",
         "dotenv": "^17.4.2",
         "lucide-preact": "^0.577.0",
-        "mapbox-gl": "^3.21.0",
+        "maplibre-gl": "^5.24.0",
         "preact": "^10.29.1",
         "tailwind-merge": "^3.5.0",
         "wouter": "^3.9.0"

@@ -117,9 +117,7 @@ export function VerifyEmail() {
                             {state === 'success' && (
                                 <CheckCircle2 class="h-5 w-5 text-(--success)" />
                             )}
-                            {state === 'error' && (
-                                <AlertTriangle class="h-5 w-5 text-(--danger)" />
-                            )}
+                            {state === 'error' && <AlertTriangle class="h-5 w-5 text-(--danger)" />}
                             <p class="text-sm font-semibold text-(--text)">
                                 {state === 'loading' && 'Checking verification token…'}
                                 {state === 'success' && 'Verification complete'}
@@ -134,9 +132,7 @@ export function VerifyEmail() {
                                 <div class="mt-0.5 rounded-full bg-(--accent-muted) p-2">
                                     <MailCheck class="h-5 w-5 text-(--accent)" />
                                 </div>
-                                <p class="text-sm leading-6 text-(--text-secondary)">
-                                    {message}
-                                </p>
+                                <p class="text-sm leading-6 text-(--text-secondary)">{message}</p>
                             </div>
                         </div>
 

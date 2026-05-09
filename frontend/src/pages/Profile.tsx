@@ -18,11 +18,7 @@ import {
     Trash2,
     X,
 } from 'lucide-preact';
-import type {
-    ErrorEvent as MapboxErrorEvent,
-    Map as MapboxMap,
-    Marker as MapboxMarker,
-} from 'mapbox-gl';
+import type { ErrorEvent, Map as MapInstance, Marker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useLocation } from 'wouter';
 import { AppLayout } from '../components/Layout/AppLayout';
@@ -31,7 +27,7 @@ import { RoleBadge } from '../components/Profile/RoleBadge';
 import { TrustBadge } from '../components/Profile/TrustBadge';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { invalidateUserAvatarCache } from '../components/ui/UserAvatar';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { HoverButton } from '../components/ui/HoverButton';
 import { useAuth } from '../lib/auth';
 import {
@@ -81,9 +77,8 @@ function normDays(days: Array<number | string> | undefined): number[] {
 
 // Centralized UI classes are defined in index.css
 
-const PROFILE_MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN?.trim() || '';
-const PROFILE_MAPBOX_STYLE_DARK = 'mapbox/dark-v11';
-const PROFILE_MAPBOX_STYLE_LIGHT = 'mapbox/light-v11';
+const PROFILE_LIGHT_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+const PROFILE_DARK_STYLE = 'https://tiles.openfreemap.org/styles/dark';
 
 const MAP_FRAME_STYLE =
     'position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg-subtle);box-shadow:var(--shadow-sm);height:380px;';
@@ -143,9 +138,9 @@ export function Profile() {
     const [mapError, setMapError] = useState<string | null>(null);
     const [mapLoaded, setMapLoaded] = useState(false);
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<MapboxMap | null>(null);
-    const mapboxGlRef = useRef<typeof import('mapbox-gl')['default'] | null>(null);
-    const locationMarkerRef = useRef<MapboxMarker | null>(null);
+    const mapRef = useRef<MapInstance | null>(null);
+    const mapLibreGlRef = useRef<typeof import('maplibre-gl') | null>(null);
+    const locationMarkerRef = useRef<Marker | null>(null);
     const toastTimerRef = useRef<number | null>(null);
     const profilePictureInputRef = useRef<HTMLInputElement>(null);
     const profilePictureObjectUrlRef = useRef<string | null>(null);
@@ -156,7 +151,7 @@ export function Profile() {
     const selectedLocation = resolveLocationValue(editing ? draft : user);
     const editableLocationMap = isOwnProfile && editing;
     const displayLocationMap = isOwnProfile && Boolean(selectedLocation || editableLocationMap);
-    const mapStyle = theme === 'dark' ? PROFILE_MAPBOX_STYLE_DARK : PROFILE_MAPBOX_STYLE_LIGHT;
+    const mapStyle = theme === 'dark' ? PROFILE_DARK_STYLE : PROFILE_LIGHT_STYLE;
 
     const applyLocation = (nextLocation: { lat: number; lng: number }) => {
         setDraft((current) => ({
@@ -232,27 +227,19 @@ export function Profile() {
         let disposed = false;
 
         const initMap = async () => {
-            if (!PROFILE_MAPBOX_TOKEN) {
-                setMapError(
-                    'Missing VITE_MAPBOX_TOKEN. Set a public Mapbox token to edit location.'
-                );
-                return;
-            }
-
             try {
-                const [{ default: mapboxgl }] = await Promise.all([import('mapbox-gl')]);
+                const [maplibregl] = await Promise.all([import('maplibre-gl')]);
 
                 if (disposed || !mapContainerRef.current) {
                     return;
                 }
 
-                mapboxGlRef.current = mapboxgl;
-                mapboxgl.accessToken = PROFILE_MAPBOX_TOKEN;
+                mapLibreGlRef.current = maplibregl;
 
                 const initialLocation = selectedLocation ?? DEFAULT_PULSE_CENTER;
-                const map = new mapboxgl.Map({
+                const map = new maplibregl.Map({
                     container: mapContainerRef.current,
-                    style: `mapbox://styles/${mapStyle}`,
+                    style: mapStyle,
                     center: [initialLocation.lng, initialLocation.lat],
                     zoom: 13,
                     interactive: editableLocationMap,
@@ -265,7 +252,7 @@ export function Profile() {
                         return;
                     }
 
-                    const marker = new mapboxgl.Marker({
+                    const marker = new maplibregl.Marker({
                         draggable: editableLocationMap,
                         color: '#0ea5e9',
                     })
@@ -295,9 +282,8 @@ export function Profile() {
                     });
                 });
 
-                map.on('error', (event: MapboxErrorEvent) => {
-                    const message =
-                        event.error?.message || 'Mapbox failed to render the location picker.';
+                map.on('error', (event: ErrorEvent) => {
+                    const message = event.error?.message || 'Map failed to render.';
                     setMapError(message);
                     setMapLoaded(false);
                 });
@@ -316,7 +302,7 @@ export function Profile() {
             locationMarkerRef.current = null;
             mapRef.current?.remove();
             mapRef.current = null;
-            mapboxGlRef.current = null;
+            mapLibreGlRef.current = null;
             setMapLoaded(false);
             setMapError(null);
         };
@@ -336,7 +322,7 @@ export function Profile() {
 
     useEffect(() => {
         if (mapRef.current && mapLoaded) {
-            mapRef.current.setStyle(`mapbox://styles/${mapStyle}`);
+            mapRef.current.setStyle(mapStyle);
         }
     }, [mapStyle, mapLoaded]);
 
@@ -1018,11 +1004,10 @@ export function Profile() {
                                                         <X size={14} />
                                                     </HoverButton>
                                                 </div>
-                                                {!mapLoaded && !PROFILE_MAPBOX_TOKEN && (
-                                                    <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--danger);line-height:1.45;opacity:0.8;">
-                                                        Tip: Set VITE_MAPBOX_TOKEN in your
-                                                        environment to enable the interactive map
-                                                        preview.
+                                                {!mapLoaded && (
+                                                    <p style="margin:4px 0 0 22px;font-size:11px;font-weight:500;color:var(--text-tertiary);line-height:1.45;opacity:0.8;">
+                                                        Tip: Ensure location services are enabled to
+                                                        use the picker.
                                                     </p>
                                                 )}
                                             </div>

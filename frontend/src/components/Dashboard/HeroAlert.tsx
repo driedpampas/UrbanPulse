@@ -198,9 +198,7 @@ export function HeroAlert() {
                         <span class="text-[13px] font-bold text-(--text)">
                             {activeAlert.userName}
                         </span>
-                        <span class="text-[11px] text-(--text-secondary) ml-auto">
-                            Just now
-                        </span>
+                        <span class="text-[11px] text-(--text-secondary) ml-auto">Just now</span>
                     </div>
                     <p class="m-0 text-[14px] text-(--text) leading-relaxed font-medium">
                         {activeAlert.content}

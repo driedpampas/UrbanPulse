@@ -134,9 +134,7 @@ export function Settings() {
                     <div class="section-header bg-(--bg-subtle)">
                         <div class="stack-h gap-sm">
                             <KeyRound class="h-4 w-4 text-(--warning)" />
-                            <h2 class="text-sm font-semibold text-(--text)">
-                                Password Security
-                            </h2>
+                            <h2 class="text-sm font-semibold text-(--text)">Password Security</h2>
                         </div>
                     </div>
 
