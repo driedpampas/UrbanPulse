@@ -1,4 +1,17 @@
-import { AlertTriangle, RefreshCw, Thermometer } from 'lucide-preact';
+import type { LucideIcon } from 'lucide-preact';
+import {
+    AlertTriangle,
+    Cloud,
+    CloudDrizzle,
+    CloudFog,
+    CloudLightning,
+    CloudRain,
+    CloudSun,
+    RefreshCw,
+    Snowflake,
+    Sun,
+    Thermometer,
+} from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { WeatherData } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
@@ -9,6 +22,23 @@ import {
 } from '../../lib/utils';
 import { fetchWeather } from '../../lib/weatherApi';
 import { HoverButton } from '../ui/HoverButton';
+
+const WEATHER_ICON_MAP: Record<string, LucideIcon> = {
+    sun: Sun,
+    cloud: Cloud,
+    'cloud-sun': CloudSun,
+    'cloud-fog': CloudFog,
+    'cloud-drizzle': CloudDrizzle,
+    'cloud-rain': CloudRain,
+    snowflake: Snowflake,
+    'cloud-lightning': CloudLightning,
+};
+
+function WeatherIcon({ iconKey }: { iconKey: string }) {
+    const Icon = WEATHER_ICON_MAP[iconKey];
+    if (!Icon) return null;
+    return <Icon size={13} />;
+}
 
 export function WeatherAlert() {
     const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -63,7 +93,7 @@ export function WeatherAlert() {
                 />
                 <div style="flex:1;min-width:0;">
                     <p style="font-size:13px;font-weight:600;color:var(--danger);margin:0 0 2px;">
-                        {weather.icon} {weather.description}
+                        <WeatherIcon iconKey={weather.icon} /> {weather.description}
                     </p>
                     {weather.warning && (
                         <p style="font-size:11px;color:var(--text-secondary);margin:0 0 6px;">
@@ -91,14 +121,17 @@ export function WeatherAlert() {
         <div
             id="weather-alert"
             class="animate-fade-in"
-            style="margin:12px 0 0;padding:8px 12px;border-radius:8px;background:var(--bg-subtle);border:1px solid var(--border);display:inline-flex;align-items:center;gap:8px;width:100%;"
+            style="margin:12px 0 0;padding:10px 14px;border-radius:8px;background:var(--bg-subtle);border:1px solid var(--border);display:flex;align-items:center;gap:12px;width:100%;"
         >
-            <Thermometer size={13} style="color:var(--warning);flex-shrink:0;" />
-            <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
-                {weather.temp}°C
+            <span style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;">
+                <Thermometer size={14} style="color:var(--warning);" />
+                <span style="font-size:13px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;">
+                    {weather.temp}°C
+                </span>
             </span>
-            <span style="font-size:12px;color:var(--text-secondary);">
-                {weather.icon} {weather.description}
+            <span style="width:1px;height:14px;background:var(--border);flex-shrink:0;" />
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-secondary);">
+                <WeatherIcon iconKey={weather.icon} /> {weather.description}
             </span>
         </div>
     );

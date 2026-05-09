@@ -133,11 +133,6 @@ function EmergencyMenu({
                     </label>
                 </div>
             </div>
-            <div style="padding:8px 14px 10px;border-top:1px solid var(--border);">
-                <span style="font-size:11px;color:var(--text-tertiary);">
-                    Crisis mode is active
-                </span>
-            </div>
         </div>
     );
 }

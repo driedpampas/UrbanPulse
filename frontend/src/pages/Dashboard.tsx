@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-preact';
 import { useState } from 'preact/hooks';
+import { BatterySaverDialog } from '../components/Dashboard/BatterySaverDialog';
 import { DashboardFiltersPanel } from '../components/Dashboard/DashboardFiltersPanel';
 import { DashboardToolbar } from '../components/Dashboard/DashboardToolbar';
 import { HeroAlert } from '../components/Dashboard/HeroAlert';
@@ -9,6 +10,7 @@ import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { NeedPostingForm } from '../components/Requests/NeedPostingForm';
 import { HoverButton } from '../components/ui/HoverButton';
+import { useBatterySaver } from '../hooks/useBatterySaver';
 import { useCrisisMode } from '../hooks/useCrisisMode';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
 import { useAuth } from '../lib/auth';
@@ -66,6 +68,10 @@ export function Dashboard() {
     } = useDashboardViewState();
 
     const { crisisMode, crisisFeedTab, setCrisisFeedTab } = useCrisisMode();
+
+    const { battery, shouldShowDialog, requestWakeLock, dismissDialog } = useBatterySaver({
+        crisisMode,
+    });
 
     const crisisFilter = !crisisMode
         ? null
@@ -158,6 +164,13 @@ export function Dashboard() {
             </div>
 
             {showPostForm && <NeedPostingForm onClose={closePostForm} />}
+
+            <BatterySaverDialog
+                open={shouldShowDialog}
+                battery={battery}
+                onRequestExclusion={requestWakeLock}
+                onDismiss={dismissDialog}
+            />
         </AppLayout>
     );
 }

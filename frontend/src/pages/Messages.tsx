@@ -1,5 +1,6 @@
 import {
     ArrowLeft,
+    Check,
     ChevronRight,
     Clock,
     Copy,
@@ -785,7 +786,11 @@ export function Messages() {
                                             <span
                                                 style={`display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;border:1px solid ${selectedComposeIds.includes(user.id) ? 'var(--accent)' : 'var(--border)'};background:${selectedComposeIds.includes(user.id) ? 'var(--accent)' : 'transparent'};color:${selectedComposeIds.includes(user.id) ? '#fff' : 'var(--text-tertiary)'};font-size:11px;`}
                                             >
-                                                {selectedComposeIds.includes(user.id) ? '✓' : '+'}
+                                                {selectedComposeIds.includes(user.id) ? (
+                                                    <Check size={12} />
+                                                ) : (
+                                                    '+'
+                                                )}
                                             </span>
                                         ) : (
                                             <span style="display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;">

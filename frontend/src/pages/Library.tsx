@@ -1,4 +1,4 @@
-import { Package, Plus, X } from 'lucide-preact';
+import { Package, Plus, Wrench, X } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { LibraryFilterTabs } from '../components/Library/LibraryFilterTabs';
@@ -224,7 +224,15 @@ function AddItemModal({
                                     (e.target as HTMLElement).style.background = 'transparent';
                                 }}
                             >
-                                {t === 'item' ? '📦 Item' : '🛠️ Skill'}
+                                {t === 'item' ? (
+                                    <>
+                                        <Package size={12} /> Item
+                                    </>
+                                ) : (
+                                    <>
+                                        <Wrench size={12} /> Skill
+                                    </>
+                                )}
                             </HoverButton>
                         ))}
                     </div>

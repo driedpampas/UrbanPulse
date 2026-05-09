@@ -1,3 +1,4 @@
+import { Package, Wrench } from 'lucide-preact';
 import { memo } from 'preact/compat';
 import { HoverButton } from '../ui/HoverButton';
 
@@ -20,7 +21,10 @@ const TAB_BTN = (active: boolean) => `
 
 function LibraryFilterTabsComponent({ filter, onFilterChange }: Props) {
     return (
-        <div id="library-filter-tabs" style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);align-self:flex-start;">
+        <div
+            id="library-filter-tabs"
+            style="display:flex;align-items:center;gap:2px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);align-self:flex-start;"
+        >
             {(['all', 'item', 'skill'] as const).map((tab) => (
                 <HoverButton
                     key={tab}
@@ -28,7 +32,17 @@ function LibraryFilterTabsComponent({ filter, onFilterChange }: Props) {
                     onClick={() => onFilterChange(tab)}
                     style={TAB_BTN(filter === tab)}
                 >
-                    {tab === 'all' ? 'All' : tab === 'item' ? '📦 Items' : '🛠️ Skills'}
+                    {tab === 'all' ? (
+                        'All'
+                    ) : tab === 'item' ? (
+                        <>
+                            <Package size={12} /> Items
+                        </>
+                    ) : (
+                        <>
+                            <Wrench size={12} /> Skills
+                        </>
+                    )}
                 </HoverButton>
             ))}
         </div>

@@ -1,4 +1,5 @@
 import {
+    AlertTriangle,
     ArrowRight,
     CheckCircle,
     Clock,
@@ -309,8 +310,8 @@ export function PetMatch() {
                                 <span style="font-size:11px;color:var(--text-tertiary);">
                                     {reportContent.length} / {CONTENT_MAX}
                                     {!userLocation && (
-                                        <span style="color:var(--warning);margin-left:10px;">
-                                            ⚠ No home location
+                                        <span style="color:var(--warning);margin-left:10px;display:inline-flex;align-items:center;gap:4px;">
+                                            <AlertTriangle size={11} /> No home location
                                         </span>
                                     )}
                                 </span>
