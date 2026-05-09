@@ -886,7 +886,7 @@ export const httpRoutes: HttpRoutes = {
 
                         const picture = await db.selectUserProfilePicture(parsedParams.data.userId);
                         if (!picture) {
-                            return withCors(NOT_FOUND);
+                            return withCors(new Response(null, { status: 204 }));
                         }
 
                         if (

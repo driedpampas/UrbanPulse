@@ -5,12 +5,23 @@
 -- ------------------------------------------------------------
 -- 1. Create ENUM types
 -- ------------------------------------------------------------
-    
+
+DROP TYPE IF EXISTS "app"."user_role" CASCADE;
 CREATE TYPE "app"."user_role" AS ENUM ('admin', 'mod', 'user', 'banned');
+
+DROP TYPE IF EXISTS "app"."pulse_type" CASCADE;
 CREATE TYPE "app"."pulse_type" AS ENUM ('update', 'emergency', 'skill', 'item', 'pet', 'need');
+
+DROP TYPE IF EXISTS "app"."library_item_type" CASCADE;
 CREATE TYPE "app"."library_item_type" AS ENUM ('item', 'skill');
+
+DROP TYPE IF EXISTS "app"."report_target_type" CASCADE;
 CREATE TYPE "app"."report_target_type" AS ENUM ('pulse', 'user', 'message');
+
+DROP TYPE IF EXISTS "app"."message_type" CASCADE;
 CREATE TYPE "app"."message_type" AS ENUM ('text', 'notice');
+
+DROP TYPE IF EXISTS "app"."report_status" CASCADE;
 CREATE TYPE "app"."report_status" AS ENUM ('pending', 'resolved', 'dismissed');
 
 -- ------------------------------------------------------------
@@ -18,7 +29,9 @@ CREATE TYPE "app"."report_status" AS ENUM ('pending', 'resolved', 'dismissed');
 -- ------------------------------------------------------------
 
 ALTER TABLE "app"."users"
-    DROP CONSTRAINT IF EXISTS users_role_check,
+    DROP CONSTRAINT IF EXISTS users_role_check;
+
+ALTER TABLE "app"."users"
     ALTER COLUMN "email" TYPE varchar(255),
 
     ALTER COLUMN "role" DROP DEFAULT,

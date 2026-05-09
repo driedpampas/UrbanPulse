@@ -27,7 +27,7 @@ export async function markPulseSolvedAsAdmin(
         UPDATE app.pulses
         SET is_solved = true
         WHERE id = ${pulseId}::uuid
-          AND LOWER(COALESCE(pulse_type, 'update')) = 'need'
+          AND COALESCE(pulse_type::text, 'update') = 'need'
           AND EXISTS (
               SELECT 1
               FROM app.pulse_interactions AS pi
@@ -42,7 +42,7 @@ export async function markPulseSolvedAsAdmin(
             SELECT id::text AS id
             FROM app.pulses
             WHERE id = ${pulseId}::uuid
-              AND LOWER(COALESCE(pulse_type, 'update')) = 'need'
+              AND COALESCE(pulse_type::text, 'update') = 'need'
             LIMIT 1
         `) as Array<{ id: string }>;
 
@@ -79,7 +79,7 @@ export async function selectAcceptedInteractionsForHelper(
             END AS confirmed_at,
             pi.trust_awarded,
             p.content AS pulse_content,
-            LOWER(p.pulse_type) AS pulse_type,
+            p.pulse_type,
             ROUND(EXTRACT(EPOCH FROM p.created_at) * 1000)::bigint AS pulse_timestamp,
 
             COALESCE(p.is_solved, false) AS pulse_is_solved,

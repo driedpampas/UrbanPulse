@@ -42,7 +42,7 @@ export async function selectPulses(
         pulses.id,
         pulses.author_id AS "userId",
         COALESCE(NULLIF(users.display_name, ''), pulses.author_id::text) AS "userName",
-        LOWER(pulses.pulse_type) AS type,
+        pulses.pulse_type AS type,
         pulses.content,
         ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
         ST_Y(pulses.location::geometry) AS lat,
@@ -64,8 +64,8 @@ export async function selectPulses(
             ST_SetSRID(ST_MakePoint(${lng ?? null}::double precision, ${lat ?? null}::double precision), 4326)::geography,
             ${radius ?? null}::double precision
         ))
-        AND (${type ?? null}::text IS NULL OR LOWER(pulses.pulse_type) = LOWER(${type ?? null}::text))
-        AND (${excludePets}::boolean IS FALSE OR LOWER(pulses.pulse_type) != 'pet')
+        AND (${type ?? null}::text IS NULL OR pulses.pulse_type::text = LOWER(${type ?? null}::text))
+        AND (${excludePets}::boolean IS FALSE OR pulses.pulse_type::text != 'pet')
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}
@@ -81,7 +81,7 @@ export async function selectPulseById(id: string): Promise<PulseFeedItem | null>
         pulses.id,
         pulses.author_id AS "userId",
         COALESCE(NULLIF(users.display_name, ''), pulses.author_id::text) AS "userName",
-        LOWER(pulses.pulse_type) AS type,
+        pulses.pulse_type AS type,
         pulses.content,
         ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
         ST_Y(pulses.location::geometry) AS lat,
@@ -114,7 +114,7 @@ export async function selectPulsesByAuthor(
             pulses.id,
             pulses.author_id AS "userId",
             COALESCE(NULLIF(users.display_name, ''), pulses.author_id::text) AS "userName",
-            LOWER(pulses.pulse_type) AS type,
+            pulses.pulse_type AS type,
             pulses.content,
             ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
             ST_Y(pulses.location::geometry) AS lat,
@@ -154,7 +154,7 @@ export async function selectAdminRequests(limit = 50, offset = 0): Promise<Autho
             pulses.id,
             pulses.author_id AS "userId",
             COALESCE(NULLIF(users.display_name, ''), pulses.author_id::text) AS "userName",
-            LOWER(pulses.pulse_type) AS type,
+            pulses.pulse_type AS type,
             pulses.content,
             ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
             ST_Y(pulses.location::geometry) AS lat,
@@ -176,7 +176,7 @@ export async function selectAdminRequests(limit = 50, offset = 0): Promise<Autho
             FROM app.pulse_interactions
             WHERE pulse_id = pulses.id
         ) AS interactions ON true
-        WHERE LOWER(COALESCE(pulses.pulse_type, 'update')) = 'need'
+        WHERE COALESCE(pulses.pulse_type::text, 'update') = 'need'
         ORDER BY pulses.created_at DESC, pulses.id DESC
         LIMIT ${safeLimit}
         OFFSET ${safeOffset}
@@ -480,7 +480,7 @@ export async function selectPulseInteractionsByHelper(
             ROUND(EXTRACT(EPOCH FROM i.confirmed_at) * 1000)::bigint AS confirmed_at,
             i.trust_awarded,
             p.content AS pulse_content,
-            LOWER(p.pulse_type) AS pulse_type,
+            p.pulse_type,
             ROUND(EXTRACT(EPOCH FROM p.created_at) * 1000)::bigint AS pulse_timestamp,
 
             p.is_solved AS pulse_is_solved,
@@ -529,7 +529,7 @@ export async function insertPulseInteraction(params: {
 }> {
     return await sql.begin(async (tx) => {
         const [pulse] = (await tx`
-            SELECT id, author_id, is_solved, LOWER(pulse_type) AS pulse_type
+            SELECT id, author_id, is_solved, pulse_type
             FROM app.pulses
             WHERE id = ${params.pulseId}::uuid
             FOR UPDATE
@@ -654,7 +654,7 @@ export async function markPulseSolved(
         SET is_solved = true
         WHERE id = ${pulseId}::uuid
           AND author_id = ${authorId}::uuid
-          AND LOWER(COALESCE(pulse_type, 'update')) <> 'update'
+          AND COALESCE(pulse_type::text, 'update') <> 'update'
           AND EXISTS (
               SELECT 1
               FROM app.pulse_interactions AS pi
@@ -671,7 +671,7 @@ export async function markPulseSolved(
             FROM app.pulses
             WHERE id = ${pulseId}::uuid
               AND author_id = ${authorId}::uuid
-              AND LOWER(COALESCE(pulse_type, 'update')) <> 'update'
+              AND COALESCE(pulse_type::text, 'update') <> 'update'
             LIMIT 1
         `) as Array<{ id: string }>;
 

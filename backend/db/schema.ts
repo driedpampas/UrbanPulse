@@ -595,10 +595,10 @@ export async function ensureSchema() {
         await tx`
             UPDATE app.pulses
             SET is_emergency = CASE
-                WHEN LOWER(COALESCE(pulse_type, '')) = 'emergency' THEN true
+                WHEN pulse_type::text = 'emergency' THEN true
                 ELSE COALESCE(is_emergency, false)
             END
-            WHERE is_emergency IS NULL OR LOWER(COALESCE(pulse_type, '')) = 'emergency'
+            WHERE is_emergency IS NULL OR pulse_type::text = 'emergency'
         `;
 
         await tx`
@@ -662,34 +662,11 @@ export async function ensureSchema() {
             ON app.pulses (is_solved)
         `;
 
-        const pulseTypeConstraint = (await tx`
-            SELECT pg_get_constraintdef(c.oid) AS constraint_def
-            FROM pg_constraint AS c
-            WHERE c.conrelid = 'app.pulses'::regclass
-              AND c.conname = 'pulses_pulse_type_check'
-            LIMIT 1
-        `) as Array<{ constraint_def?: string | null }>;
-
-        if (
-            pulseTypeConstraint.length === 0 ||
-            !String(pulseTypeConstraint[0]?.constraint_def ?? '')
-                .toLowerCase()
-                .includes('need')
-        ) {
-            await tx`
-                ALTER TABLE app.pulses
-                DROP CONSTRAINT IF EXISTS pulses_pulse_type_check
-            `;
-
-            await tx`
-                ALTER TABLE app.pulses
-                ADD CONSTRAINT pulses_pulse_type_check CHECK (
-                    LOWER(pulse_type) = ANY (
-                        ARRAY['update', 'emergency', 'skill', 'item', 'pet', 'need']
-                    )
-                )
-            `;
-        }
+        // Drop the old CHECK constraint (superseded by the app.pulse_type enum type)
+        await tx`
+            ALTER TABLE app.pulses
+            DROP CONSTRAINT IF EXISTS pulses_pulse_type_check
+        `;
     });
 
     isSchemaEnsured = true;

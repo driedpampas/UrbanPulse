@@ -285,7 +285,7 @@ export async function fetchProtectedProfilePicture(
         headers: getAuthHeaders(),
     });
 
-    if (response.status === 404) {
+    if (response.status === 404 || response.status === 204) {
         return null;
     }
 
