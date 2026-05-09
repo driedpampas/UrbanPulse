@@ -65,10 +65,8 @@ export async function selectPulses(
             ST_SetSRID(ST_MakePoint(${lng ?? null}::double precision, ${lat ?? null}::double precision), 4326)::geography,
             ${radius ?? null}::double precision
         ))
-<<<<<<< HEAD
         AND (${type ?? null}::text IS NULL OR pulses.pulse_type::text = LOWER(${type ?? null}::text))
         AND (${excludePets}::boolean IS FALSE OR pulses.pulse_type::text != 'pet')
->>>>>>> refs/remotes/origin/main
     )
     ORDER BY pulses.created_at DESC, pulses.id DESC
     LIMIT ${safeLimit}
