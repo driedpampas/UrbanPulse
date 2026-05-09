@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type * as bun from 'bun';
 import type { JwtPayload } from 'jsonwebtoken';
+import sharp from 'sharp';
 import { z } from 'zod';
 import * as auth from '../auth';
 import type { PulseType, Timerange } from '../db';
@@ -755,7 +756,51 @@ export const httpRoutes: HttpRoutes = {
                             );
                         }
 
-                        if (bytes.byteLength > PROFILE_PICTURE_MAX_BYTES) {
+                        // Image processing with sharp
+                        let processedBytes: Buffer;
+                        try {
+                            const image = sharp(bytes);
+                            const metadata = await image.metadata();
+
+                            let processedImage = image;
+
+                            if (metadata.width && metadata.height) {
+                                if (metadata.width !== metadata.height) {
+                                    // Center crop to 1:1
+                                    const size = Math.min(metadata.width, metadata.height);
+                                    processedImage = processedImage.extract({
+                                        left: Math.floor((metadata.width - size) / 2),
+                                        top: Math.floor((metadata.height - size) / 2),
+                                        width: size,
+                                        height: size,
+                                    });
+                                }
+
+                                if (metadata.width > 128 || metadata.height > 128) {
+                                    processedImage = processedImage.resize(128, 128);
+                                }
+                            }
+
+                            // Compress based on format
+                            if (detectedMimeType === 'image/jpeg') {
+                                processedImage = processedImage.jpeg({ quality: 80 });
+                            } else if (detectedMimeType === 'image/png') {
+                                processedImage = processedImage.png({ compressionLevel: 9 });
+                            } else if (detectedMimeType === 'image/webp') {
+                                processedImage = processedImage.webp({ quality: 80 });
+                            }
+
+                            processedBytes = await processedImage.toBuffer();
+                        } catch (_error) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Failed to process image file.' },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+
+                        if (processedBytes.byteLength > PROFILE_PICTURE_MAX_BYTES) {
                             return withCors(
                                 Response.json(
                                     {
@@ -771,13 +816,13 @@ export const httpRoutes: HttpRoutes = {
                         await mkdir(PROFILE_PICTURE_DIR, { recursive: true });
                         const filename = buildProfilePictureFilename(payload.id, detectedMimeType);
                         const destination = resolveProfilePicturePath(filename);
-                        await writeFile(destination, bytes);
+                        await writeFile(destination, processedBytes);
 
                         const saved = await db.setUserProfilePicture(
                             payload.id,
                             filename,
                             detectedMimeType,
-                            bytes.byteLength
+                            processedBytes.byteLength
                         );
 
                         if (!saved) {
