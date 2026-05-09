@@ -1,4 +1,4 @@
-### FiiCode W&M 2025-2026
+# FiiCode W&M 2025-2026
 team: `ciorbă`
 
 - [backend](/backend)
