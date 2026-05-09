@@ -355,7 +355,7 @@ export type CreateIncidentTypeBody = z.infer<typeof createIncidentTypeSchema>;
 export type CreateIncidentAdminBody = z.infer<typeof createIncidentAdminSchema>;
 export type VerifyIncidentBody = z.infer<typeof verifyIncidentSchema>;
 
-export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned']);
+export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned', 'first_responder']);
 
 export const updateAdminUserRoleBodySchema = z.strictObject({
     role: adminRoleSchema,

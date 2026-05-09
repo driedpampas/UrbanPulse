@@ -402,7 +402,7 @@ export async function updateUserRole(id: string, role: string): Promise<boolean>
 
     const normalizedRole = role.toLowerCase();
 
-    if (!['admin', 'mod', 'user', 'banned'].includes(normalizedRole)) {
+    if (!['admin', 'mod', 'user', 'banned', 'first_responder'].includes(normalizedRole)) {
         return false;
     }
 

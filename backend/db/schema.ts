@@ -11,7 +11,7 @@ export async function ensureSchema() {
 
         // Create ENUM types if they don't exist
         const enumTypes = [
-            { name: 'user_role', values: ['admin', 'mod', 'user', 'banned'] },
+            { name: 'user_role', values: ['admin', 'mod', 'user', 'banned', 'first_responder'] },
             { name: 'pulse_type', values: ['update', 'emergency', 'skill', 'item', 'pet', 'need'] },
             { name: 'library_item_type', values: ['item', 'skill'] },
             { name: 'report_target_type', values: ['pulse', 'user', 'message'] },
