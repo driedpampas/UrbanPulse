@@ -62,30 +62,50 @@ export function useBatterySaver({ crisisMode }: UseBatterySaverOptions) {
 
         let mounted = true;
 
-        const onChange = () => {
-            if (!mounted || !batteryRef.current) return;
-            const b = batteryRef.current;
-            setBattery({
-                level: b.level,
-                charging: b.charging,
-                chargingTime: b.chargingTime,
-                dischargingTime: b.dischargingTime,
-            });
-        };
-
         void navigator.getBattery().then((batt: BatteryManager) => {
             if (!mounted) return;
-            batteryRef.current = {
-                level: batt.level,
-                charging: batt.charging,
-                chargingTime: batt.chargingTime,
-                dischargingTime: batt.dischargingTime,
+
+            const isPlaceholder =
+                batt.level === 1 &&
+                batt.charging &&
+                batt.chargingTime === 0 &&
+                batt.dischargingTime === Infinity;
+
+            const sync = () => {
+                if (!mounted) return;
+                const placeholder =
+                    batt.level === 1 &&
+                    batt.charging &&
+                    batt.chargingTime === 0 &&
+                    batt.dischargingTime === Infinity;
+                if (placeholder) {
+                    batteryRef.current = null;
+                    setBattery(null);
+                    return;
+                }
+                batteryRef.current = {
+                    level: batt.level,
+                    charging: batt.charging,
+                    chargingTime: batt.chargingTime,
+                    dischargingTime: batt.dischargingTime,
+                };
+                setBattery(batteryRef.current);
             };
-            setBattery(batteryRef.current);
-            batt.addEventListener('levelchange', onChange);
-            batt.addEventListener('chargingchange', onChange);
-            batt.addEventListener('chargingtimechange', onChange);
-            batt.addEventListener('dischargingtimechange', onChange);
+
+            if (!isPlaceholder) {
+                batteryRef.current = {
+                    level: batt.level,
+                    charging: batt.charging,
+                    chargingTime: batt.chargingTime,
+                    dischargingTime: batt.dischargingTime,
+                };
+                setBattery(batteryRef.current);
+            }
+
+            batt.addEventListener('levelchange', sync);
+            batt.addEventListener('chargingchange', sync);
+            batt.addEventListener('chargingtimechange', sync);
+            batt.addEventListener('dischargingtimechange', sync);
         });
 
         return () => {

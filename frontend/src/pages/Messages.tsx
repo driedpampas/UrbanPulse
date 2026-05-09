@@ -1880,9 +1880,9 @@ function ChatView({
                                                         msg.id
                                                     );
                                                 }}
-                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed border-none text-left flex flex-col transition-transform active:scale-[0.99] ${
+                                                class={`relative p-3.5 rounded-2xl text-[13px] leading-relaxed text-left flex flex-col transition-transform active:scale-[0.99] ${
                                                     isMe
-                                                        ? 'bg-(--accent) text-white rounded-br-none shadow-md'
+                                                        ? 'bg-(--accent) text-white border-none rounded-br-none shadow-md'
                                                         : 'bg-(--surface-raised) text-(--text) border border-(--border) rounded-bl-none shadow-sm'
                                                 }`}
                                                 style={`max-width:${wideChatView ? 'min(85%, 900px)' : '80%'}; cursor:${isEditingMessage ? 'default' : isMe || thread.ownerId === currentUserId || (thread.participantRoles?.[currentUserId]?.includes('admin') ?? false) ? 'pointer' : 'default'}`}

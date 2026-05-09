@@ -37,27 +37,32 @@ export function AppLayout({ id, children, title, headerRight, showNav = true }: 
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                         {headerRight}
                         <EmergencySettingsMenu />
-                        <HoverButton
-                            type="button"
-                            id="theme-toggle"
-                            onClick={toggle}
-                            class="btn-icon"
-                            aria-label={
-                                theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-                            }
-                            style="color:var(--text-secondary);"
-                            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-                            onMouseEnter={(e) => {
-                                (e.target as HTMLElement).style.filter = 'var(--hover-brightness)';
-                                (e.target as HTMLElement).style.background = 'var(--bg-muted)';
-                            }}
-                            onMouseLeave={(e) => {
-                                (e.target as HTMLElement).style.filter = 'none';
-                                (e.target as HTMLElement).style.background = 'transparent';
-                            }}
-                        >
-                            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                        </HoverButton>
+                        {theme !== 'high-contrast' && (
+                            <HoverButton
+                                type="button"
+                                id="theme-toggle"
+                                onClick={toggle}
+                                class="btn-icon"
+                                aria-label={
+                                    theme === 'dark'
+                                        ? 'Switch to light mode'
+                                        : 'Switch to dark mode'
+                                }
+                                style="color:var(--text-secondary);"
+                                title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                                onMouseEnter={(e) => {
+                                    (e.target as HTMLElement).style.filter =
+                                        'var(--hover-brightness)';
+                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    (e.target as HTMLElement).style.filter = 'none';
+                                    (e.target as HTMLElement).style.background = 'transparent';
+                                }}
+                            >
+                                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                            </HoverButton>
+                        )}
                     </div>
                 </header>
             )}

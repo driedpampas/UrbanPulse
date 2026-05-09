@@ -63,9 +63,9 @@ export function Library() {
                     <HoverButton
                         type="button"
                         id="add-library-btn"
-                        class="btn-primary"
+                        class="btn-ghost"
                         onClick={() => setShowAdd(true)}
-                        style="height:34px;padding:0 12px;font-size:12px;background:var(--accent);display:flex;align-items:center;gap:6px;"
+                        style="height:34px;padding:0 12px;font-size:12px;color:var(--accent);border-color:var(--accent-muted);display:flex;align-items:center;gap:6px;"
                         onMouseEnter={(e) =>
                             ((e.target as HTMLElement).style.filter = 'var(--hover-brightness)')
                         }
@@ -213,24 +213,22 @@ function AddItemModal({
                                 key={t}
                                 type="button"
                                 onClick={() => setType(t)}
-                                style={`flex:1;padding:7px;border-radius:8px;border:1px solid;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;${type === t ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent-muted);' : 'background:transparent;color:var(--text-secondary);border-color:var(--border);'}`}
+                                style={`flex:1;padding:7px;border-radius:8px;border:2px solid;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:5px;${type === t ? 'background:var(--accent-subtle);color:var(--accent);border-color:var(--accent);' : 'background:transparent;color:var(--text-secondary);border-color:var(--border);'}`}
                                 onMouseEnter={(e) => {
                                     (e.target as HTMLElement).style.filter =
                                         'var(--hover-brightness)';
-                                    (e.target as HTMLElement).style.background = 'var(--bg-muted)';
                                 }}
                                 onMouseLeave={(e) => {
                                     (e.target as HTMLElement).style.filter = 'none';
-                                    (e.target as HTMLElement).style.background = 'transparent';
                                 }}
                             >
                                 {t === 'item' ? (
                                     <>
-                                        <Package size={12} /> Item
+                                        <Package size={13} /> Item
                                     </>
                                 ) : (
                                     <>
-                                        <Wrench size={12} /> Skill
+                                        <Wrench size={13} /> Skill
                                     </>
                                 )}
                             </HoverButton>

@@ -70,7 +70,7 @@ function LibraryItemsListComponent({ items, canManageItem, onEdit, onDelete }: P
                                     {item.description}
                                 </p>
                                 <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                                    {item.tags.map((tag) => (
+                                    {(Array.isArray(item.tags) ? item.tags : []).map((tag) => (
                                         <span
                                             key={tag}
                                             style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px;background:var(--bg-muted);color:var(--text-tertiary);"

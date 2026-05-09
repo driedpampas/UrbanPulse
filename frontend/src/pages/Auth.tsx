@@ -117,14 +117,16 @@ export function Auth() {
         <div id="page-auth" class="page-shell bg-(--bg) min-h-screen flex flex-col">
             <div class="stack-h flex-between app-container px-5 py-4">
                 <p class="text-base font-bold text-(--text) m-0 tracking-tight">UrbanPulse</p>
-                <HoverButton
-                    type="button"
-                    class="btn-icon"
-                    onClick={toggle}
-                    aria-label="Toggle theme"
-                >
-                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                </HoverButton>
+                {theme !== 'high-contrast' && (
+                    <HoverButton
+                        type="button"
+                        class="btn-icon"
+                        onClick={toggle}
+                        aria-label="Toggle theme"
+                    >
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </HoverButton>
+                )}
             </div>
 
             <div class="flex-1 flex items-center justify-center p-5">

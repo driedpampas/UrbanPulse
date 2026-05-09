@@ -152,7 +152,7 @@ export function mapLibraryItemRow(row: LibraryItemRow): LibraryItem {
         type: row.item_type as 'item' | 'skill',
         title: String(row.title),
         description: String(row.description || ''),
-        tags: row.tags || [],
+        tags: Array.isArray(row.tags) ? row.tags : [],
         available: Boolean(row.is_available),
         createdAt: Number(row.created_at),
     };

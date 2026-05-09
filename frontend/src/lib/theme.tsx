@@ -43,6 +43,7 @@ export function ThemeProvider({ children }: { children: ComponentChildren }) {
 
     const toggle = () => {
         _setTheme((t) => {
+            if (t === 'high-contrast') return t;
             const next = t === 'light' ? 'dark' : 'light';
             localStorage.setItem(STORAGE_KEY, next);
             applyTheme(next);

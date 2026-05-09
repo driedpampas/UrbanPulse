@@ -94,16 +94,16 @@ function EmergencyMenu({
             role="menu"
         >
             <div style="padding:12px 14px 8px;border-bottom:1px solid var(--border);">
-                <span style="font-size:11px;font-weight:700;color:var(--danger);letter-spacing:0.02em;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
-                    <AlertTriangle size={12} />
+                <span style="font-size:13px;font-weight:700;color:var(--danger);letter-spacing:0.02em;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                    <AlertTriangle size={16} />
                     Emergency Settings
                 </span>
             </div>
             <div style="padding:8px 14px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <Contrast size={13} style="color:var(--text-tertiary);flex-shrink:0;" />
-                        <span style="font-size:13px;color:var(--text-secondary);">
+                        <Contrast size={18} style="color:var(--text-tertiary);flex-shrink:0;" />
+                        <span style="font-size:15px;color:var(--text-secondary);">
                             High contrast
                         </span>
                     </div>
@@ -118,8 +118,8 @@ function EmergencyMenu({
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <Zap size={13} style="color:var(--text-tertiary);flex-shrink:0;" />
-                        <span style="font-size:13px;color:var(--text-secondary);">
+                        <Zap size={18} style="color:var(--text-tertiary);flex-shrink:0;" />
+                        <span style="font-size:15px;color:var(--text-secondary);">
                             Reduce motion
                         </span>
                     </div>

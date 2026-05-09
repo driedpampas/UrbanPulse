@@ -889,6 +889,17 @@
 
 /* ─── High-contrast overrides ────────────────────────────────── */
 
+[data-theme="high-contrast"] *,
+[data-theme="high-contrast"] *::before,
+[data-theme="high-contrast"] *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+[data-theme="high-contrast"] body {
+    font-size: 15px;
+}
+
 [data-theme="high-contrast"] .section {
     border-width: 2px;
     background: transparent;
@@ -903,6 +914,8 @@
 [data-theme="high-contrast"] .input-field {
     border-width: 2px;
     background: transparent;
+    font-size: 15px;
+    padding: 12px 16px;
 }
 
 [data-theme="high-contrast"] .input-field:focus {
@@ -913,16 +926,43 @@
     border: 2px solid #ffffff;
     background: transparent;
     color: var(--accent);
+    font-size: 14px;
+    height: 42px;
+    font-weight: 700;
 }
 
 [data-theme="high-contrast"] .btn-ghost {
     border-width: 2px;
     background: transparent;
+    font-size: 14px;
+    height: 42px;
+    font-weight: 600;
+}
+
+[data-theme="high-contrast"] .btn-icon {
+    width: 42px;
+    height: 42px;
+}
+
+[data-theme="high-contrast"] .toggle-switch {
+    width: 42px;
+    height: 24px;
 }
 
 [data-theme="high-contrast"] .toggle-switch-track {
     border-width: 2px;
     background: transparent;
+}
+
+[data-theme="high-contrast"] .toggle-switch-track::after {
+    width: 18px;
+    height: 18px;
+    top: 2px;
+    left: 2px;
+}
+
+[data-theme="high-contrast"] .toggle-switch input:checked + .toggle-switch-track::after {
+    transform: translateX(18px);
 }
 
 [data-theme="high-contrast"] .toggle-switch input:checked + .toggle-switch-track {
@@ -932,6 +972,12 @@
 [data-theme="high-contrast"] .tab-switcher {
     border-width: 2px;
     background: transparent;
+}
+
+[data-theme="high-contrast"] .tab-btn {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 16px;
 }
 
 [data-theme="high-contrast"] .tab-btn.active {
@@ -945,10 +991,34 @@
     box-shadow: none;
 }
 
+[data-theme="high-contrast"] .label-caps {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
 [data-theme="high-contrast"] .type-badge {
     border-width: 2px;
     background: transparent;
     font-weight: 800;
+    font-size: 13px;
+    padding: 3px 12px;
+}
+
+[data-theme="high-contrast"] .avatar {
+    width: 44px;
+    height: 44px;
+    border-width: 2px;
+}
+
+[data-theme="high-contrast"] .avatar-sm {
+    width: 36px;
+    height: 36px;
+}
+
+[data-theme="high-contrast"] .avatar-lg {
+    width: 52px;
+    height: 52px;
 }
 
 [data-theme="high-contrast"] .header-bar {
@@ -959,4 +1029,187 @@
 
 [data-theme="high-contrast"] .nav-bar {
     background: #000000;
+}
+
+[data-theme="high-contrast"] .maplibregl-popup-content {
+    font-size: 14px !important;
+    border-width: 2px !important;
+}
+
+[data-theme="high-contrast"] .range-slider::-webkit-slider-thumb {
+    height: 22px;
+    width: 22px;
+    border: 3px solid #000000;
+}
+
+[data-theme="high-contrast"] .range-slider::-moz-range-thumb {
+    height: 22px;
+    width: 22px;
+    border: 3px solid #000000;
+}
+
+[data-theme="high-contrast"] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+[data-theme="high-contrast"] ::-webkit-scrollbar-thumb {
+    background: #ffffff;
+    border-radius: 4px;
+}
+
+[data-theme="high-contrast"] .participant-card {
+    border-width: 2px;
+    padding: 14px 16px;
+}
+
+/* Override inline style font-size values for readability */
+[data-theme="high-contrast"] [style*="font-size: 9px"],
+[data-theme="high-contrast"] [style*="font-size:9px"] {
+    font-size: 13px !important;
+}
+[data-theme="high-contrast"] [style*="font-size: 10px"],
+[data-theme="high-contrast"] [style*="font-size:10px"] {
+    font-size: 13px !important;
+}
+[data-theme="high-contrast"] [style*="font-size: 11px"],
+[data-theme="high-contrast"] [style*="font-size:11px"] {
+    font-size: 14px !important;
+}
+[data-theme="high-contrast"] [style*="font-size: 12px"],
+[data-theme="high-contrast"] [style*="font-size:12px"] {
+    font-size: 14px !important;
+}
+[data-theme="high-contrast"] [style*="font-size: 13px"],
+[data-theme="high-contrast"] [style*="font-size:13px"] {
+    font-size: 15px !important;
+}
+
+/* Override Tailwind arbitrary small text sizes */
+[data-theme="high-contrast"] .text-\[9px\] {
+    font-size: 13px !important;
+}
+[data-theme="high-contrast"] .text-\[10px\] {
+    font-size: 13px !important;
+}
+[data-theme="high-contrast"] .text-\[11px\] {
+    font-size: 14px !important;
+}
+[data-theme="high-contrast"] .text-\[12px\] {
+    font-size: 14px !important;
+}
+[data-theme="high-contrast"] .text-\[13px\] {
+    font-size: 15px !important;
+}
+[data-theme="high-contrast"] .text-xs {
+    font-size: 14px !important;
+}
+
+/* Override small icon sizes for visibility */
+[data-theme="high-contrast"] [style*="width: 14px"][style*="height: 14px"],
+[data-theme="high-contrast"] [style*="width:14px"][style*="height:14px"] {
+    width: 18px !important;
+    height: 18px !important;
+}
+[data-theme="high-contrast"] [style*="width: 12px"][style*="height: 12px"],
+[data-theme="high-contrast"] [style*="width:12px"][style*="height:12px"] {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* Override small Tailwind icon sizing classes */
+[data-theme="high-contrast"] .w-3,
+[data-theme="high-contrast"] .h-3,
+[data-theme="high-contrast"] .size-3 {
+    width: 14px !important;
+    height: 14px !important;
+}
+[data-theme="high-contrast"] .w-3\.5,
+[data-theme="high-contrast"] .h-3\.5,
+[data-theme="high-contrast"] .size-3\.5 {
+    width: 16px !important;
+    height: 16px !important;
+}
+[data-theme="high-contrast"] .w-4,
+[data-theme="high-contrast"] .h-4,
+[data-theme="high-contrast"] .size-4 {
+    width: 18px !important;
+    height: 18px !important;
+}
+
+/* Override small Lucide icon SVG sizes (size prop sets width/height attributes) */
+[data-theme="high-contrast"] svg[width="8"],
+[data-theme="high-contrast"] svg[height="8"] {
+    width: 16px !important;
+    height: 16px !important;
+}
+[data-theme="high-contrast"] svg[width="9"],
+[data-theme="high-contrast"] svg[height="9"] {
+    width: 16px !important;
+    height: 16px !important;
+}
+[data-theme="high-contrast"] svg[width="10"],
+[data-theme="high-contrast"] svg[height="10"] {
+    width: 16px !important;
+    height: 16px !important;
+}
+[data-theme="high-contrast"] svg[width="11"],
+[data-theme="high-contrast"] svg[height="11"] {
+    width: 16px !important;
+    height: 16px !important;
+}
+[data-theme="high-contrast"] svg[width="12"],
+[data-theme="high-contrast"] svg[height="12"] {
+    width: 18px !important;
+    height: 18px !important;
+}
+[data-theme="high-contrast"] svg[width="13"],
+[data-theme="high-contrast"] svg[height="13"] {
+    width: 18px !important;
+    height: 18px !important;
+}
+[data-theme="high-contrast"] svg[width="14"],
+[data-theme="high-contrast"] svg[height="14"] {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* ─── High-contrast chat overrides ────────────────────────────── */
+
+[data-theme="high-contrast"] .message-row .bg-\(--accent\) {
+    border: 2px solid #ffffff;
+}
+
+[data-theme="high-contrast"] .message-row .bg-\(--surface-raised\) {
+    border: 2px solid #ffffff;
+    background: transparent;
+}
+
+[data-theme="high-contrast"] .message-row .bg-\(--surface-raised\) p {
+    color: #ffffff;
+}
+
+[data-theme="high-contrast"] .message-row .bg-\(--accent\) p {
+    color: #ffffff;
+}
+
+[data-theme="high-contrast"] .message-row .bg-\(--accent\) [style*="color:rgba(255,255,255,0.7)"] {
+    color: #ffffff !important;
+}
+
+[data-theme="high-contrast"]
+    .message-row
+    .bg-\(--surface-raised\)
+    [style*="color:var(--text-tertiary)"] {
+    color: #cccccc !important;
+}
+
+[data-theme="high-contrast"] .message-row .w-8.h-8 {
+    border: 2px solid #ffffff;
+}
+
+[data-theme="high-contrast"]
+    .message-row
+    [style*="border:1px solid var(--border)"][style*="background:var(--bg-subtle)"] {
+    border-width: 2px;
 }
