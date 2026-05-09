@@ -40,6 +40,8 @@ export function mapPulseRow(row: PulseRow): PulseFeedItem {
         isEmergency: Boolean(row.isEmergency || row.is_emergency),
         isSolved: Boolean(row.isSolved || row.is_solved),
         requiredSkills: row.required_skills || [],
+        userRole: row.userRole ? String(row.userRole) : undefined,
+        userTrustScore: row.userTrustScore ? Number(row.userTrustScore) : undefined,
     };
 }
 

@@ -53,7 +53,9 @@ export async function selectPulses(
 
         COALESCE(pulses.is_emergency, false) AS "is_emergency",
         COALESCE(pulses.is_solved, false) AS "is_solved",
-        COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills"
+        COALESCE(pulses.required_skills, '[]'::jsonb) AS "required_skills",
+        users.role AS "userRole",
+        users.trust_score AS "userTrustScore"
     FROM app.pulses AS pulses
     LEFT JOIN app.users AS users ON users.id = pulses.author_id
     WHERE (

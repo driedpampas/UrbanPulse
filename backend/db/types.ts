@@ -27,6 +27,8 @@ export interface PulseFeedItem {
     isEmergency: boolean;
     isSolved: boolean;
     requiredSkills: string[];
+    userRole?: string;
+    userTrustScore?: number;
 }
 
 export interface HeroMatchUser {
@@ -217,6 +219,8 @@ export type PulseRow = {
     lng?: number | string | null;
     verified?: boolean | null;
     confirmations?: number | string | null;
+    userRole?: string | null;
+    userTrustScore?: number | string | null;
 
 
     isEmergency?: boolean | null;
