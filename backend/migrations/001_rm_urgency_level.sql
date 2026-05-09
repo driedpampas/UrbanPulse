@@ -1,0 +1,1 @@
+ALTER TABLE app.pulses DROP COLUMN urgency_level;
