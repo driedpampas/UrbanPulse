@@ -65,12 +65,12 @@ export async function registerUser(user: RegisterUser): Promise<AuthResult> {
 
     const hashedPass = await bun.password.hash(user.password);
     const verificationToken = randomBytes(32).toString('hex');
-    const [dbUser] = await db.insertUser(
+    const dbUser = db.one(await db.insertUser(
         user.email,
         hashedPass,
         user.displayName,
         verificationToken
-    );
+    ));
 
     const token = createAuthToken(dbUser.id);
 
@@ -270,7 +270,7 @@ export async function changeUserEmail(userId: string, email: string): Promise<Up
             return { success: false, status: 404 };
         }
     } catch (error) {
-        if (isUniqueViolation(error)) {
+        if (db.isUniqueViolation(error)) {
             return { success: false, status: 409 };
         }
 
@@ -361,16 +361,6 @@ async function triggerAuthMailerRequest(payload: AuthMailerRequestPayload): Prom
     }
 }
 
-function isUniqueViolation(error: unknown): boolean {
-    const value = error as {
-        code?: unknown;
-        cause?: {
-            code?: unknown;
-        };
-    } | null;
-
-    return String(value?.code ?? value?.cause?.code ?? '') === '23505';
-}
 
 type AuthMailerRequestPayload =
     | {

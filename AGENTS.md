@@ -8,7 +8,7 @@
 ## Database & Migrations
 
 - **Stack**: PostgreSQL + PostGIS.
-- **ORM Usage**: Drizzle ORM is used **ONLY** for connection setup and as a SQL runner (`drizzleSql` template). **Do not** use Drizzle's table definitions, schemas, or built-in migration system.
+- **ORM Usage**: No ORM is used. Database interaction is handled via a direct `postgres` client (see `backend/db/client.ts`).
 - **Schema Management**: Structural changes (creating tables, adding columns/indexes) should be implemented in `backend/db.ts` inside the `ensureSchema()` function using `IF NOT EXISTS` clauses.
 - **Manual Migrations**: New database structural changes should be placed in `backend/migrations/` using the `XXX_description.sql` naming convention (e.g., `006_new_feature.sql`). These are currently manual and the source of truth for the schema logic should be mirrored in `ensureSchema()`.
 

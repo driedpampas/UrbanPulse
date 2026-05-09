@@ -1,37 +1,11 @@
-import { sql as drizzleSql } from 'drizzle-orm';
-import { db } from './drizzle/client';
+import { sql, maybeOne, one, isUniqueViolation } from './db/client';
+import type { Sql } from './db/client';
 import { buildResourceTokenSet, findMatchedRequestedResources } from './resourceMatching';
 
-type SqlRunner = {
-    <T = any>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
-    begin<T>(callback: (tx: SqlRunner) => Promise<T>): Promise<T>;
-};
+export { sql, maybeOne, one, isUniqueViolation };
 
-function createSqlRunner(client: {
-    execute: (query: ReturnType<typeof drizzleSql>) => Promise<any>;
-    transaction?: <T>(
-        callback: (tx: {
-            execute: (query: ReturnType<typeof drizzleSql>) => Promise<any>;
-        }) => Promise<T>
-    ) => Promise<T>;
-}): SqlRunner {
-    const runner = (async (strings: TemplateStringsArray, ...values: unknown[]) => {
-        const query = drizzleSql(strings, ...values);
-        return await client.execute(query);
-    }) as SqlRunner;
-
-    runner.begin = async <T>(callback: (tx: SqlRunner) => Promise<T>) => {
-        if (!client.transaction) {
-            throw new Error('Transactions are not supported by this database client.');
-        }
-
-        return await client.transaction(async (tx) => callback(createSqlRunner(tx)));
-    };
-
-    return runner;
-}
-
-const sql = createSqlRunner(db);
+// Re-define SqlRunner for compatibility with existing function signatures
+type SqlRunner = any;
 
 const SEARCH_LIMIT = 50;
 const PULSE_CONFIRMATION_THRESHOLD = 3;
@@ -1582,7 +1556,7 @@ export async function selectChats(userId: string): Promise<{ chatId: string }[]>
         WHERE user_id = ${userId}
     `;
 
-    return chats as { chatId: string }[];
+    return (chats as unknown) as { chatId: string }[];
 }
 
 export async function selectChatSummaries(userId: string): Promise<ChatSummary[]> {
@@ -2478,8 +2452,8 @@ export async function insertMessage(
 }
 
 export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedItem> {
-    const lat = params.location.lat;
-    const lng = params.location.lng;
+    const lat = params.location.lat ?? null;
+    const lng = params.location.lng ?? null;
     const isEmergency = params.isEmergency ?? params.type.toLowerCase() === 'emergency';
 
     const [insertedPulse] = await sql`
@@ -2506,7 +2480,7 @@ export async function insertPulse(params: PulseCreateParams): Promise<PulseFeedI
     RETURNING id
     `;
 
-    return (await selectPulseById(insertedPulse.id))!;
+    return (await selectPulseById(insertedPulse?.id))!;
 }
 
 export async function updatePulse(

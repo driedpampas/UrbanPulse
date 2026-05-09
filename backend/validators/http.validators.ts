@@ -397,5 +397,7 @@ export function buildSearchParams(query: SearchUsersQuery): UserSearchParams {
         bio: query.bio ?? null,
         skillsAndResources: query.skillres && query.skillres.length !== 0 ? query.skillres : null,
         anySkillRes: query.anyskillres ?? null,
+        availableHours: query.availableHours ?? null,
+        availableDays: query.availableDays ? query.availableDays.map(String) : null,
     };
 }
