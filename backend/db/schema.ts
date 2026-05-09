@@ -61,6 +61,21 @@ export async function ensureSchema() {
             $$;
         `;
 
+        // Check incident_type table
+        const incidentTypeTable = await tx`
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'app' AND table_name = 'incident_type'
+            LIMIT 1
+        `;
+        if (incidentTypeTable.length === 0) {
+            await tx`
+                CREATE TABLE app.incident_type (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+                    label text NOT NULL
+                )
+            `;
+        }
+
         // Check chat_threads.owner_id
         const ownerIdCol = await tx`
             SELECT 1 FROM information_schema.columns 
