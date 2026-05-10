@@ -992,9 +992,21 @@ export async function ensureSchema() {
             `;
         } else {
             // Migration for existing table
-            await tx.unsafe('ALTER TABLE app.lost_documents RENAME COLUMN poster_id TO user_id').catch(() => {});
-            await tx.unsafe('ALTER TABLE app.lost_documents RENAME COLUMN image_original TO image_path').catch(() => {});
-            await tx.unsafe('ALTER TABLE app.lost_documents RENAME COLUMN image_censored TO redacted_image_path').catch(() => {});
+            const cols = await tx`
+                SELECT column_name FROM information_schema.columns
+                WHERE table_schema = 'app' AND table_name = 'lost_documents'
+            `;
+            const colNames = new Set(cols.map(c => c.column_name));
+            
+            if (colNames.has('poster_id')) {
+                await tx`ALTER TABLE app.lost_documents RENAME COLUMN poster_id TO user_id`;
+            }
+            if (colNames.has('image_original')) {
+                await tx`ALTER TABLE app.lost_documents RENAME COLUMN image_original TO image_path`;
+            }
+            if (colNames.has('image_censored')) {
+                await tx`ALTER TABLE app.lost_documents RENAME COLUMN image_censored TO redacted_image_path`;
+            }
 
             await tx`
                 ALTER TABLE app.lost_documents
