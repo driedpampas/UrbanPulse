@@ -718,8 +718,6 @@ export async function ensureSchema() {
             `;
         }
 
-
-
         // Stored procedures (idempotent via CREATE OR REPLACE)
         await tx.unsafe(`
             CREATE OR REPLACE FUNCTION app.incident_report_insert(
@@ -779,6 +777,14 @@ export async function ensureSchema() {
                     DELETE FROM app.incident_reports
                     WHERE id_incident = p_incident_id
                       AND id_user = p_user_id;
+
+                    -- The confidence trigger may have cascade-deleted the incident
+                    -- when the report was removed. Re-check before inserting the vote.
+                    IF NOT EXISTS (
+                        SELECT 1 FROM app.incidents WHERE id = p_incident_id
+                    ) THEN
+                        RETURN;
+                    END IF;
 
                     INSERT INTO app.incident_votes (id_incident, id_user, approved)
                     VALUES (p_incident_id, p_user_id, p_approve)
@@ -992,8 +998,8 @@ export async function ensureSchema() {
                 SELECT column_name FROM information_schema.columns
                 WHERE table_schema = 'app' AND table_name = 'lost_documents'
             `;
-            const colNames = new Set(cols.map(c => c.column_name));
-            
+            const colNames = new Set(cols.map((c) => c.column_name));
+
             if (colNames.has('poster_id')) {
                 await tx`ALTER TABLE app.lost_documents RENAME COLUMN poster_id TO user_id`;
             }
