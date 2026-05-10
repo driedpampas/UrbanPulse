@@ -1,8 +1,10 @@
 import type { ComponentChildren } from 'preact';
 import { createContext } from 'preact';
-import { useCallback, useContext, useEffect, useState } from 'preact/hooks';
+import { useCallback, useContext, useEffect, useRef, useState } from 'preact/hooks';
 import { fetchCrisis, fetchIncidents, type IncidentFeedItem } from './incidentApi';
 import { connectWebSocket, disconnectWebSocket, type PulseSocketEvent } from './pulseApi';
+import { fetchCurrentUser } from './userApi';
+import { getCurrentBrowserLocation, isUsableCoordinates } from './utils';
 
 const CRISIS_MODE_KEY = 'up_crisis_mode';
 
@@ -95,6 +97,50 @@ export function CrisisModeProvider({ children }: { children: ComponentChildren }
         },
         [crisisMode, setCrisisMode]
     );
+
+    const checkAndSetCrisisRef = useRef(checkAndSetCrisis);
+    useEffect(() => {
+        checkAndSetCrisisRef.current = checkAndSetCrisis;
+    }, [checkAndSetCrisis]);
+
+    useEffect(() => {
+        let cancelled = false;
+        let intervalId: ReturnType<typeof setInterval> | null = null;
+
+        const resolveLocation = async (): Promise<{ lat: number; lng: number } | null> => {
+            try {
+                const u = await fetchCurrentUser();
+                if (isUsableCoordinates(u.lat, u.lng)) {
+                    return { lat: u.lat, lng: u.lng };
+                }
+            } catch {
+                // Profile unavailable (unauthenticated or network error)
+            }
+            try {
+                return await getCurrentBrowserLocation();
+            } catch {
+                return null;
+            }
+        };
+
+        const poll = async () => {
+            if (cancelled) return;
+            const loc = await resolveLocation();
+            if (!cancelled && loc) {
+                await checkAndSetCrisisRef.current(loc.lat, loc.lng);
+            }
+        };
+
+        poll();
+        intervalId = setInterval(() => {
+            void poll();
+        }, 60_000);
+
+        return () => {
+            cancelled = true;
+            if (intervalId !== null) clearInterval(intervalId);
+        };
+    }, []);
 
     useEffect(() => {
         const handleWsEvent = (event: PulseSocketEvent) => {
