@@ -437,8 +437,9 @@ export const httpRoutes: HttpRoutes = {
 
                         await writeFile(imagePath, bytes);
 
-                        // Save original as redacted initially, will be updated after OCR
-                        await Bun.write(redactedPath, bytes);
+                        // Apply heavy blur to the entire image synchronously, so the
+                        // redacted version is always ready before the response returns.
+                        await sharp(bytes).blur(40).toFile(redactedPath);
 
                         const id = await db.insertLostDocument({
                             userId: payload.id,
@@ -450,92 +451,23 @@ export const httpRoutes: HttpRoutes = {
                             redactedImagePath: redactedFilename,
                         });
 
-                        // Run OCR in background: detect sensitive regions, blur only those, then match users
+                        // Run OCR in background for user-matching only (no redaction here)
                         void (async () => {
                             try {
                                 const { createWorker } = await import('tesseract.js');
                                 const worker = await createWorker('eng', 1, {
-                                    logger: () => {}, // suppress logs
+                                    logger: () => {},
                                 });
-
-                                // Run OCR with structured block output for bbox detection
                                 const { data } = await worker.recognize(imagePath, {}, {
                                     text: true,
-                                    blocks: true,
+                                    blocks: false,
                                     hocr: false,
                                     tsv: false,
                                     box: false,
                                 });
                                 await worker.terminate();
 
-                                const imgMeta = await sharp(bytes).metadata();
-                                const imgW = imgMeta.width ?? 100;
-                                const imgH = imgMeta.height ?? 100;
-
-                                // ── Strategy ─────────────────────────────────────────────────
-                                // ID documents universally place personal info (name, DOB, ID
-                                // number, address) in the lower 65% of the card/page.
-                                // We always redact that zone. On top of that, we also redact
-                                // any individual OCR words that look sensitive in the upper
-                                // portion, in case the image is high-quality enough to detect
-                                // them precisely.
-                                // ─────────────────────────────────────────────────────────────
-
-                                type TBbox = { x0: number; y0: number; x1: number; y1: number };
-                                const redactBboxes: TBbox[] = [];
-
-                                // 1. Always redact the lower 65% of the document
-                                const structuralTop = Math.floor(imgH * 0.35);
-                                redactBboxes.push({ x0: 0, y0: structuralTop, x1: imgW, y1: imgH });
-
-                                // 2. Additionally redact sensitive OCR words in the top 35%
-                                const isSensitive = (text: string): boolean => {
-                                    const t = text.trim();
-                                    if (t.length < 2) return false;
-                                    if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(t)) return true;
-                                    if (/\d{6,}/.test(t)) return true;
-                                    if (/^[A-Z]{2,}$/.test(t)) return true;
-                                    if (/^[A-Z][a-z]{2,}/.test(t)) return true;
-                                    return false;
-                                };
-
-                                for (const block of (data.blocks ?? [])) {
-                                    for (const para of block.paragraphs) {
-                                        for (const line of para.lines) {
-                                            // Only check words above the structural redaction zone
-                                            if (line.bbox.y0 >= structuralTop) continue;
-                                            if (line.words.some((w) => isSensitive(w.text))) {
-                                                redactBboxes.push(line.bbox);
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Build a single SVG overlay with all black rectangles
-                                const svgRects = redactBboxes
-                                    .map((b) => {
-                                        const left = Math.max(0, b.x0);
-                                        const top = Math.max(0, b.y0);
-                                        const w = Math.min(imgW - left, b.x1 - b.x0);
-                                        const h = Math.min(imgH - top, b.y1 - b.y0);
-                                        return `<rect x="${left}" y="${top}" width="${w}" height="${h}" fill="#111111"/>`;
-                                    })
-                                    .join('');
-
-                                const svgOverlay = Buffer.from(
-                                    `<svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${imgH}">${svgRects}</svg>`
-                                );
-
-                                await sharp(bytes)
-                                    .composite([{ input: svgOverlay, top: 0, left: 0 }])
-                                    .toFile(redactedPath);
-
-                                console.log(`[OCR] Redacted ${redactBboxes.length} regions on ${imgW}x${imgH} image`);
-
-                                // OCR text for user matching
                                 const ocrText = data.text;
-
-                                // Search for matching users
                                 const users = await db.searchUsers({ limit: 1000 } as any);
 
                                 for (const user of users) {
@@ -551,7 +483,6 @@ export const httpRoutes: HttpRoutes = {
                                     if (firstNameMatch && lastNameMatch) {
                                         await db.setMatchedUser(id, user.id);
 
-                                        // Dedicated lost-doc matched event for the LostDocuments page
                                         server.publish(
                                             `user-${user.id}`,
                                             JSON.stringify({
@@ -561,7 +492,6 @@ export const httpRoutes: HttpRoutes = {
                                             })
                                         );
 
-                                        // Also send a chat notification so it shows up as a toast
                                         server.publish(
                                             `user-${user.id}`,
                                             JSON.stringify({
