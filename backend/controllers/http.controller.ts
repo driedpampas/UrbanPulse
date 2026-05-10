@@ -454,72 +454,112 @@ export const httpRoutes: HttpRoutes = {
                         void (async () => {
                             try {
                                 const { createWorker } = await import('tesseract.js');
-                                const worker = await createWorker('eng');
+                                const worker = await createWorker('eng', 1, {
+                                    logger: () => {}, // suppress logs
+                                });
 
-                                // Get words with bounding boxes via blocks
-                                const { data } = await worker.recognize(imagePath);
+                                // Request structured data (blocks) so we get bounding boxes
+                                const { data } = await worker.recognize(imagePath, {}, {
+                                    text: true,
+                                    blocks: true,
+                                    hocr: false,
+                                    tsv: false,
+                                    box: false,
+                                });
                                 await worker.terminate();
 
                                 const imgMeta = await sharp(bytes).metadata();
-                                const imgW = imgMeta.width ?? 1;
-                                const imgH = imgMeta.height ?? 1;
+                                const imgW = imgMeta.width ?? 100;
+                                const imgH = imgMeta.height ?? 100;
 
                                 // Collect all words from the block→paragraph→line→word tree
-                                type TWord = { text: string; bbox: { x0: number; y0: number; x1: number; y1: number } };
-                                const allWords: TWord[] = [];
+                                type TBbox = { x0: number; y0: number; x1: number; y1: number };
+                                type TWord = { text: string; bbox: TBbox };
+                                type TLine = { bbox: TBbox; words: TWord[] };
+
+                                const allLines: TLine[] = [];
                                 for (const block of (data.blocks ?? [])) {
                                     for (const para of block.paragraphs) {
                                         for (const line of para.lines) {
-                                            for (const word of line.words) {
-                                                allWords.push({ text: word.text, bbox: word.bbox });
-                                            }
+                                            allLines.push({
+                                                bbox: line.bbox,
+                                                words: line.words.map((w) => ({
+                                                    text: w.text,
+                                                    bbox: w.bbox,
+                                                })),
+                                            });
                                         }
                                     }
                                 }
 
-                                // Identify "sensitive" words — names, dates, ID numbers
-                                const sensitiveWords = allWords.filter((w) => {
-                                    const t = w.text.trim();
+                                console.log(`[OCR] Found ${allLines.length} lines in document`);
+
+                                // Detect sensitive lines — redact the whole line for robustness
+                                const isSensitive = (text: string): boolean => {
+                                    const t = text.trim();
                                     if (t.length < 2) return false;
-                                    // All-caps token >= 2 chars (IDs, surnames on docs)
-                                    if (/^[A-Z]{2,}$/.test(t)) return true;
-                                    // Starts with capital — looks like a proper name
-                                    if (/^[A-Z][a-z]{1,}$/.test(t)) return true;
-                                    // Looks like a date (digits with separators)
-                                    if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(t)) return true;
-                                    // Looks like an ID number (6+ consecutive digits)
+                                    // Looks like a date
+                                    if (/\d{1,2}[\\/\-\.]\d{1,2}[\\/\-\.]\d{2,4}/.test(t)) return true;
+                                    // Looks like an ID / serial number (6+ digits)
                                     if (/\d{6,}/.test(t)) return true;
+                                    // All-caps word (surname on ID cards)
+                                    if (/^[A-Z]{2,}$/.test(t)) return true;
+                                    // Looks like a name (Capitalized word)
+                                    if (/^[A-Z][a-z]{1,}/.test(t)) return true;
                                     return false;
-                                });
+                                };
 
-                                let redactedImg = sharp(bytes);
+                                // Collect bounding boxes of regions to redact
+                                const redactBboxes: TBbox[] = [];
 
-                                if (sensitiveWords.length > 0) {
-                                    const composites: sharp.OverlayOptions[] = [];
-                                    for (const word of sensitiveWords) {
-                                        const b = word.bbox;
-                                        const left = Math.max(0, b.x0 - 2);
-                                        const top = Math.max(0, b.y0 - 2);
-                                        const width = Math.min(imgW - left, b.x1 - b.x0 + 4);
-                                        const height = Math.min(imgH - top, b.y1 - b.y0 + 4);
-                                        if (width <= 0 || height <= 0) continue;
+                                for (const line of allLines) {
+                                    const lineText = line.words.map((w) => w.text).join(' ');
+                                    // Check if any word in the line is sensitive
+                                    const hasSensitiveWord = line.words.some((w) => isSensitive(w.text));
 
-                                        // Extract the region, blur it heavily, then composite back
-                                        const blurredPatch = await sharp(bytes)
-                                            .extract({ left, top, width, height })
-                                            .blur(15)
-                                            .toBuffer();
-
-                                        composites.push({ input: blurredPatch, left, top });
+                                    if (hasSensitiveWord) {
+                                        // Redact the whole line bbox
+                                        redactBboxes.push(line.bbox);
+                                    } else {
+                                        // Redact individual sensitive words within the line
+                                        for (const word of line.words) {
+                                            if (isSensitive(word.text)) {
+                                                redactBboxes.push(word.bbox);
+                                            }
+                                        }
                                     }
-                                    if (composites.length > 0) {
-                                        redactedImg = sharp(
-                                            await sharp(bytes).composite(composites).toBuffer()
-                                        );
+
+                                    if (hasSensitiveWord) {
+                                        console.log(`[OCR] Redacting line: "${lineText}"`);
                                     }
                                 }
 
-                                await redactedImg.toFile(redactedPath);
+                                console.log(`[OCR] Redacting ${redactBboxes.length} regions`);
+
+                                if (redactBboxes.length > 0) {
+                                    // Build a solid black SVG overlay for each sensitive region
+                                    const svgRects = redactBboxes
+                                        .map((b) => {
+                                            const left = Math.max(0, b.x0 - 3);
+                                            const top = Math.max(0, b.y0 - 3);
+                                            const w = Math.min(imgW - left, b.x1 - b.x0 + 6);
+                                            const h = Math.min(imgH - top, b.y1 - b.y0 + 6);
+                                            return `<rect x="${left}" y="${top}" width="${w}" height="${h}" fill="black"/>`;
+                                        })
+                                        .join('\n');
+
+                                    const svgOverlay = Buffer.from(
+                                        `<svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${imgH}">${svgRects}</svg>`
+                                    );
+
+                                    await sharp(bytes)
+                                        .composite([{ input: svgOverlay, top: 0, left: 0 }])
+                                        .toFile(redactedPath);
+                                } else {
+                                    // No sensitive content found — save original as redacted
+                                    await writeFile(redactedPath, bytes);
+                                }
+
 
                                 // Text for matching
                                 const ocrText = data.text;
