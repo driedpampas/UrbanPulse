@@ -990,16 +990,42 @@ export async function ensureSchema() {
                     CONSTRAINT lost_documents_status_check CHECK (status IN ('pending', 'processed', 'matched', 'returned'))
                 )
             `;
+        } else {
+            // Migration for existing table
+            await tx.unsafe('ALTER TABLE app.lost_documents RENAME COLUMN poster_id TO user_id').catch(() => {});
+            await tx.unsafe('ALTER TABLE app.lost_documents RENAME COLUMN image_original TO image_path').catch(() => {});
+            await tx.unsafe('ALTER TABLE app.lost_documents RENAME COLUMN image_censored TO redacted_image_path').catch(() => {});
+
             await tx`
-                CREATE INDEX IF NOT EXISTS lost_documents_user_id_idx ON app.lost_documents(user_id)
+                ALTER TABLE app.lost_documents
+                ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT '',
+                ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT '',
+                ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending',
+                ADD COLUMN IF NOT EXISTS matched_user_id uuid REFERENCES app.users(id) ON DELETE SET NULL,
+                ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now()
             `;
-            await tx`
-                CREATE INDEX IF NOT EXISTS lost_documents_matched_user_id_idx ON app.lost_documents(matched_user_id)
-            `;
-            await tx`
-                CREATE INDEX IF NOT EXISTS lost_documents_location_idx ON app.lost_documents USING GIST(location)
-            `;
+
+            // Fix the status constraint if it's missing or different
+            await tx.unsafe(`
+                ALTER TABLE app.lost_documents 
+                DROP CONSTRAINT IF EXISTS lost_documents_status_check
+            `);
+            await tx.unsafe(`
+                ALTER TABLE app.lost_documents 
+                ADD CONSTRAINT lost_documents_status_check 
+                CHECK (status IN ('pending', 'processed', 'matched', 'returned'))
+            `);
         }
+
+        await tx`
+            CREATE INDEX IF NOT EXISTS lost_documents_user_id_idx ON app.lost_documents(user_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS lost_documents_matched_user_id_idx ON app.lost_documents(matched_user_id)
+        `;
+        await tx`
+            CREATE INDEX IF NOT EXISTS lost_documents_location_idx ON app.lost_documents USING GIST(location)
+        `;
     });
 
     isSchemaEnsured = true;
