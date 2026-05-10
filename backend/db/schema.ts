@@ -718,23 +718,7 @@ export async function ensureSchema() {
             `;
         }
 
-        // lost_documents table
-        const lostDocumentsTable = await tx`
-            SELECT 1 FROM information_schema.tables
-            WHERE table_schema = 'app' AND table_name = 'lost_documents'
-            LIMIT 1
-        `;
-        if (lostDocumentsTable.length === 0) {
-            await tx`
-                CREATE TABLE app.lost_documents (
-                    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                    poster_id      uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
-                    location       geography(Point, 4326) NOT NULL,
-                    image_censored varchar(512),
-                    image_original varchar(512)
-                )
-            `;
-        }
+
 
         // Stored procedures (idempotent via CREATE OR REPLACE)
         await tx.unsafe(`
