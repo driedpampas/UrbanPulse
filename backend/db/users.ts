@@ -452,11 +452,11 @@ export async function updateUserProfile(user: User) {
                 WHEN ${timezoneProvided} THEN COALESCE(${timezone}, timezone)
                 ELSE timezone
             END,
-        legal_first_name = COALESCE(${user.legalFirstName ?? null}, legal_first_name),
-        legal_last_name = COALESCE(${user.legalLastName ?? null}, legal_last_name),
-        birthday = COALESCE(${user.birthday ?? null}::date, birthday),
-        home_address = COALESCE(${user.homeAddress ?? null}, home_address),
-        phone_number = COALESCE(${user.phoneNumber ?? null}, phone_number)
+        legal_first_name = CASE WHEN ${user.legalFirstName !== undefined} THEN ${user.legalFirstName ?? null} ELSE legal_first_name END,
+        legal_last_name = CASE WHEN ${user.legalLastName !== undefined} THEN ${user.legalLastName ?? null} ELSE legal_last_name END,
+        birthday = CASE WHEN ${user.birthday !== undefined} THEN NULLIF(${user.birthday ?? ''}, '')::date ELSE birthday END,
+        home_address = CASE WHEN ${user.homeAddress !== undefined} THEN ${user.homeAddress ?? null} ELSE home_address END,
+        phone_number = CASE WHEN ${user.phoneNumber !== undefined} THEN ${user.phoneNumber ?? null} ELSE phone_number END
 
       WHERE id = ${user.id}
     `;

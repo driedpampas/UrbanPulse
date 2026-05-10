@@ -504,30 +504,30 @@ export const httpRoutes: HttpRoutes = {
     '/api/lost-documents/image/:filename': {
         GET: async (req) =>
             validate(req, async () =>
-                    caught(async () => {
-                        const filename = path.basename(req.params.filename as string);
-                        const filePath = path.join(LOST_DOC_DIR, filename);
+                caught(async () => {
+                    const filename = path.basename(req.params.filename as string);
+                    const filePath = path.join(LOST_DOC_DIR, filename);
 
-                        try {
-                            const data = await readFile(filePath);
-                            // Detect mime type from filename extension for simplicity
-                            const ext = path.extname(filename).toLowerCase();
-                            let contentType = 'image/jpeg';
-                            if (ext === '.png') contentType = 'image/png';
-                            if (ext === '.webp') contentType = 'image/webp';
+                    try {
+                        const data = await readFile(filePath);
+                        // Detect mime type from filename extension for simplicity
+                        const ext = path.extname(filename).toLowerCase();
+                        let contentType = 'image/jpeg';
+                        if (ext === '.png') contentType = 'image/png';
+                        if (ext === '.webp') contentType = 'image/webp';
 
-                            return withCors(
-                                new Response(data, {
-                                    headers: {
-                                        'Content-Type': contentType,
-                                        'Cache-Control': 'public, max-age=31536000, immutable',
-                                    },
-                                })
-                            );
-                        } catch (_err) {
-                            return withCors(NOT_FOUND);
-                        }
-                    })
+                        return withCors(
+                            new Response(data, {
+                                headers: {
+                                    'Content-Type': contentType,
+                                    'Cache-Control': 'public, max-age=31536000, immutable',
+                                },
+                            })
+                        );
+                    } catch (_err) {
+                        return withCors(NOT_FOUND);
+                    }
+                })
             ),
     },
     '/api/docs': {
@@ -933,6 +933,11 @@ export const httpRoutes: HttpRoutes = {
                             quietHours: body.quietHours as Timerange[] | null,
                             quietDays: body.quietDays as number[] | null,
                             timezone: body.timezone,
+                            legalFirstName: body.legalFirstName,
+                            legalLastName: body.legalLastName,
+                            birthday: body.birthday,
+                            homeAddress: body.homeAddress,
+                            phoneNumber: body.phoneNumber,
                         });
 
                         return SUCCESS;

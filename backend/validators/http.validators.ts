@@ -221,14 +221,15 @@ export const updateUserSchema = z.strictObject({
         .nullish(),
     quietDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
     timezone: z.string().trim().min(1).optional(),
-    legalFirstName: z.string().nonempty().optional(),
-    legalLastName: z.string().nonempty().optional(),
+    legalFirstName: z.string().optional(),
+    legalLastName: z.string().optional(),
     birthday: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .or(z.literal(''))
         .optional(),
-    homeAddress: z.string().nonempty().optional(),
-    phoneNumber: z.string().nonempty().optional(),
+    homeAddress: z.string().optional(),
+    phoneNumber: z.string().optional(),
 });
 
 export const updatePassSchema = z
