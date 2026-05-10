@@ -18,7 +18,10 @@ export function IncidentBanner({ group, onClick }: Props) {
                 onClick={onClick}
                 class="w-full text-left p-0 border-none bg-transparent block"
             >
-                <div class="relative overflow-hidden rounded-xl border border-(--danger)/30 bg-(--danger) shadow-lg shadow-(--danger)/10 group transition-all hover:scale-[1.01] active:scale-[0.99]">
+                <div
+                    style="position:relative;overflow:hidden;border-radius:12px;border:1px solid rgba(220,38,38,0.3);background:linear-gradient(135deg,#2d0808 0%,#4a0f0f 50%,#2d0808 100%);box-shadow:0 4px 20px rgba(0,0,0,0.6);"
+                    class="group transition-all hover:scale-[1.01] active:scale-[0.99]"
+                >
                     {/* Animated pulse effect background */}
                     <div class="absolute inset-0 bg-linear-to-r from-white/0 via-white/5 to-white/0 -translate-x-full animate-[shimmer_2s_infinite]" />
 
