@@ -458,7 +458,7 @@ export const httpRoutes: HttpRoutes = {
                                     logger: () => {}, // suppress logs
                                 });
 
-                                // Request structured data (blocks) so we get bounding boxes
+                                // Run OCR with structured block output for bbox detection
                                 const { data } = await worker.recognize(imagePath, {}, {
                                     text: true,
                                     blocks: true,
@@ -472,96 +472,67 @@ export const httpRoutes: HttpRoutes = {
                                 const imgW = imgMeta.width ?? 100;
                                 const imgH = imgMeta.height ?? 100;
 
-                                // Collect all words from the block→paragraph→line→word tree
+                                // ── Strategy ─────────────────────────────────────────────────
+                                // ID documents universally place personal info (name, DOB, ID
+                                // number, address) in the lower 65% of the card/page.
+                                // We always redact that zone. On top of that, we also redact
+                                // any individual OCR words that look sensitive in the upper
+                                // portion, in case the image is high-quality enough to detect
+                                // them precisely.
+                                // ─────────────────────────────────────────────────────────────
+
                                 type TBbox = { x0: number; y0: number; x1: number; y1: number };
-                                type TWord = { text: string; bbox: TBbox };
-                                type TLine = { bbox: TBbox; words: TWord[] };
+                                const redactBboxes: TBbox[] = [];
 
-                                const allLines: TLine[] = [];
-                                for (const block of (data.blocks ?? [])) {
-                                    for (const para of block.paragraphs) {
-                                        for (const line of para.lines) {
-                                            allLines.push({
-                                                bbox: line.bbox,
-                                                words: line.words.map((w) => ({
-                                                    text: w.text,
-                                                    bbox: w.bbox,
-                                                })),
-                                            });
-                                        }
-                                    }
-                                }
+                                // 1. Always redact the lower 65% of the document
+                                const structuralTop = Math.floor(imgH * 0.35);
+                                redactBboxes.push({ x0: 0, y0: structuralTop, x1: imgW, y1: imgH });
 
-                                console.log(`[OCR] Found ${allLines.length} lines in document`);
-
-                                // Detect sensitive lines — redact the whole line for robustness
+                                // 2. Additionally redact sensitive OCR words in the top 35%
                                 const isSensitive = (text: string): boolean => {
                                     const t = text.trim();
                                     if (t.length < 2) return false;
-                                    // Looks like a date
-                                    if (/\d{1,2}[\\/\-\.]\d{1,2}[\\/\-\.]\d{2,4}/.test(t)) return true;
-                                    // Looks like an ID / serial number (6+ digits)
+                                    if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(t)) return true;
                                     if (/\d{6,}/.test(t)) return true;
-                                    // All-caps word (surname on ID cards)
                                     if (/^[A-Z]{2,}$/.test(t)) return true;
-                                    // Looks like a name (Capitalized word)
-                                    if (/^[A-Z][a-z]{1,}/.test(t)) return true;
+                                    if (/^[A-Z][a-z]{2,}/.test(t)) return true;
                                     return false;
                                 };
 
-                                // Collect bounding boxes of regions to redact
-                                const redactBboxes: TBbox[] = [];
-
-                                for (const line of allLines) {
-                                    const lineText = line.words.map((w) => w.text).join(' ');
-                                    // Check if any word in the line is sensitive
-                                    const hasSensitiveWord = line.words.some((w) => isSensitive(w.text));
-
-                                    if (hasSensitiveWord) {
-                                        // Redact the whole line bbox
-                                        redactBboxes.push(line.bbox);
-                                    } else {
-                                        // Redact individual sensitive words within the line
-                                        for (const word of line.words) {
-                                            if (isSensitive(word.text)) {
-                                                redactBboxes.push(word.bbox);
+                                for (const block of (data.blocks ?? [])) {
+                                    for (const para of block.paragraphs) {
+                                        for (const line of para.lines) {
+                                            // Only check words above the structural redaction zone
+                                            if (line.bbox.y0 >= structuralTop) continue;
+                                            if (line.words.some((w) => isSensitive(w.text))) {
+                                                redactBboxes.push(line.bbox);
                                             }
                                         }
                                     }
-
-                                    if (hasSensitiveWord) {
-                                        console.log(`[OCR] Redacting line: "${lineText}"`);
-                                    }
                                 }
 
-                                console.log(`[OCR] Redacting ${redactBboxes.length} regions`);
+                                // Build a single SVG overlay with all black rectangles
+                                const svgRects = redactBboxes
+                                    .map((b) => {
+                                        const left = Math.max(0, b.x0);
+                                        const top = Math.max(0, b.y0);
+                                        const w = Math.min(imgW - left, b.x1 - b.x0);
+                                        const h = Math.min(imgH - top, b.y1 - b.y0);
+                                        return `<rect x="${left}" y="${top}" width="${w}" height="${h}" fill="#111111"/>`;
+                                    })
+                                    .join('');
 
-                                if (redactBboxes.length > 0) {
-                                    // Build a solid black SVG overlay for each sensitive region
-                                    const svgRects = redactBboxes
-                                        .map((b) => {
-                                            const left = Math.max(0, b.x0 - 3);
-                                            const top = Math.max(0, b.y0 - 3);
-                                            const w = Math.min(imgW - left, b.x1 - b.x0 + 6);
-                                            const h = Math.min(imgH - top, b.y1 - b.y0 + 6);
-                                            return `<rect x="${left}" y="${top}" width="${w}" height="${h}" fill="black"/>`;
-                                        })
-                                        .join('\n');
+                                const svgOverlay = Buffer.from(
+                                    `<svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${imgH}">${svgRects}</svg>`
+                                );
 
-                                    const svgOverlay = Buffer.from(
-                                        `<svg xmlns="http://www.w3.org/2000/svg" width="${imgW}" height="${imgH}">${svgRects}</svg>`
-                                    );
+                                await sharp(bytes)
+                                    .composite([{ input: svgOverlay, top: 0, left: 0 }])
+                                    .toFile(redactedPath);
 
-                                    await sharp(bytes)
-                                        .composite([{ input: svgOverlay, top: 0, left: 0 }])
-                                        .toFile(redactedPath);
-                                } else {
-                                    // No sensitive content found — save original as redacted
-                                    await writeFile(redactedPath, bytes);
-                                }
+                                console.log(`[OCR] Redacted ${redactBboxes.length} regions on ${imgW}x${imgH} image`);
 
-
-                                // Text for matching
+                                // OCR text for user matching
                                 const ocrText = data.text;
 
                                 // Search for matching users
@@ -638,7 +609,7 @@ export const httpRoutes: HttpRoutes = {
                             new Response(data, {
                                 headers: {
                                     'Content-Type': contentType,
-                                    'Cache-Control': 'public, max-age=31536000, immutable',
+                                    'Cache-Control': 'no-store',
                                 },
                             })
                         );
