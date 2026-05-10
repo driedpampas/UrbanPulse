@@ -354,6 +354,7 @@ export type UpdateUserStatusBody = z.infer<typeof updateUserStatusSchema>;
 export type CreateIncidentTypeBody = z.infer<typeof createIncidentTypeSchema>;
 export type CreateIncidentAdminBody = z.infer<typeof createIncidentAdminSchema>;
 export type VerifyIncidentBody = z.infer<typeof verifyIncidentSchema>;
+export type CreateIncidentBody = z.infer<typeof createIncidentSchema>;
 
 export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned', 'first_responder']);
 
@@ -367,7 +368,7 @@ export const updateUserLocationSchema = z.strictObject({
 });
 
 export const updateUserStatusSchema = z.strictObject({
-    status: z.enum(['available', 'busy', 'offline']),
+    status: z.enum(['safe', 'need_help', 'injured', 'available_to_help', 'no_response']),
 });
 
 export const createIncidentTypeSchema = z.strictObject({
@@ -376,16 +377,24 @@ export const createIncidentTypeSchema = z.strictObject({
 
 export const createIncidentAdminSchema = z.strictObject({
     typeId: z.uuid(),
-    location: z.object({
-        lat: z.number(),
-        lng: z.number(),
-    }),
-    confidenceScore: z.number().int().min(0).max(100),
-    confirmed: z.boolean(),
+    lat: z.number(),
+    lng: z.number(),
+    range: z.enum(['block', 'neighborhood', 'district', 'city']),
+    title: z.string().nonempty().max(500),
+    description: z.string().nonempty().max(2000),
 });
 
 export const verifyIncidentSchema = z.strictObject({
     incidentId: z.uuid(),
+    approved: z.boolean(),
+});
+
+export const createIncidentSchema = z.strictObject({
+    typeId: z.uuid(),
+    title: z.string().nonempty().max(500),
+    description: z.string().nonempty().max(2000),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
 });
 
 export const adminUsersQuerySchema = z.strictObject({

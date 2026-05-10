@@ -17,6 +17,10 @@ export async function ensureSchema() {
             { name: 'report_target_type', values: ['pulse', 'user', 'message'] },
             { name: 'message_type', values: ['text', 'notice'] },
             { name: 'report_status', values: ['pending', 'resolved', 'dismissed'] },
+            {
+                name: 'crisis_status',
+                values: ['safe', 'need_help', 'injured', 'available_to_help', 'no_response'],
+            },
         ] as const;
 
         for (const enumType of enumTypes) {
@@ -111,10 +115,22 @@ export async function ensureSchema() {
                     id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
                     type uuid NOT NULL REFERENCES app.incident_type(id) ON DELETE CASCADE,
                     location geography(Polygon, 4326) NOT NULL,
-                    confidence_score smallint NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 100),
-                    confirmed boolean NOT NULL
+                    confidence_score smallint NOT NULL DEFAULT 0 CHECK (confidence_score >= 0),
+                    confirmed boolean NOT NULL DEFAULT false
                 )
             `;
+        } else {
+            // Fix pre-existing upper bound constraint and missing defaults
+            await tx`
+                ALTER TABLE app.incidents
+                DROP CONSTRAINT IF EXISTS incidents_confidence_score_check
+            `;
+            await tx`
+                ALTER TABLE app.incidents
+                ADD CONSTRAINT incidents_confidence_score_check CHECK (confidence_score >= 0)
+            `;
+            await tx`ALTER TABLE app.incidents ALTER COLUMN confidence_score SET DEFAULT 0`;
+            await tx`ALTER TABLE app.incidents ALTER COLUMN confirmed SET DEFAULT false`;
         }
 
         // Check incident_reports table
@@ -667,6 +683,278 @@ export async function ensureSchema() {
             ALTER TABLE app.pulses
             DROP CONSTRAINT IF EXISTS pulses_pulse_type_check
         `;
+
+        // incident_votes table
+        const incidentVotesTable = await tx`
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'incident_votes'
+            LIMIT 1
+        `;
+        if (incidentVotesTable.length === 0) {
+            await tx`
+                CREATE TABLE app.incident_votes (
+                    id_incident uuid NOT NULL REFERENCES app.incidents(id) ON DELETE CASCADE,
+                    id_user     uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    created_at  timestamp NOT NULL DEFAULT now(),
+                    approved    boolean NOT NULL,
+                    PRIMARY KEY (id_incident, id_user)
+                )
+            `;
+        }
+
+        // user_crisis table
+        const userCrisisTable = await tx`
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'user_crisis'
+            LIMIT 1
+        `;
+        if (userCrisisTable.length === 0) {
+            await tx`
+                CREATE TABLE app.user_crisis (
+                    user_id  uuid NOT NULL PRIMARY KEY REFERENCES app.users(id) ON DELETE CASCADE,
+                    location geography(Point, 4326) NOT NULL,
+                    status   app.crisis_status NOT NULL DEFAULT 'no_response'
+                )
+            `;
+        }
+
+        // Stored procedures (idempotent via CREATE OR REPLACE)
+        await tx.unsafe(`
+            CREATE OR REPLACE FUNCTION app.incident_report_insert(
+                p_user_id       uuid,
+                p_incident_type uuid,
+                p_title         varchar,
+                p_description   varchar,
+                p_location      geography(Polygon, 4326)
+            )
+            RETURNS void
+            LANGUAGE plpgsql
+            AS $$
+            DECLARE
+                v_incident_id uuid;
+            BEGIN
+                SELECT id
+                    INTO v_incident_id
+                    FROM app.incidents
+                    WHERE type = p_incident_type
+                      AND location = p_location
+                    LIMIT 1;
+
+                IF v_incident_id IS NULL THEN
+                    INSERT INTO app.incidents (type, location, confidence_score, confirmed)
+                    VALUES (p_incident_type, p_location, 0, false)
+                    RETURNING id INTO v_incident_id;
+                END IF;
+
+                DELETE FROM app.incident_votes
+                WHERE id_incident = v_incident_id
+                  AND id_user = p_user_id;
+
+                INSERT INTO app.incident_reports (id_incident, id_user, title, description)
+                VALUES (v_incident_id, p_user_id, p_title, p_description)
+                ON CONFLICT (id_incident, id_user) DO NOTHING;
+            END;
+            $$;
+        `);
+
+        await tx.unsafe(`
+            CREATE OR REPLACE FUNCTION app.incident_votes_insert(
+                p_user_id     uuid,
+                p_incident_id uuid,
+                p_approve     boolean
+            )
+            RETURNS void
+            LANGUAGE plpgsql
+            AS $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM app.incidents WHERE id = p_incident_id
+                ) THEN
+                    RETURN;
+                END IF;
+
+                IF p_approve = false THEN
+                    DELETE FROM app.incident_reports
+                    WHERE id_incident = p_incident_id
+                      AND id_user = p_user_id;
+
+                    INSERT INTO app.incident_votes (id_incident, id_user, approved)
+                    VALUES (p_incident_id, p_user_id, p_approve)
+                    ON CONFLICT (id_incident, id_user) DO NOTHING;
+
+                ELSIF NOT EXISTS (
+                    SELECT 1 FROM app.incident_reports
+                    WHERE id_incident = p_incident_id
+                      AND id_user = p_user_id
+                ) THEN
+                    INSERT INTO app.incident_votes (id_incident, id_user, approved)
+                    VALUES (p_incident_id, p_user_id, p_approve)
+                    ON CONFLICT (id_incident, id_user) DO NOTHING;
+                END IF;
+            END;
+            $$;
+        `);
+
+        // Confidence scoring trigger functions (idempotent)
+        await tx.unsafe(`
+            CREATE OR REPLACE FUNCTION app.calculate_vote_score(p_role app.user_role, p_trust integer, p_approved boolean)
+            RETURNS integer AS $$
+            DECLARE
+                v_score integer := 0;
+            BEGIN
+                IF p_approved THEN
+                    CASE p_role
+                        WHEN 'admin' THEN v_score := 10;
+                        WHEN 'mod' THEN v_score := 4;
+                        WHEN 'first_responder' THEN v_score := 10;
+                        ELSE v_score := 2;
+                    END CASE;
+                    v_score := v_score + LEAST(3, p_trust / 10);
+                ELSE
+                    CASE p_role
+                        WHEN 'admin' THEN v_score := -20;
+                        WHEN 'mod' THEN v_score := -3;
+                        WHEN 'first_responder' THEN v_score := -20;
+                        ELSE v_score := -2;
+                    END CASE;
+                    v_score := v_score - LEAST(2, p_trust / 15);
+                END IF;
+                RETURN v_score;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
+
+        await tx.unsafe(`
+            CREATE OR REPLACE FUNCTION app.check_incident_thresholds(p_incident_id uuid)
+            RETURNS void AS $$
+            DECLARE
+                v_score     integer;
+                v_confirmed boolean;
+                v_location  geography(Polygon, 4326);
+            BEGIN
+                SELECT confidence_score, confirmed, location
+                    INTO v_score, v_confirmed, v_location
+                    FROM app.incidents WHERE id = p_incident_id;
+
+                IF v_score IS NULL THEN RETURN; END IF;
+
+                IF v_score <= 0 THEN
+                    DELETE FROM app.incidents WHERE id = p_incident_id;
+                    RETURN;
+                END IF;
+
+                IF v_score < 15 AND v_confirmed THEN
+                    DELETE FROM app.incidents WHERE id = p_incident_id;
+                    RETURN;
+                END IF;
+
+                IF v_score >= 40 AND NOT v_confirmed THEN
+                    UPDATE app.incidents SET confirmed = true WHERE id = p_incident_id;
+                    RETURN;
+                END IF;
+
+                IF v_score >= 25 AND NOT v_confirmed THEN
+                    IF EXISTS (
+                        SELECT 1 FROM app.incidents
+                        WHERE id != p_incident_id
+                          AND confirmed = true
+                          AND (ST_Touches(location::geometry, v_location::geometry)
+                               OR ST_DWithin(location, v_location, 100))
+                    ) THEN
+                        UPDATE app.incidents SET confirmed = true WHERE id = p_incident_id;
+                    END IF;
+                END IF;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
+
+        await tx.unsafe(`
+            CREATE OR REPLACE FUNCTION app.update_incident_confidence_from_report()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_user_role   app.user_role;
+                v_trust_score integer;
+                v_score       integer := 0;
+                v_incident_id uuid;
+            BEGIN
+                IF TG_OP = 'INSERT' THEN
+                    v_incident_id := NEW.id_incident;
+                    SELECT role, trust_score INTO v_user_role, v_trust_score FROM app.users WHERE id = NEW.id_user;
+                    CASE v_user_role
+                        WHEN 'admin' THEN v_score := 40;
+                        WHEN 'mod' THEN v_score := 10;
+                        WHEN 'first_responder' THEN v_score := 30;
+                        ELSE v_score := 5;
+                    END CASE;
+                    v_score := v_score + LEAST(5, v_trust_score / 10);
+                    UPDATE app.incidents SET confidence_score = confidence_score + v_score WHERE id = v_incident_id;
+                ELSIF TG_OP = 'DELETE' THEN
+                    v_incident_id := OLD.id_incident;
+                    SELECT role, trust_score INTO v_user_role, v_trust_score FROM app.users WHERE id = OLD.id_user;
+                    CASE v_user_role
+                        WHEN 'admin' THEN v_score := 40;
+                        WHEN 'mod' THEN v_score := 10;
+                        WHEN 'first_responder' THEN v_score := 30;
+                        ELSE v_score := 5;
+                    END CASE;
+                    v_score := v_score + LEAST(5, v_trust_score / 10);
+                    UPDATE app.incidents SET confidence_score = confidence_score - v_score WHERE id = v_incident_id;
+                ELSE
+                    v_incident_id := NEW.id_incident;
+                END IF;
+                PERFORM app.check_incident_thresholds(v_incident_id);
+                RETURN NULL;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
+
+        await tx.unsafe(`
+            CREATE OR REPLACE FUNCTION app.update_incident_confidence_from_vote()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_user_role   app.user_role;
+                v_trust_score integer;
+                v_score       integer := 0;
+                v_old_score   integer := 0;
+                v_new_score   integer := 0;
+                v_incident_id uuid;
+            BEGIN
+                IF TG_OP = 'INSERT' THEN
+                    v_incident_id := NEW.id_incident;
+                    SELECT role, trust_score INTO v_user_role, v_trust_score FROM app.users WHERE id = NEW.id_user;
+                    v_score := app.calculate_vote_score(v_user_role, v_trust_score, NEW.approved);
+                    UPDATE app.incidents SET confidence_score = confidence_score + v_score WHERE id = v_incident_id;
+                ELSIF TG_OP = 'DELETE' THEN
+                    v_incident_id := OLD.id_incident;
+                    SELECT role, trust_score INTO v_user_role, v_trust_score FROM app.users WHERE id = OLD.id_user;
+                    v_score := app.calculate_vote_score(v_user_role, v_trust_score, OLD.approved);
+                    UPDATE app.incidents SET confidence_score = confidence_score - v_score WHERE id = v_incident_id;
+                ELSIF TG_OP = 'UPDATE' THEN
+                    v_incident_id := NEW.id_incident;
+                    SELECT role, trust_score INTO v_user_role, v_trust_score FROM app.users WHERE id = NEW.id_user;
+                    v_old_score := app.calculate_vote_score(v_user_role, v_trust_score, OLD.approved);
+                    v_new_score := app.calculate_vote_score(v_user_role, v_trust_score, NEW.approved);
+                    UPDATE app.incidents SET confidence_score = confidence_score - v_old_score + v_new_score WHERE id = v_incident_id;
+                END IF;
+                PERFORM app.check_incident_thresholds(v_incident_id);
+                RETURN NULL;
+            END;
+            $$ LANGUAGE plpgsql;
+        `);
+
+        await tx.unsafe(`
+            DROP TRIGGER IF EXISTS trg_incident_reports_confidence ON app.incident_reports;
+            CREATE TRIGGER trg_incident_reports_confidence
+            AFTER INSERT OR DELETE OR UPDATE ON app.incident_reports
+            FOR EACH ROW EXECUTE FUNCTION app.update_incident_confidence_from_report();
+        `);
+
+        await tx.unsafe(`
+            DROP TRIGGER IF EXISTS trg_incident_votes_confidence ON app.incident_votes;
+            CREATE TRIGGER trg_incident_votes_confidence
+            AFTER INSERT OR DELETE OR UPDATE ON app.incident_votes
+            FOR EACH ROW EXECUTE FUNCTION app.update_incident_confidence_from_vote();
+        `);
     });
 
     isSchemaEnsured = true;

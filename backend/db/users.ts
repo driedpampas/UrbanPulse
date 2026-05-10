@@ -1,7 +1,14 @@
 import { sql } from './client';
 import { SEARCH_LIMIT } from './constants';
 import { ensureSchema } from './schema';
-import type { ScheduledUserDeletion, User, UserRow, UserSearchParams } from './types';
+import type {
+    CrisisStatus,
+    ScheduledUserDeletion,
+    User,
+    UserCrisisEntry,
+    UserRow,
+    UserSearchParams,
+} from './types';
 
 export async function insertUser(
     email: string,
@@ -818,4 +825,158 @@ export async function selectExistingUserIds(userIds: string[]): Promise<string[]
     `) as { id: string }[];
 
     return rows.map((row) => row.id);
+}
+
+// ─── Crisis location & status ────────────────────────────────────────────────
+
+/**
+ * Upserts the requesting user's crisis location.
+ * Returns false when the given coordinates are not within any confirmed incident polygon.
+ */
+export async function upsertUserCrisisLocation(
+    userId: string,
+    lat: number,
+    lng: number
+): Promise<boolean> {
+    await ensureSchema();
+
+    const [inZone] = await sql`
+        SELECT 1 FROM app.incidents
+        WHERE confirmed = true
+          AND ST_Contains(
+                location::geometry,
+                ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
+              )
+        LIMIT 1
+    `;
+
+    if (!inZone) return false;
+
+    await sql`
+        INSERT INTO app.user_crisis (user_id, location, status)
+        VALUES (
+            ${userId}::uuid,
+            ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+            'no_response'
+        )
+        ON CONFLICT (user_id) DO UPDATE
+        SET location = EXCLUDED.location
+    `;
+
+    return true;
+}
+
+/**
+ * Updates the crisis status of a user who has already shared their location.
+ * Returns false when the user has no crisis location entry.
+ */
+export async function updateUserCrisisStatus(
+    userId: string,
+    status: CrisisStatus
+): Promise<boolean> {
+    await ensureSchema();
+    const [updated] = await sql`
+        UPDATE app.user_crisis
+        SET status = ${status}::app.crisis_status
+        WHERE user_id = ${userId}::uuid
+        RETURNING user_id
+    `;
+    return Boolean(updated);
+}
+
+/**
+ * Returns all users in crisis within `radius` metres of the requesting user's stored crisis location.
+ * Returns null when the requesting user has no crisis location or is not inside a confirmed incident polygon.
+ */
+export async function selectUserCrisisLocations(
+    requestingUserId: string,
+    radius: number
+): Promise<UserCrisisEntry[] | null> {
+    await ensureSchema();
+
+    const [self] = (await sql`
+        SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng
+        FROM app.user_crisis
+        WHERE user_id = ${requestingUserId}::uuid
+        LIMIT 1
+    `) as Array<{ lat: number; lng: number }>;
+
+    if (!self) return null;
+
+    const [inZone] = await sql`
+        SELECT 1 FROM app.incidents
+        WHERE confirmed = true
+          AND ST_Contains(
+                location::geometry,
+                ST_SetSRID(ST_MakePoint(${self.lng}, ${self.lat}), 4326)
+              )
+        LIMIT 1
+    `;
+
+    if (!inZone) return null;
+
+    const rows = (await sql`
+        SELECT
+            uc.user_id::text                   AS "userId",
+            u.display_name                     AS "displayName",
+            u.profile_picture_filename         AS "profilePictureFilename",
+            ST_Y(uc.location::geometry)        AS lat,
+            ST_X(uc.location::geometry)        AS lng,
+            uc.status::text                    AS status
+        FROM app.user_crisis uc
+        JOIN app.users u ON u.id = uc.user_id
+        WHERE ST_DWithin(
+            uc.location,
+            ST_SetSRID(ST_MakePoint(${self.lng}, ${self.lat}), 4326)::geography,
+            ${radius}
+        )
+    `) as Array<{
+        userId: string;
+        displayName: string | null;
+        profilePictureFilename: string | null;
+        lat: number;
+        lng: number;
+        status: string;
+    }>;
+
+    return rows.map((r) => ({
+        userId: r.userId,
+        displayName: r.displayName,
+        profilePictureFilename: r.profilePictureFilename,
+        lat: r.lat,
+        lng: r.lng,
+        status: r.status as CrisisStatus,
+    }));
+}
+
+/** Returns all users with a crisis location entry (for admin dashboards). */
+export async function selectAllUserCrisisLocations(): Promise<UserCrisisEntry[]> {
+    await ensureSchema();
+    const rows = (await sql`
+        SELECT
+            uc.user_id::text                   AS "userId",
+            u.display_name                     AS "displayName",
+            u.profile_picture_filename         AS "profilePictureFilename",
+            ST_Y(uc.location::geometry)        AS lat,
+            ST_X(uc.location::geometry)        AS lng,
+            uc.status::text                    AS status
+        FROM app.user_crisis uc
+        JOIN app.users u ON u.id = uc.user_id
+    `) as Array<{
+        userId: string;
+        displayName: string | null;
+        profilePictureFilename: string | null;
+        lat: number;
+        lng: number;
+        status: string;
+    }>;
+
+    return rows.map((r) => ({
+        userId: r.userId,
+        displayName: r.displayName,
+        profilePictureFilename: r.profilePictureFilename,
+        lat: r.lat,
+        lng: r.lng,
+        status: r.status as CrisisStatus,
+    }));
 }

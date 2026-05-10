@@ -12,6 +12,47 @@ export const PULSE_TYPE_VALUES = ['update', 'emergency', 'skill', 'item', 'pet',
 
 export type PulseType = (typeof PULSE_TYPE_VALUES)[number];
 
+export type CrisisStatus = 'safe' | 'need_help' | 'injured' | 'available_to_help' | 'no_response';
+
+export interface IncidentType {
+    id: string;
+    label: string;
+}
+
+export interface IncidentReport {
+    userId: string;
+    userName: string | null;
+    profilePictureFilename: string | null;
+    title: string;
+    description: string;
+    createdAt: number;
+}
+
+export type IncidentApprovalState =
+    | 'admin_approved'
+    | 'first_responder_approved'
+    | 'community_only';
+
+export interface IncidentFeedItem {
+    id: string;
+    typeId: string;
+    typeLabel: string;
+    confidenceScore: number;
+    confirmed: boolean;
+    approvalState: IncidentApprovalState;
+    reports: IncidentReport[];
+    userVote: boolean | null;
+}
+
+export interface UserCrisisEntry {
+    userId: string;
+    displayName: string | null;
+    profilePictureFilename: string | null;
+    lat: number;
+    lng: number;
+    status: CrisisStatus;
+}
+
 export interface PulseFeedItem {
     id: string;
     userId: string;
@@ -221,7 +262,6 @@ export type PulseRow = {
     confirmations?: number | string | null;
     userRole?: string | null;
     userTrustScore?: number | string | null;
-
 
     isEmergency?: boolean | null;
     is_emergency?: boolean | null;

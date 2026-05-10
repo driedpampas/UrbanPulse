@@ -49,6 +49,28 @@ export async function adminAuthorize(
     return await handler(authContext.session);
 }
 
+export async function elevatedAuthorize(
+    request: Request,
+    handler: (payload: AuthTokenPayload) => Response | Promise<Response>,
+    fallback: () => Response | Promise<Response> = () => withCors(UNAUTHORIZED)
+): Promise<Response> {
+    const authContext = await getAuthorizationContext(request);
+
+    if (authContext === null) {
+        return await fallback();
+    }
+
+    if (authContext.role === 'banned') {
+        return withCors(FORBIDDEN);
+    }
+
+    if (!['admin', 'mod', 'first_responder'].includes(authContext.role ?? '')) {
+        return withCors(FORBIDDEN);
+    }
+
+    return await handler(authContext.session);
+}
+
 export async function unauthorize(
     request: Request,
     handler: () => Response | Promise<Response>

@@ -2,6 +2,7 @@ export * from './admin.ts';
 export * from './chats.ts';
 export * from './client';
 export * from './constants';
+export * from './incidents.ts';
 export * from './library.ts';
 export * from './mappers';
 export * from './pulses.ts';

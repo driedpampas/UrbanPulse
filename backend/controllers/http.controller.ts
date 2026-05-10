@@ -8,7 +8,12 @@ import { z } from 'zod';
 import * as auth from '../auth';
 import type { PulseType, Timerange } from '../db';
 import * as db from '../db';
-import { adminAuthorize, authorize, unauthorize } from '../middleware/auth.middleware';
+import {
+    adminAuthorize,
+    authorize,
+    elevatedAuthorize,
+    unauthorize,
+} from '../middleware/auth.middleware';
 import { isAllowedOrigin, validate, withCors } from '../middleware/cors.middleware';
 import {
     BAD_REQUEST,
@@ -24,6 +29,7 @@ import type {
     AddChatParticipantsBody,
     CreateChatBody,
     CreateIncidentAdminBody,
+    CreateIncidentBody,
     CreateIncidentTypeBody,
     CreateLibraryItemBody,
     CreateMessageBody,
@@ -58,6 +64,7 @@ import {
     chatSocketMessageSchema,
     createChatSchema,
     createIncidentAdminSchema,
+    createIncidentSchema,
     createIncidentTypeSchema,
     createLibraryItemSchema,
     createMessageReportSchema,
@@ -95,6 +102,123 @@ import {
 } from '../validators/http.validators';
 
 const PULSE_FEED_TOPIC = 'pulse-feed';
+
+// ─── Crisis incident notification helpers ───────────────────────────────────────────
+
+/** Tracks which newly-confirmed incidents have already triggered WS alerts this session. */
+const notifiedCrisisIncidents = new Set<string>();
+
+async function notifyNewCrises(
+    server: bun.Server<unknown>,
+    confirmedIncidentIds: string[]
+): Promise<void> {
+    for (const incidentId of confirmedIncidentIds) {
+        if (notifiedCrisisIncidents.has(incidentId)) continue;
+        notifiedCrisisIncidents.add(incidentId);
+        const userIds = await db.selectUsersInIncidentPolygon(incidentId);
+        const payload = JSON.stringify({ event: 'crisis.alert', incidentId });
+        for (const userId of userIds) {
+            server.publish(`user-${userId}`, payload);
+        }
+    }
+}
+
+interface OverpassGeomNode {
+    lat: number;
+    lon: number;
+}
+
+interface OverpassMember {
+    type: string;
+    role: string;
+    geometry?: OverpassGeomNode[];
+}
+
+interface OverpassElement {
+    type: string;
+    members?: OverpassMember[];
+}
+
+interface OverpassResponse {
+    elements?: OverpassElement[];
+}
+
+async function fetchOverpassPolygon(
+    lat: number,
+    lng: number,
+    adminLevel: number
+): Promise<string | null> {
+    try {
+        const query = `[out:json][timeout:25];\nis_in(${lat},${lng})->.a;\nrel(pivot.a)[boundary=administrative][admin_level=${adminLevel}];\nout geom;`;
+        const res = await fetch('https://overpass-api.de/api/interpreter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'UrbanPulse/1.0',
+            },
+            body: `data=${encodeURIComponent(query)}`,
+            signal: AbortSignal.timeout(30_000),
+        });
+        if (!res.ok) return null;
+        const data = (await res.json()) as OverpassResponse;
+        const relation = data.elements?.find((e) => e.type === 'relation');
+        if (!relation?.members) return null;
+
+        // Collect outer way geometry segments
+        const outerSegments: OverpassGeomNode[][] = relation.members
+            .filter(
+                (m) => m.role === 'outer' && Array.isArray(m.geometry) && m.geometry.length >= 2
+            )
+            .map((m) => m.geometry as OverpassGeomNode[]);
+
+        if (outerSegments.length === 0) return null;
+
+        // Chain segments into a single ring
+        const ring: OverpassGeomNode[] = [...(outerSegments[0] as OverpassGeomNode[])];
+        const remaining = outerSegments.slice(1);
+        while (remaining.length > 0) {
+            const last = ring[ring.length - 1] as OverpassGeomNode;
+            const idx = remaining.findIndex(
+                (s) =>
+                    ((s[0] as OverpassGeomNode).lat === last.lat &&
+                        (s[0] as OverpassGeomNode).lon === last.lon) ||
+                    ((s[s.length - 1] as OverpassGeomNode).lat === last.lat &&
+                        (s[s.length - 1] as OverpassGeomNode).lon === last.lon)
+            );
+            if (idx === -1) break;
+            const seg = remaining.splice(idx, 1)[0] as OverpassGeomNode[];
+            if (
+                (seg[seg.length - 1] as OverpassGeomNode).lat === last.lat &&
+                (seg[seg.length - 1] as OverpassGeomNode).lon === last.lon
+            ) {
+                seg.reverse();
+            }
+            ring.push(...seg.slice(1));
+        }
+
+        // Close the ring
+        if (
+            (ring[0] as OverpassGeomNode).lat !== (ring[ring.length - 1] as OverpassGeomNode).lat ||
+            (ring[0] as OverpassGeomNode).lon !== (ring[ring.length - 1] as OverpassGeomNode).lon
+        ) {
+            ring.push(ring[0] as OverpassGeomNode);
+        }
+
+        const coords = ring.map((p) => `${p.lon} ${p.lat}`).join(', ');
+        return `POLYGON((${coords}))`;
+    } catch {
+        return null;
+    }
+}
+
+function fallbackBoxWkt(lat: number, lng: number, halfDeg: number): string {
+    const half = halfDeg / 2;
+    const minLng = lng - half;
+    const maxLng = lng + half;
+    const minLat = lat - half;
+    const maxLat = lat + half;
+    return `POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))`;
+}
 
 const BACKEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROFILE_PICTURE_DIR = path.join(BACKEND_ROOT, 'storage', 'profile-pictures');
@@ -2240,7 +2364,7 @@ export const httpRoutes: HttpRoutes = {
                             }
 
                             const chat = await db.selectChatById(threadId);
-                            if (!chat || !chat.isGroup) {
+                            if (!chat?.isGroup) {
                                 return withCors(FORBIDDEN);
                             }
                         }
@@ -2650,7 +2774,7 @@ export const httpRoutes: HttpRoutes = {
                             role === 'admin'
                                 ? await db.selectChatById(req.params.id as string)
                                 : await db.selectChat(req.params.id as string, payload.id);
-                        if (!chat || !chat.isGroup) {
+                        if (!chat?.isGroup) {
                             return withCors(FORBIDDEN);
                         }
 
@@ -2730,7 +2854,7 @@ export const httpRoutes: HttpRoutes = {
                             role === 'admin'
                                 ? await db.selectChatById(req.params.id as string)
                                 : await db.selectChat(req.params.id as string, payload.id);
-                        if (!chat || !chat.isGroup) {
+                        if (!chat?.isGroup) {
                             return withCors(FORBIDDEN);
                         }
 
@@ -2806,7 +2930,7 @@ export const httpRoutes: HttpRoutes = {
                             role === 'admin'
                                 ? await db.selectChatById(req.params.id as string)
                                 : await db.selectChat(req.params.id as string, payload.id);
-                        if (!chat || !chat.isGroup) {
+                        if (!chat?.isGroup) {
                             return withCors(FORBIDDEN);
                         }
 
@@ -2866,7 +2990,7 @@ export const httpRoutes: HttpRoutes = {
                     caught(async () => {
                         const payload = session as JwtPayload;
                         const user = await db.selectFullUser(payload.id);
-                        if (!user || !user.location) {
+                        if (!user?.location) {
                             return withCors(BAD_REQUEST);
                         }
                         const { lat, lng } = user.location;
@@ -2990,16 +3114,19 @@ export const httpRoutes: HttpRoutes = {
                             .json()
                             .then((raw) => updateUserLocationSchema.parse(raw));
 
-                        await db.updateUserProfile({
-                            id: payload.id,
-                            displayName: undefined,
-                            bio: undefined,
-                            radius: undefined,
-                            location: { lat: body.lat, lng: body.lng },
-                            quietHours: undefined,
-                            quietDays: undefined,
-                            timezone: undefined,
-                        });
+                        const inCrisisZone = await db.upsertUserCrisisLocation(
+                            payload.id,
+                            body.lat,
+                            body.lng
+                        );
+                        if (!inCrisisZone) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'No active crisis at this location.' },
+                                    { status: 403 }
+                                )
+                            );
+                        }
 
                         return withCors(SUCCESS);
                     })
@@ -3010,9 +3137,21 @@ export const httpRoutes: HttpRoutes = {
                 authorize(req, async (session) =>
                     caught(async () => {
                         const payload: JwtPayload = session as JwtPayload;
-                        const user = await db.selectFullUser(payload.id);
-                        if (!user) return withCors(NOT_FOUND);
-                        return withCors(Response.json({ location: user.location }, { status: 200 }));
+                        const url = new URL(req.url);
+                        const radius = Number(url.searchParams.get('radius') ?? '5000');
+                        const users = await db.selectUserCrisisLocations(
+                            payload.id,
+                            Number.isFinite(radius) ? radius : 5000
+                        );
+                        if (users === null) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Not in an active crisis zone.' },
+                                    { status: 403 }
+                                )
+                            );
+                        }
+                        return withCors(Response.json({ users }, { status: 200 }));
                     })
                 )
             ),
@@ -3027,10 +3166,16 @@ export const httpRoutes: HttpRoutes = {
                             .json()
                             .then((raw) => updateUserStatusSchema.parse(raw));
 
-                        void payload;
-                        void body;
-
-                        return withCors(NOT_FOUND);
+                        const updated = await db.updateUserCrisisStatus(payload.id, body.status);
+                        if (!updated) {
+                            return withCors(
+                                Response.json(
+                                    { error: 'Share your location first.' },
+                                    { status: 400 }
+                                )
+                            );
+                        }
+                        return withCors(SUCCESS);
                     })
                 )
             ),
@@ -3038,40 +3183,10 @@ export const httpRoutes: HttpRoutes = {
     '/api/admin/location': {
         GET: async (req) =>
             validate(req, async () =>
-                adminAuthorize(req, async () =>
+                elevatedAuthorize(req, async () =>
                     caught(async () => {
-                        const url = new URL(req.url);
-                        const limit = Number(url.searchParams.get('limit') ?? '50');
-                        const offset = Number(url.searchParams.get('offset') ?? '0');
-
-                        const users = await db.searchUsers(
-                            buildSearchParams({
-                                id: null,
-                                email: null,
-                                anyskillres: null,
-                                skillres: null,
-                                min_trust: null,
-                                max_trust: null,
-                                created_before: null,
-                                created_after: null,
-                                displayName: null,
-                                role: null,
-                                verified: null,
-                                radius: null,
-                                location: null,
-                                availableDays: null,
-                                availableHours: null,
-                                bio: null,
-                            }),
-                            Number.isFinite(limit) ? limit : 50,
-                            Number.isFinite(offset) ? offset : 0
-                        );
-
-                        const locations = users
-                            .filter((u) => u.location != null)
-                            .map((u) => ({ id: u.id, location: u.location }));
-
-                        return withCors(Response.json({ locations }, { status: 200 }));
+                        const users = await db.selectAllUserCrisisLocations();
+                        return withCors(Response.json({ users }, { status: 200 }));
                     })
                 )
             ),
@@ -3079,9 +3194,22 @@ export const httpRoutes: HttpRoutes = {
     '/api/crisis': {
         GET: async (req) =>
             validate(req, async () =>
-                authorize(req, async () =>
+                authorize(req, async (session) =>
                     caught(async () => {
-                        return withCors(NOT_FOUND);
+                        const payload: JwtPayload = session as JwtPayload;
+                        const url = new URL(req.url);
+                        const lat = Number(url.searchParams.get('lat'));
+                        const lng = Number(url.searchParams.get('lng'));
+                        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                            return withCors(BAD_REQUEST);
+                        }
+                        const incidents = await db.selectIncidentsByPoint(
+                            lat,
+                            lng,
+                            true,
+                            payload.id
+                        );
+                        return withCors(Response.json({ incidents }, { status: 200 }));
                     })
                 )
             ),
@@ -3095,9 +3223,8 @@ export const httpRoutes: HttpRoutes = {
                             .json()
                             .then((raw) => createIncidentTypeSchema.parse(raw));
 
-                        void body;
-
-                        return withCors(NOT_FOUND);
+                        const type = await db.insertIncidentType(body.label);
+                        return withCors(Response.json({ type }, { status: 201 }));
                     })
                 )
             ),
@@ -3105,39 +3232,93 @@ export const httpRoutes: HttpRoutes = {
             validate(req, async () =>
                 authorize(req, async () =>
                     caught(async () => {
-                        return withCors(NOT_FOUND);
+                        const types = await db.selectIncidentTypes();
+                        return withCors(Response.json({ types }, { status: 200 }));
                     })
                 )
             ),
     },
     '/api/incident/admin': {
-        POST: async (req) =>
+        POST: async (req, server) =>
             validate(req, async () =>
-                adminAuthorize(req, async () =>
+                elevatedAuthorize(req, async (session) =>
                     caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
                         const body: CreateIncidentAdminBody = await req
                             .json()
                             .then((raw) => createIncidentAdminSchema.parse(raw));
 
-                        void body;
+                        const adminLevelMap: Record<string, number> = {
+                            block: 10,
+                            neighborhood: 9,
+                            district: 8,
+                            city: 6,
+                        };
+                        const stepDegMap: Record<string, number> = {
+                            block: 0.001,
+                            neighborhood: 0.003,
+                            district: 0.006,
+                            city: 0.015,
+                        };
 
-                        return withCors(NOT_FOUND);
+                        const adminLevel = adminLevelMap[body.range] ?? 9;
+                        const stepDeg = stepDegMap[body.range] ?? 0.003;
+
+                        const boundaryWkt = await fetchOverpassPolygon(
+                            body.lat,
+                            body.lng,
+                            adminLevel
+                        );
+                        const sectorWkts = boundaryWkt
+                            ? await db.selectSectorWkts(boundaryWkt, stepDeg)
+                            : [fallbackBoxWkt(body.lat, body.lng, stepDeg)];
+
+                        const allConfirmedIds: string[] = [];
+                        for (const wkt of sectorWkts) {
+                            const { confirmedIncidentIds } =
+                                await db.insertIncidentReportForPolygon(
+                                    payload.id,
+                                    body.typeId,
+                                    body.title,
+                                    body.description,
+                                    wkt
+                                );
+                            allConfirmedIds.push(...confirmedIncidentIds);
+                        }
+
+                        await notifyNewCrises(server, allConfirmedIds);
+
+                        return withCors(
+                            Response.json(
+                                { success: true, sectorsCreated: sectorWkts.length },
+                                { status: 201 }
+                            )
+                        );
                     })
                 )
             ),
     },
     '/api/incident/verify': {
-        PUT: async (req) =>
+        PUT: async (req, server) =>
             validate(req, async () =>
-                adminAuthorize(req, async () =>
+                authorize(req, async (session) =>
                     caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
                         const body: VerifyIncidentBody = await req
                             .json()
                             .then((raw) => verifyIncidentSchema.parse(raw));
 
-                        void body;
+                        const result = await db.insertIncidentVote(
+                            payload.id,
+                            body.incidentId,
+                            body.approved
+                        );
 
-                        return withCors(NOT_FOUND);
+                        if (!result.exists) return withCors(NOT_FOUND);
+
+                        await notifyNewCrises(server, result.confirmedIncidentIds);
+
+                        return withCors(SUCCESS);
                     })
                 )
             ),
@@ -3145,9 +3326,57 @@ export const httpRoutes: HttpRoutes = {
     '/api/incident': {
         GET: async (req) =>
             validate(req, async () =>
-                authorize(req, async () =>
+                authorize(req, async (session) =>
                     caught(async () => {
-                        return withCors(NOT_FOUND);
+                        const payload: JwtPayload = session as JwtPayload;
+                        const url = new URL(req.url);
+                        const lat = Number(url.searchParams.get('lat'));
+                        const lng = Number(url.searchParams.get('lng'));
+                        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                            return withCors(BAD_REQUEST);
+                        }
+                        const incidents = await db.selectIncidentsByPoint(
+                            lat,
+                            lng,
+                            false,
+                            payload.id
+                        );
+                        return withCors(Response.json({ incidents }, { status: 200 }));
+                    })
+                )
+            ),
+        POST: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload: JwtPayload = session as JwtPayload;
+                        const body: CreateIncidentBody = await req
+                            .json()
+                            .then((raw) => createIncidentSchema.parse(raw));
+
+                        let lat = body.lat;
+                        let lng = body.lng;
+                        if (lat == null || lng == null) {
+                            const user = await db.selectFullUser(payload.id);
+                            if (!user?.location?.lat || !user?.location?.lng) {
+                                return withCors(BAD_REQUEST);
+                            }
+                            lat = Number(user.location.lat);
+                            lng = Number(user.location.lng);
+                        }
+
+                        const { confirmedIncidentIds } = await db.insertIncidentReport(
+                            payload.id,
+                            body.typeId,
+                            body.title,
+                            body.description,
+                            lat,
+                            lng
+                        );
+
+                        await notifyNewCrises(server, confirmedIncidentIds);
+
+                        return withCors(Response.json({ success: true }, { status: 201 }));
                     })
                 )
             ),
