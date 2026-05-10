@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function IncidentBanner({ incident, onClick }: Props) {
-    const confidence = Math.round(incident.confidenceScore * 100);
+    const confidence = Math.round(incident.confidenceScore);
 
     return (
         <div class="mx-4 mt-3 animate-slide-up">

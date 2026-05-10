@@ -75,7 +75,7 @@ export function IncidentOverlay({ incident, onClose }: Props) {
                                 </span>
                                 <span>•</span>
                                 <span class="font-bold text-(--danger)">
-                                    Confidence: {Math.round(incident.confidenceScore * 100)}%
+                                    Confidence: {Math.round(incident.confidenceScore)}%
                                 </span>
                             </div>
                         </div>

@@ -782,16 +782,12 @@ export async function ensureSchema() {
 
                     INSERT INTO app.incident_votes (id_incident, id_user, approved)
                     VALUES (p_incident_id, p_user_id, p_approve)
-                    ON CONFLICT (id_incident, id_user) DO NOTHING;
+                    ON CONFLICT (id_incident, id_user) DO UPDATE SET approved = EXCLUDED.approved;
 
-                ELSIF NOT EXISTS (
-                    SELECT 1 FROM app.incident_reports
-                    WHERE id_incident = p_incident_id
-                      AND id_user = p_user_id
-                ) THEN
+                ELSE
                     INSERT INTO app.incident_votes (id_incident, id_user, approved)
                     VALUES (p_incident_id, p_user_id, p_approve)
-                    ON CONFLICT (id_incident, id_user) DO NOTHING;
+                    ON CONFLICT (id_incident, id_user) DO UPDATE SET approved = EXCLUDED.approved;
                 END IF;
             END;
             $$;
