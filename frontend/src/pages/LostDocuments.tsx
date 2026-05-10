@@ -8,6 +8,7 @@ import {
     ShieldCheck,
     User as UserIcon,
     X,
+    MessageSquare,
 } from 'lucide-preact';
 import type { Map as MapInstance, Marker } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -19,6 +20,9 @@ import {
     getLostDocumentImageUrl,
 } from '../lib/lostDocumentApi';
 import { useTheme } from '../lib/theme';
+import { useAuth } from '../lib/auth';
+import { useLocation } from 'wouter';
+import { startDirectConversation } from '../lib/chatApi';
 import { fetchCurrentUser } from '../lib/userApi';
 import type { LostDocument } from '../types';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -35,8 +39,11 @@ function timeAgo(ts: number) {
 
 export function LostDocuments() {
     const { theme } = useTheme();
+    const { session } = useAuth();
+    const [, setLocationRouter] = useLocation();
     const [docs, setDocs] = useState<LostDocument[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actionBusy, setActionBusy] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -153,6 +160,20 @@ export function LostDocuments() {
             setPostError((err as Error).message || 'Failed to post.');
         } finally {
             setPosting(false);
+        }
+    };
+
+    const handleMessageFinder = async () => {
+        if (!selectedDoc || actionBusy) return;
+        setActionBusy(true);
+        try {
+            const result = await startDirectConversation(selectedDoc.userId);
+            setLocationRouter(`/messages?threadId=${encodeURIComponent(result.threadId)}`);
+        } catch (err) {
+            console.error('Failed to start chat:', err);
+            alert('Could not start conversation with the finder.');
+        } finally {
+            setActionBusy(false);
         }
     };
 
@@ -444,18 +465,23 @@ export function LostDocuments() {
 
                                 <div class="bg-(--bg-muted) p-4 rounded-xl stack-v gap-xs">
                                     <p style="font-size:12px;font-weight:700;margin:0;">
-                                        Want to claim this?
+                                        Automated Matching
                                     </p>
                                     <p style="font-size:11px;color:var(--text-secondary);margin:0;">
-                                        If our AI matched you, you should have received a
-                                        notification. Otherwise, please message the founder to
-                                        arrange a safe return.
+                                        Our AI automatically scans found documents. If the legal info matches your profile, you will instantly receive a secure notification with next steps to safely recover your item.
                                     </p>
                                 </div>
-
-                                <HoverButton class="btn-primary w-full h-[40px]">
-                                    Message Founder
-                                </HoverButton>
+                                {session?.user.id === selectedDoc.matchedUserId && (
+                                    <HoverButton 
+                                        onClick={handleMessageFinder}
+                                        disabled={actionBusy}
+                                        class="btn-primary w-full h-[40px]"
+                                        style="gap:8px;"
+                                    >
+                                        <MessageSquare size={16} />
+                                        Contact Finder
+                                    </HoverButton>
+                                )}
                             </div>
                         </div>
                     </div>
