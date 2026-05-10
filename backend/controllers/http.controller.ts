@@ -504,7 +504,6 @@ export const httpRoutes: HttpRoutes = {
     '/api/lost-documents/image/:filename': {
         GET: async (req) =>
             validate(req, async () =>
-                authorize(req, async () =>
                     caught(async () => {
                         const filename = path.basename(req.params.filename as string);
                         const filePath = path.join(LOST_DOC_DIR, filename);
@@ -529,7 +528,6 @@ export const httpRoutes: HttpRoutes = {
                             return withCors(NOT_FOUND);
                         }
                     })
-                )
             ),
     },
     '/api/docs': {
