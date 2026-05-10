@@ -6,7 +6,7 @@ if (!process.env.ORIGIN) {
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': process.env.ORIGIN,
-    'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS, PATCH, DELETE',
+    'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, OPTIONS, PATCH, DELETE',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
 };

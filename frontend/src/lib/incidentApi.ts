@@ -95,6 +95,10 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
         const text = await res.text().catch(() => res.statusText);
         throw new Error(`HTTP ${res.status}: ${text}`);
     }
+    const ct = res.headers.get('Content-Type') ?? '';
+    if (!ct.includes('application/json')) {
+        return {} as T;
+    }
     return res.json() as Promise<T>;
 }
 
