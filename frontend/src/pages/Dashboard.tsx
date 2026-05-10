@@ -167,12 +167,13 @@ export function Dashboard() {
                 <div class="mx-4">
                     <WeatherAlert />
                 </div>
-                {activeIncidents.length > 0 && (
+                {activeIncidents.map((incident) => (
                     <IncidentBanner
-                        incident={activeIncidents[0]}
-                        onClick={() => setSelectedIncident(activeIncidents[0])}
+                        key={incident.id}
+                        incident={incident}
+                        onClick={() => setSelectedIncident(incident)}
                     />
-                )}
+                ))}
                 <HeroAlert />
                 {view === 'feed' ? (
                     <LiveFeed
