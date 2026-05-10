@@ -431,6 +431,7 @@ export const httpRoutes: HttpRoutes = {
                         const ext = fileExtensionForMimeType(mimeType);
                         const filename = `${docId}.${ext}`;
                         const redactedFilename = `${docId}_redacted.${ext}`;
+                        await mkdir(LOST_DOC_DIR, { recursive: true });
                         const imagePath = path.join(LOST_DOC_DIR, filename);
                         const redactedPath = path.join(LOST_DOC_DIR, redactedFilename);
 
