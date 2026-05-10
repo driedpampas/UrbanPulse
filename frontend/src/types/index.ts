@@ -44,6 +44,8 @@ export interface Pulse {
     isSolved?: boolean;
     distance?: number;
     requiredSkills?: string[];
+    userRole?: string;
+    userTrustScore?: number;
 }
 
 export interface ResourceCatalogEntry {

@@ -833,3 +833,16 @@ async function selectUserResourceRows(userIds: string[]): Promise<UserResourceRo
           AND li.author_id = ANY(string_to_array(${csvUserIds}, ',')::uuid[])
     `) as UserResourceRow[];
 }
+
+export async function purgeInactiveIncidents(): Promise<number> {
+    const result = await sql`
+        DELETE FROM app.incidents
+        WHERE confirmed = false
+          AND id NOT IN (
+            SELECT id_incident FROM app.incident_reports WHERE created_at > NOW() - INTERVAL '3 hours'
+            UNION
+            SELECT id_incident FROM app.incident_votes WHERE created_at > NOW() - INTERVAL '3 hours'
+          );
+    `;
+    return result.count;
+}

@@ -27,6 +27,8 @@ type BackendPulse = {
     is_solved?: boolean;
     requiredSkills?: string[];
     required_skills?: string[];
+    userRole?: string;
+    userTrustScore?: number | string;
 };
 
 type CreatePulseInput = {
@@ -163,6 +165,8 @@ function mapBackendPulse(pulse: BackendPulse): Pulse {
         isEmergency,
         isSolved: Boolean(pulse.isSolved ?? pulse.is_solved),
         requiredSkills: pulse.requiredSkills ?? pulse.required_skills ?? [],
+        userRole: pulse.userRole,
+        userTrustScore: pulse.userTrustScore !== undefined ? Number(pulse.userTrustScore) : undefined,
     };
 }
 

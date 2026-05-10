@@ -18,3 +18,8 @@ void db.purgeExpiredUserDeletions().catch(console.error);
 setInterval(() => {
     void db.purgeExpiredUserDeletions().catch(console.error);
 }, 60_000);
+
+void db.purgeInactiveIncidents().catch(console.error);
+setInterval(() => {
+    void db.purgeInactiveIncidents().catch(console.error);
+}, 600_000);
