@@ -1,4 +1,5 @@
 import {
+    ArrowRight,
     Camera,
     Clock,
     FileSearch,
@@ -456,25 +457,53 @@ export function LostDocuments() {
                                     </p>
                                 </div>
                                 <div class="stack-v gap-sm pt-2 border-t border-(--border)">
-                                    <div class="stack-h gap-sm items-center">
-                                        <div class="w-8 h-8 rounded-lg bg-(--bg-muted) flex-center">
-                                            <UserIcon
-                                                size={14}
-                                                style="color:var(--text-tertiary);"
-                                            />
+                                    {session?.user.id === selectedDoc.matchedUserId ? (
+                                        <HoverButton
+                                            onClick={handleMessageFinder}
+                                            disabled={actionBusy}
+                                            class="stack-h gap-sm items-center w-full text-left rounded-lg p-2 -m-2 transition-colors hover:bg-(--bg-muted)"
+                                            style="background:none;border:none;"
+                                        >
+                                            <div class="w-8 h-8 rounded-lg bg-(--accent)/15 flex-center shrink-0">
+                                                <MessageSquare
+                                                    size={14}
+                                                    style="color:var(--accent);"
+                                                />
+                                            </div>
+                                            <div class="stack-v flex-1">
+                                                <span
+                                                    style="font-size:10px;color:var(--accent);font-weight:700;"
+                                                    class="label-caps"
+                                                >
+                                                    FOUND BY — tap to contact
+                                                </span>
+                                                <span style="font-size:13px;font-weight:600;">
+                                                    {selectedDoc.userName}
+                                                </span>
+                                            </div>
+                                            <ArrowRight size={14} style="color:var(--accent);opacity:0.7;" />
+                                        </HoverButton>
+                                    ) : (
+                                        <div class="stack-h gap-sm items-center">
+                                            <div class="w-8 h-8 rounded-lg bg-(--bg-muted) flex-center">
+                                                <UserIcon
+                                                    size={14}
+                                                    style="color:var(--text-tertiary);"
+                                                />
+                                            </div>
+                                            <div class="stack-v">
+                                                <span
+                                                    style="font-size:10px;color:var(--text-tertiary);font-weight:700;"
+                                                    class="label-caps"
+                                                >
+                                                    FOUND BY
+                                                </span>
+                                                <span style="font-size:13px;font-weight:600;">
+                                                    {selectedDoc.userName}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div class="stack-v">
-                                            <span
-                                                style="font-size:10px;color:var(--text-tertiary);font-weight:700;"
-                                                class="label-caps"
-                                            >
-                                                FOUND BY
-                                            </span>
-                                            <span style="font-size:13px;font-weight:600;">
-                                                {selectedDoc.userName}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    )}
                                     <div class="stack-h gap-sm items-center">
                                         <div class="w-8 h-8 rounded-lg bg-(--bg-muted) flex-center">
                                             <MapPin size={14} style="color:var(--text-tertiary);" />
@@ -502,17 +531,7 @@ export function LostDocuments() {
                                         Our AI automatically scans found documents. If the legal info matches your profile, you will instantly receive a secure notification with next steps to safely recover your item.
                                     </p>
                                 </div>
-                                {session?.user.id === selectedDoc.matchedUserId && (
-                                    <HoverButton 
-                                        onClick={handleMessageFinder}
-                                        disabled={actionBusy}
-                                        class="btn-primary w-full h-[40px]"
-                                        style="gap:8px;"
-                                    >
-                                        <MessageSquare size={16} />
-                                        Contact Finder
-                                    </HoverButton>
-                                )}
+
                             </div>
                         </div>
                     </div>
