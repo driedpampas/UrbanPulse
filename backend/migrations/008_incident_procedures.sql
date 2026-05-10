@@ -77,6 +77,14 @@ BEGIN
         WHERE id_incident = p_incident_id
           AND id_user = p_user_id;
 
+        -- The confidence trigger may have cascade-deleted the incident
+        -- when the report was removed. Re-check before inserting the vote.
+        IF NOT EXISTS (
+            SELECT 1 FROM app.incidents WHERE id = p_incident_id
+        ) THEN
+            RETURN;
+        END IF;
+
         INSERT INTO app.incident_votes (id_incident, id_user, approved)
         VALUES (p_incident_id, p_user_id, p_approve)
         ON CONFLICT (id_incident, id_user) DO NOTHING;
