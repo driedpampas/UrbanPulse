@@ -92,7 +92,8 @@ export type PulseSocketEvent =
     | { event: 'pulse.created'; pulse: Pulse }
     | { event: 'pulse.deleted'; pulseId: string }
     | { event: 'pulse.updated'; pulse: Pulse }
-    | { event: 'hero.alert'; pulse: Pulse; matchedResources?: string[] };
+    | { event: 'hero.alert'; pulse: Pulse; matchedResources?: string[] }
+    | { event: 'crisis.alert'; incidentId: string };
 
 const wsHandlers = new Set<PulseSocketHandler>();
 let socket: WebSocket | null = null;
@@ -166,7 +167,8 @@ function mapBackendPulse(pulse: BackendPulse): Pulse {
         isSolved: Boolean(pulse.isSolved ?? pulse.is_solved),
         requiredSkills: pulse.requiredSkills ?? pulse.required_skills ?? [],
         userRole: pulse.userRole,
-        userTrustScore: pulse.userTrustScore !== undefined ? Number(pulse.userTrustScore) : undefined,
+        userTrustScore:
+            pulse.userTrustScore !== undefined ? Number(pulse.userTrustScore) : undefined,
     };
 }
 
@@ -292,6 +294,7 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
                   event?: string;
                   pulse?: BackendPulse;
                   pulseId?: string;
+                  incidentId?: string;
                   matchedResources?: string[];
               }
             | BackendPulse;
@@ -352,6 +355,19 @@ function parseSocketMessage(rawMessage: string): PulseSocketEvent | null {
                 matchedResources: Array.isArray(parsed.matchedResources)
                     ? parsed.matchedResources
                     : undefined,
+            };
+        }
+
+        if (
+            parsed &&
+            typeof parsed === 'object' &&
+            'event' in parsed &&
+            parsed.event === 'crisis.alert' &&
+            typeof parsed.incidentId === 'string'
+        ) {
+            return {
+                event: 'crisis.alert',
+                incidentId: parsed.incidentId,
             };
         }
     } catch {

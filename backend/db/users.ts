@@ -155,7 +155,12 @@ export async function selectUserById(id: string): Promise<User | null> {
         profile_picture_mime_type,
         profile_picture_size_bytes,
         profile_picture_updated_at,
-        deletion_requested_at
+        deletion_requested_at,
+        legal_first_name,
+        legal_last_name,
+        birthday,
+        home_address,
+        phone_number
     FROM app.users
     WHERE id = ${id}
     LIMIT 1
@@ -187,6 +192,11 @@ export async function selectUserById(id: string): Promise<User | null> {
             ? new Date(row.profile_picture_updated_at)
             : null,
         deletionRequestedAt: row.deletion_requested_at ? Number(row.deletion_requested_at) : null,
+        legalFirstName: row.legal_first_name,
+        legalLastName: row.legal_last_name,
+        birthday: row.birthday ? new Date(row.birthday).toISOString().split('T')[0] : null,
+        homeAddress: row.home_address,
+        phoneNumber: row.phone_number,
     };
 }
 
@@ -228,7 +238,12 @@ export async function searchUsers(
         u.profile_picture_mime_type,
         u.profile_picture_size_bytes,
         u.profile_picture_updated_at,
-        u.deletion_requested_at
+        u.deletion_requested_at,
+        u.legal_first_name,
+        u.legal_last_name,
+        u.birthday,
+        u.home_address,
+        u.phone_number
     FROM app.users AS u
     WHERE (
         (${search.id}::uuid IS NULL OR u.id = ${search.id}::uuid)
@@ -309,6 +324,11 @@ export async function searchUsers(
             ? new Date(row.profile_picture_updated_at)
             : null,
         deletionRequestedAt: row.deletion_requested_at ? Number(row.deletion_requested_at) : null,
+        legalFirstName: row.legal_first_name,
+        legalLastName: row.legal_last_name,
+        birthday: row.birthday ? new Date(row.birthday).toISOString().split('T')[0] : null,
+        homeAddress: row.home_address,
+        phoneNumber: row.phone_number,
     }));
 }
 
@@ -431,7 +451,12 @@ export async function updateUserProfile(user: User) {
             timezone = CASE
                 WHEN ${timezoneProvided} THEN COALESCE(${timezone}, timezone)
                 ELSE timezone
-            END
+            END,
+        legal_first_name = COALESCE(${user.legalFirstName ?? null}, legal_first_name),
+        legal_last_name = COALESCE(${user.legalLastName ?? null}, legal_last_name),
+        birthday = COALESCE(${user.birthday ?? null}::date, birthday),
+        home_address = COALESCE(${user.homeAddress ?? null}, home_address),
+        phone_number = COALESCE(${user.phoneNumber ?? null}, phone_number)
 
       WHERE id = ${user.id}
     `;
@@ -761,7 +786,12 @@ export async function selectFullUser(id: string): Promise<User | null> {
             profile_picture_filename,
             profile_picture_mime_type,
             profile_picture_size_bytes,
-            profile_picture_updated_at
+            profile_picture_updated_at,
+            legal_first_name,
+            legal_last_name,
+            birthday,
+            home_address,
+            phone_number
     FROM app.users 
     WHERE 
         id = ${id}
@@ -796,6 +826,11 @@ export async function selectFullUser(id: string): Promise<User | null> {
         deletionRequestedAt: rawUser.deletion_requested_at
             ? Number(rawUser.deletion_requested_at)
             : null,
+        legalFirstName: rawUser.legal_first_name,
+        legalLastName: rawUser.legal_last_name,
+        birthday: rawUser.birthday ? new Date(rawUser.birthday).toISOString().split('T')[0] : null,
+        homeAddress: rawUser.home_address,
+        phoneNumber: rawUser.phone_number,
     } as User;
 }
 

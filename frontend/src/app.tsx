@@ -25,6 +25,7 @@ import { Auth } from './pages/Auth';
 import { ConfirmPassword } from './pages/ConfirmPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Library } from './pages/Library';
+import { LostDocuments } from './pages/LostDocuments';
 import { Messages } from './pages/Messages';
 import { PetMatch } from './pages/PetMatch';
 import { Profile } from './pages/Profile';
@@ -89,6 +90,7 @@ function AppRoutes() {
             <Route path="/confirm-password" component={ConfirmPassword} />
             <Route path="/verify-email" component={VerifyEmail} />
             <Route path="/" component={Dashboard} />
+            <Route path="/lost-documents" component={LostDocuments} />
             <Route path="/library" component={Library} />
             <Route path="/messages" component={Messages} />
             <Route path="/requests" component={Requests} />

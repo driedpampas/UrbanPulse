@@ -178,15 +178,11 @@ function AddItemModal({
         'width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s,box-shadow 0.15s;';
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            style="position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);"
-        >
-            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+        <div role="dialog" aria-modal="true" class="modal-overlay">
+            <div class="absolute inset-0" onClick={onClose} aria-hidden="true" />
             <div
-                class="animate-slide-up"
-                style="position:relative;width:100%;max-width:680px;background:var(--surface);border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;padding:20px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);"
+                class="modal-content animate-slide-up"
+                style="max-width:680px; padding:20px 20px 32px;"
             >
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                     <p style="font-size:15px;font-weight:700;color:var(--text);margin:0;letter-spacing:-0.01em;">
@@ -332,15 +328,11 @@ function EditItemModal({
         'width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color 0.15s,box-shadow 0.15s;';
 
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            style="position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);"
-        >
-            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+        <div role="dialog" aria-modal="true" class="modal-overlay">
+            <div class="absolute inset-0" onClick={onClose} aria-hidden="true" />
             <div
-                class="animate-slide-up"
-                style="position:relative;width:100%;max-width:680px;background:var(--surface);border:1px solid var(--border);border-bottom:none;border-radius:14px 14px 0 0;padding:20px 20px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.15);"
+                class="modal-content animate-slide-up"
+                style="max-width:680px; padding:20px 20px 32px;"
             >
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                     <div style="display:flex;flex-direction:column;gap:2px;">
@@ -431,15 +423,11 @@ function DeleteItemModal({
     busy: boolean;
 }) {
     return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);padding:16px;"
-        >
-            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+        <div role="dialog" aria-modal="true" class="modal-overlay">
+            <div class="absolute inset-0" onClick={onClose} aria-hidden="true" />
             <div
-                class="animate-slide-up"
-                style="position:relative;width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 18px 20px;box-shadow:var(--shadow-lg);"
+                class="modal-content animate-slide-up"
+                style="max-width:420px; padding:18px 18px 20px;"
             >
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
                     <div style="display:flex;flex-direction:column;gap:4px;">

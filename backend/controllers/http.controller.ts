@@ -222,6 +222,7 @@ function fallbackBoxWkt(lat: number, lng: number, halfDeg: number): string {
 
 const BACKEND_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PROFILE_PICTURE_DIR = path.join(BACKEND_ROOT, 'storage', 'profile-pictures');
+const LOST_DOC_DIR = path.join(BACKEND_ROOT, 'storage', 'lost-documents');
 
 type DetectedImageMime = (typeof PROFILE_PICTURE_ALLOWED_MIME_TYPES)[number];
 
@@ -384,6 +385,151 @@ async function handleSocketMessage(ws: bun.ServerWebSocket<unknown>, message: st
 export const httpRoutes: HttpRoutes = {
     '/api/docs/swagger.json': {
         GET: withCors(Response.json(swaggerDoc)),
+    },
+    '/api/lost-documents': {
+        GET: async (req) =>
+            validate(req, async () =>
+                caught(async () => {
+                    const url = new URL(req.url);
+                    const limit = Number(url.searchParams.get('limit') ?? '50');
+                    const offset = Number(url.searchParams.get('offset') ?? '0');
+                    const docs = await db.selectLostDocuments(limit, offset);
+                    return withCors(Response.json(docs, { status: 200 }));
+                })
+            ),
+        POST: async (req, server) =>
+            validate(req, async () =>
+                authorize(req, async (session) =>
+                    caught(async () => {
+                        const payload = session as JwtPayload;
+                        const formData = await req.formData();
+                        const title = formData.get('title') as string;
+                        const description = formData.get('description') as string;
+                        const lat = Number(formData.get('lat'));
+                        const lng = Number(formData.get('lng'));
+                        const file = formData.get('image') as File;
+
+                        if (
+                            !title ||
+                            !description ||
+                            Number.isNaN(lat) ||
+                            Number.isNaN(lng) ||
+                            !file
+                        ) {
+                            return withCors(BAD_REQUEST);
+                        }
+
+                        const bytes = new Uint8Array(await file.arrayBuffer());
+                        const mimeType = detectImageMimeType(bytes);
+                        if (!mimeType) {
+                            return withCors(
+                                Response.json({ error: 'Unsupported image type' }, { status: 400 })
+                            );
+                        }
+
+                        const docId = crypto.randomUUID();
+                        const ext = fileExtensionForMimeType(mimeType);
+                        const filename = `${docId}.${ext}`;
+                        const redactedFilename = `${docId}_redacted.${ext}`;
+                        const imagePath = path.join(LOST_DOC_DIR, filename);
+                        const redactedPath = path.join(LOST_DOC_DIR, redactedFilename);
+
+                        await writeFile(imagePath, bytes);
+
+                        // Create redacted version (for now just blur it heavily or black it out)
+                        await sharp(bytes).blur(50).toFile(redactedPath);
+
+                        const id = await db.insertLostDocument({
+                            userId: payload.id,
+                            title,
+                            description,
+                            lat,
+                            lng,
+                            imagePath: filename,
+                            redactedImagePath: redactedFilename,
+                        });
+
+                        // Trigger OCR matching in background
+                        void (async () => {
+                            try {
+                                const proc = Bun.spawn(['tesseract', imagePath, 'stdout']);
+                                const text = await new Response(proc.stdout).text();
+
+                                // Search for matching users
+                                const users = await db.searchUsers({
+                                    limit: 1000, // In a real app we'd filter better
+                                } as any);
+
+                                for (const user of users) {
+                                    if (!user.legalFirstName || !user.legalLastName) continue;
+
+                                    const firstNameMatch = text
+                                        .toLowerCase()
+                                        .includes(user.legalFirstName.toLowerCase());
+                                    const lastNameMatch = text
+                                        .toLowerCase()
+                                        .includes(user.legalLastName.toLowerCase());
+
+                                    if (firstNameMatch && lastNameMatch) {
+                                        await db.setMatchedUser(id, user.id);
+                                        server.publish(
+                                            `user-${user.id}`,
+                                            JSON.stringify({
+                                                event: 'notification.message', // Reusing existing notification system structure if possible
+                                                message: {
+                                                    id: crypto.randomUUID(),
+                                                    threadId: crypto.randomUUID(),
+                                                    senderId: 'system',
+                                                    content: `A lost document matching your name "${user.legalFirstName} ${user.legalLastName}" was found!`,
+                                                    messageType: 'notice',
+                                                    timestamp: Date.now(),
+                                                },
+                                                senderName: 'System',
+                                            })
+                                        );
+                                        break;
+                                    }
+                                }
+                            } catch (err) {
+                                console.error('OCR Error:', err);
+                            }
+                        })();
+
+                        return withCors(Response.json({ id }, { status: 201 }));
+                    })
+                )
+            ),
+    },
+    '/api/lost-documents/image/:filename': {
+        GET: async (req) =>
+            validate(req, async () =>
+                authorize(req, async () =>
+                    caught(async () => {
+                        const filename = path.basename(req.params.filename as string);
+                        const filePath = path.join(LOST_DOC_DIR, filename);
+
+                        try {
+                            const data = await readFile(filePath);
+                            // Detect mime type from filename extension for simplicity
+                            const ext = path.extname(filename).toLowerCase();
+                            let contentType = 'image/jpeg';
+                            if (ext === '.png') contentType = 'image/png';
+                            if (ext === '.webp') contentType = 'image/webp';
+
+                            return withCors(
+                                new Response(data, {
+                                    headers: {
+                                        'Content-Type': contentType,
+                                        'Cache-Control': 'public, max-age=31536000, immutable',
+                                    },
+                                })
+                            );
+                        } catch (_err) {
+                            return withCors(NOT_FOUND);
+                        }
+                    })
+                )
+            ),
     },
     '/api/docs': {
         GET: (_r) => {

@@ -29,6 +29,11 @@ type BackendUser = {
     profilePictureSizeBytes?: number | null;
     profilePictureUpdatedAt?: number | string | null;
     deletionRequestedAt?: number | string | null;
+    legalFirstName?: string | null;
+    legalLastName?: string | null;
+    birthday?: string | Date | null;
+    homeAddress?: string | null;
+    phoneNumber?: string | null;
 };
 
 class ApiError extends Error {
@@ -130,6 +135,11 @@ function mapBackendUser(user: BackendUser): User {
         timezone: user.timezone ?? 'UTC',
         createdAt: user.createdAt ? Number(user.createdAt) : undefined,
         deletionRequestedAt: user.deletionRequestedAt ? Number(user.deletionRequestedAt) : null,
+        legalFirstName: user.legalFirstName || undefined,
+        legalLastName: user.legalLastName || undefined,
+        birthday: user.birthday ? new Date(user.birthday).toISOString().split('T')[0] : undefined,
+        homeAddress: user.homeAddress || undefined,
+        phoneNumber: user.phoneNumber || undefined,
     };
 }
 
@@ -327,6 +337,11 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
         quietHours?: Array<{ start: string; end: string }> | null;
         quietDays?: number[] | null;
         timezone?: string;
+        legalFirstName?: string;
+        legalLastName?: string;
+        birthday?: string;
+        homeAddress?: string;
+        phoneNumber?: string;
     } = {};
 
     try {
@@ -366,6 +381,22 @@ export async function updateProfile(updates: Partial<User>): Promise<User> {
 
     if (updates.quietDays !== undefined) {
         patchBody.quietDays = normalizeQuietDays(updates.quietDays);
+    }
+
+    if (typeof updates.legalFirstName === 'string') {
+        patchBody.legalFirstName = updates.legalFirstName;
+    }
+    if (typeof updates.legalLastName === 'string') {
+        patchBody.legalLastName = updates.legalLastName;
+    }
+    if (typeof updates.birthday === 'string') {
+        patchBody.birthday = updates.birthday;
+    }
+    if (typeof updates.homeAddress === 'string') {
+        patchBody.homeAddress = updates.homeAddress;
+    }
+    if (typeof updates.phoneNumber === 'string') {
+        patchBody.phoneNumber = updates.phoneNumber;
     }
 
     await request<void>('/user', {

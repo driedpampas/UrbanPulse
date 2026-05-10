@@ -5,6 +5,7 @@ import {
     MessageCircle,
     MoreHorizontal,
     PawPrint,
+    Search,
     ShieldCheck,
     User,
 } from 'lucide-preact';
@@ -16,6 +17,7 @@ import { HoverButton } from '../ui/HoverButton';
 
 const tabs = [
     { path: '/', icon: Home, label: 'Feed' },
+    { path: '/lost-documents', icon: Search, label: 'Lost Docs' },
     { path: '/library', icon: BookOpen, label: 'Library' },
     { path: '/messages', icon: MessageCircle, label: 'Chat' },
     { path: '/requests', icon: ClipboardList, label: 'Requests' },

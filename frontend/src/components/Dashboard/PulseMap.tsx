@@ -75,6 +75,7 @@ function getPulseTypeColors() {
             emergency: '#dc2626',
             update: '#64748b',
             pet: '#0ea5e9',
+            incident: '#dc2626',
         };
     }
 
@@ -89,6 +90,7 @@ function getPulseTypeColors() {
         emergency: get('--type-emergency-text', '#dc2626'),
         update: get('--text-secondary', '#64748b'),
         pet: get('--accent', '#0ea5e9'),
+        incident: get('--type-emergency-text', '#dc2626'),
     };
 }
 

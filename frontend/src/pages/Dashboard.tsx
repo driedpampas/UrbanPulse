@@ -1,9 +1,11 @@
 import { ShieldCheck } from 'lucide-preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { BatterySaverDialog } from '../components/Dashboard/BatterySaverDialog';
 import { DashboardFiltersPanel } from '../components/Dashboard/DashboardFiltersPanel';
 import { DashboardToolbar } from '../components/Dashboard/DashboardToolbar';
 import { HeroAlert } from '../components/Dashboard/HeroAlert';
+import { IncidentBanner } from '../components/Dashboard/IncidentBanner';
+import { IncidentOverlay } from '../components/Dashboard/IncidentOverlay';
 import { LiveFeed } from '../components/Dashboard/LiveFeed';
 import { PulseMap } from '../components/Dashboard/PulseMap';
 import { WeatherAlert } from '../components/Dashboard/WeatherAlert';
@@ -14,6 +16,7 @@ import { useBatterySaver } from '../hooks/useBatterySaver';
 import { useCrisisMode } from '../hooks/useCrisisMode';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
 import { useAuth } from '../lib/auth';
+import type { IncidentFeedItem } from '../lib/incidentApi';
 import { requestVerificationEmail } from '../lib/settingsApi';
 import { cn } from '../lib/utils';
 
@@ -67,7 +70,22 @@ export function Dashboard() {
         toggleFilters,
     } = useDashboardViewState();
 
-    const { crisisMode, crisisFeedTab, setCrisisFeedTab } = useCrisisMode();
+    const {
+        crisisMode,
+        crisisFeedTab,
+        setCrisisFeedTab,
+        activeIncidents,
+        autoOpenOverlay,
+        setAutoOpenOverlay,
+    } = useCrisisMode();
+    const [selectedIncident, setSelectedIncident] = useState<IncidentFeedItem | null>(null);
+
+    useEffect(() => {
+        if (autoOpenOverlay && activeIncidents.length > 0 && !selectedIncident) {
+            setSelectedIncident(activeIncidents[0]);
+            setAutoOpenOverlay(false);
+        }
+    }, [autoOpenOverlay, activeIncidents, selectedIncident, setAutoOpenOverlay]);
 
     const { battery, shouldShowDialog, requestWakeLock, dismissDialog } = useBatterySaver({
         crisisMode,
@@ -149,6 +167,12 @@ export function Dashboard() {
                 <div class="mx-4">
                     <WeatherAlert />
                 </div>
+                {activeIncidents.length > 0 && (
+                    <IncidentBanner
+                        incident={activeIncidents[0]}
+                        onClick={() => setSelectedIncident(activeIncidents[0])}
+                    />
+                )}
                 <HeroAlert />
                 {view === 'feed' ? (
                     <LiveFeed
@@ -171,6 +195,13 @@ export function Dashboard() {
                 onRequestExclusion={requestWakeLock}
                 onDismiss={dismissDialog}
             />
+
+            {selectedIncident && (
+                <IncidentOverlay
+                    incident={selectedIncident}
+                    onClose={() => setSelectedIncident(null)}
+                />
+            )}
         </AppLayout>
     );
 }

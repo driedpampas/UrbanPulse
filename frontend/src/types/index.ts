@@ -25,6 +25,13 @@ export interface User {
     timezone?: string;
     createdAt?: number;
     deletionRequestedAt?: number | null;
+
+    // Private Information
+    legalFirstName?: string;
+    legalLastName?: string;
+    birthday?: string;
+    homeAddress?: string;
+    phoneNumber?: string;
 }
 
 export interface Pulse {
@@ -32,7 +39,7 @@ export interface Pulse {
     userId: string;
     userName: string;
     userAvatar: string;
-    type: 'update' | 'emergency' | 'skill' | 'item' | 'pet' | 'need';
+    type: 'update' | 'emergency' | 'skill' | 'item' | 'pet' | 'need' | 'incident';
     content: string;
     timestamp: number;
     lat: number;
@@ -187,4 +194,21 @@ export interface AdminOverview {
     verifiedPulses: number;
     totalLibraryItems: number;
     availableLibraryItems: number;
+}
+
+export type LostDocumentStatus = 'pending' | 'processed' | 'matched' | 'returned';
+
+export interface LostDocument {
+    id: string;
+    userId: string;
+    userName?: string;
+    title: string;
+    description: string;
+    lat: number;
+    lng: number;
+    imagePath: string;
+    redactedImagePath: string;
+    status: LostDocumentStatus;
+    matchedUserId: string | null;
+    createdAt: number;
 }

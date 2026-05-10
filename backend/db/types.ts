@@ -215,6 +215,13 @@ export interface User {
     verified?: boolean;
     createdAt?: Date;
     deletionRequestedAt?: number | null;
+
+    // Private Information
+    legalFirstName?: string | null;
+    legalLastName?: string | null;
+    birthday?: string | null;
+    homeAddress?: string | null;
+    phoneNumber?: string | null;
 }
 
 export interface UserSearchParams {
@@ -332,6 +339,13 @@ export type UserRow = {
     profile_picture_size_bytes?: number | null;
     profile_picture_updated_at?: Date | string | number | null;
     deletion_requested_at?: Date | string | number | null;
+
+    // Private Information
+    legal_first_name?: string | null;
+    legal_last_name?: string | null;
+    birthday?: string | Date | null;
+    home_address?: string | null;
+    phone_number?: string | null;
 };
 
 export type MessageRow = {
@@ -462,4 +476,36 @@ export type AdminMessageReportRow = {
     reporter_name: string;
     offender_id: string;
     offender_name: string;
+};
+
+export type LostDocumentStatus = 'pending' | 'processed' | 'matched' | 'returned';
+
+export interface LostDocument {
+    id: string;
+    userId: string;
+    userName?: string;
+    title: string;
+    description: string;
+    lat: number;
+    lng: number;
+    imagePath: string;
+    redactedImagePath: string;
+    status: LostDocumentStatus;
+    matchedUserId: string | null;
+    createdAt: number;
+}
+
+export type LostDocumentRow = {
+    id: string;
+    user_id: string;
+    user_name?: string;
+    title: string;
+    description: string;
+    lat: number | string;
+    lng: number | string;
+    image_path: string;
+    redacted_image_path: string;
+    status: string;
+    matched_user_id: string | null;
+    created_at: number | string | Date;
 };

@@ -188,3 +188,23 @@ export async function fetchUserCrisisLocations(radius = 5000): Promise<UserCrisi
     const data = await apiFetch<{ users: UserCrisisEntry[] }>(`/user/location?radius=${radius}`);
     return data.users;
 }
+// ─── Admin incident reporting ───────────────────────────────────────────────
+
+export async function reportIncidentAdmin(input: {
+    typeId: string;
+    title: string;
+    description: string;
+    lat: number;
+    lng: number;
+    range: 'block' | 'neighborhood' | 'district' | 'city';
+}): Promise<boolean> {
+    try {
+        await apiFetch('/incident/admin', {
+            method: 'POST',
+            body: JSON.stringify(input),
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}

@@ -738,6 +738,175 @@ export function Profile() {
                     </div>
                 </div>
 
+                {isOwnProfile && (
+                    <div class="section animate-slide-up">
+                        <div class="section-header">
+                            <p class="label-caps m-0!">LEGAL INFORMATION (PRIVATE)</p>
+                        </div>
+                        <div class="section-body p-5! stack-v gap-md">
+                            <p style="font-size:12px;color:var(--text-tertiary);margin:0;">
+                                This information is used ONLY for matching found documents to you.
+                                It will never be shared with others.
+                            </p>
+                            <div class="stack-v gap-md">
+                                <div class="stack-h gap-md flex-wrap">
+                                    <div class="stack-v gap-xs" style="flex:1 1 200px;">
+                                        <label class="label-caps" style="font-size:10px;">
+                                            Legal First Name
+                                        </label>
+                                        {editing ? (
+                                            <input
+                                                value={draft.legalFirstName ?? ''}
+                                                onInput={(e) =>
+                                                    setDraft((d) => ({
+                                                        ...d,
+                                                        legalFirstName: (
+                                                            e.target as HTMLInputElement
+                                                        ).value,
+                                                    }))
+                                                }
+                                                class="input-field"
+                                                placeholder="e.g. John"
+                                            />
+                                        ) : (
+                                            <p
+                                                class="m-0!"
+                                                style="font-size:14px;color:var(--text);"
+                                            >
+                                                {user.legalFirstName || (
+                                                    <span style="color:var(--text-tertiary);font-style:italic;">
+                                                        Not set
+                                                    </span>
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div class="stack-v gap-xs" style="flex:1 1 200px;">
+                                        <label class="label-caps" style="font-size:10px;">
+                                            Legal Last Name
+                                        </label>
+                                        {editing ? (
+                                            <input
+                                                value={draft.legalLastName ?? ''}
+                                                onInput={(e) =>
+                                                    setDraft((d) => ({
+                                                        ...d,
+                                                        legalLastName: (
+                                                            e.target as HTMLInputElement
+                                                        ).value,
+                                                    }))
+                                                }
+                                                class="input-field"
+                                                placeholder="e.g. Doe"
+                                            />
+                                        ) : (
+                                            <p
+                                                class="m-0!"
+                                                style="font-size:14px;color:var(--text);"
+                                            >
+                                                {user.legalLastName || (
+                                                    <span style="color:var(--text-tertiary);font-style:italic;">
+                                                        Not set
+                                                    </span>
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div class="stack-h gap-md flex-wrap">
+                                    <div class="stack-v gap-xs" style="flex:1 1 200px;">
+                                        <label class="label-caps" style="font-size:10px;">
+                                            Birthday
+                                        </label>
+                                        {editing ? (
+                                            <input
+                                                type="date"
+                                                value={draft.birthday ?? ''}
+                                                onInput={(e) =>
+                                                    setDraft((d) => ({
+                                                        ...d,
+                                                        birthday: (e.target as HTMLInputElement)
+                                                            .value,
+                                                    }))
+                                                }
+                                                class="input-field"
+                                            />
+                                        ) : (
+                                            <p
+                                                class="m-0!"
+                                                style="font-size:14px;color:var(--text);"
+                                            >
+                                                {user.birthday || (
+                                                    <span style="color:var(--text-tertiary);font-style:italic;">
+                                                        Not set
+                                                    </span>
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div class="stack-v gap-xs" style="flex:1 1 200px;">
+                                        <label class="label-caps" style="font-size:10px;">
+                                            Phone Number
+                                        </label>
+                                        {editing ? (
+                                            <input
+                                                value={draft.phoneNumber ?? ''}
+                                                onInput={(e) =>
+                                                    setDraft((d) => ({
+                                                        ...d,
+                                                        phoneNumber: (e.target as HTMLInputElement)
+                                                            .value,
+                                                    }))
+                                                }
+                                                class="input-field"
+                                                placeholder="+1 234 567 8900"
+                                            />
+                                        ) : (
+                                            <p
+                                                class="m-0!"
+                                                style="font-size:14px;color:var(--text);"
+                                            >
+                                                {user.phoneNumber || (
+                                                    <span style="color:var(--text-tertiary);font-style:italic;">
+                                                        Not set
+                                                    </span>
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div class="stack-v gap-xs">
+                                    <label class="label-caps" style="font-size:10px;">
+                                        Home Address
+                                    </label>
+                                    {editing ? (
+                                        <input
+                                            value={draft.homeAddress ?? ''}
+                                            onInput={(e) =>
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    homeAddress: (e.target as HTMLInputElement)
+                                                        .value,
+                                                }))
+                                            }
+                                            class="input-field"
+                                            placeholder="Full Address"
+                                        />
+                                    ) : (
+                                        <p class="m-0!" style="font-size:14px;color:var(--text);">
+                                            {user.homeAddress || (
+                                                <span style="color:var(--text-tertiary);font-style:italic;">
+                                                    Not set
+                                                </span>
+                                            )}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {!isOwnProfile && (
                     <div class="stack-v gap-sm">
                         <p class="label-caps">Personal Actions</p>

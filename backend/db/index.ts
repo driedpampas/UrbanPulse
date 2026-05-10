@@ -4,6 +4,7 @@ export * from './client';
 export * from './constants';
 export * from './incidents.ts';
 export * from './library.ts';
+export * from './lostDocuments.ts';
 export * from './mappers';
 export * from './pulses.ts';
 export * from './schema';

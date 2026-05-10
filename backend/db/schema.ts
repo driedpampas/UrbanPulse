@@ -973,6 +973,49 @@ export async function ensureSchema() {
             AFTER INSERT OR DELETE OR UPDATE ON app.incident_votes
             FOR EACH ROW EXECUTE FUNCTION app.update_incident_confidence_from_vote();
         `);
+
+        // Add private information columns to app.users
+        await tx`
+            ALTER TABLE app.users
+            ADD COLUMN IF NOT EXISTS legal_first_name text,
+            ADD COLUMN IF NOT EXISTS legal_last_name text,
+            ADD COLUMN IF NOT EXISTS birthday date,
+            ADD COLUMN IF NOT EXISTS home_address text,
+            ADD COLUMN IF NOT EXISTS phone_number text
+        `;
+
+        // Check lost_documents table
+        const lostDocumentsTable = await tx`
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'app' AND table_name = 'lost_documents'
+            LIMIT 1
+        `;
+        if (lostDocumentsTable.length === 0) {
+            await tx`
+                CREATE TABLE app.lost_documents (
+                    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+                    title text NOT NULL,
+                    description text NOT NULL,
+                    location geography(Point, 4326) NOT NULL,
+                    image_path text NOT NULL,
+                    redacted_image_path text NOT NULL,
+                    status text NOT NULL DEFAULT 'pending',
+                    matched_user_id uuid REFERENCES app.users(id) ON DELETE SET NULL,
+                    created_at timestamptz NOT NULL DEFAULT now(),
+                    CONSTRAINT lost_documents_status_check CHECK (status IN ('pending', 'processed', 'matched', 'returned'))
+                )
+            `;
+            await tx`
+                CREATE INDEX IF NOT EXISTS lost_documents_user_id_idx ON app.lost_documents(user_id)
+            `;
+            await tx`
+                CREATE INDEX IF NOT EXISTS lost_documents_matched_user_id_idx ON app.lost_documents(matched_user_id)
+            `;
+            await tx`
+                CREATE INDEX IF NOT EXISTS lost_documents_location_idx ON app.lost_documents USING GIST(location)
+            `;
+        }
     });
 
     isSchemaEnsured = true;

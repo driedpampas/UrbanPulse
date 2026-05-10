@@ -1,5 +1,5 @@
 import {
-    type AlertTriangle,
+    AlertTriangle,
     Check,
     Loader2,
     MapPin,
@@ -9,7 +9,14 @@ import {
     Send,
     X,
 } from 'lucide-preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useAuth } from '../../lib/auth';
+import {
+    fetchIncidentTypes,
+    type IncidentType,
+    reportIncident,
+    reportIncidentAdmin,
+} from '../../lib/incidentApi';
 import { fetchPulseResourceCatalog, matchPulseHeroes, postPulse } from '../../lib/pulseApi';
 import type { HeroMatchUser, Pulse, ResourceCatalogEntry } from '../../lib/types';
 import { fetchCurrentUser } from '../../lib/userApi';
@@ -20,6 +27,7 @@ const TYPES: { val: Pulse['type']; label: string; icon: typeof AlertTriangle; cs
     { val: 'update', label: 'Update', icon: MessageSquare, css: 'update' },
     { val: 'pet', label: 'Pet', icon: PawPrint, css: 'emergency' },
     { val: 'need', label: 'Need', icon: Plus, css: 'item' },
+    { val: 'incident', label: 'Incident', icon: AlertTriangle, css: 'emergency' },
 ];
 
 const EMERGENCY_ELIGIBLE_TYPES: Pulse['type'][] = ['need'];
@@ -31,9 +39,18 @@ interface Props {
 }
 
 export function NeedPostingForm({ onClose }: Props) {
+    const { session } = useAuth();
+    const isAdmin = session?.user.role === 'admin' || session?.user.role === 'moderator';
+
     const [type, setType] = useState<Pulse['type']>('update');
     const [isEmergency, setIsEmergency] = useState(false);
     const [content, setContent] = useState('');
+    const [incidentTitle, setIncidentTitle] = useState('');
+    const [incidentTypeId, setIncidentTypeId] = useState('');
+    const [incidentTypes, setIncidentTypes] = useState<IncidentType[]>([]);
+    const [adminRange, setAdminRange] = useState<'block' | 'neighborhood' | 'district' | 'city'>(
+        'neighborhood'
+    );
     const [resourceQuery, setResourceQuery] = useState('');
     const [selectedResources, setSelectedResources] = useState<string[]>([]);
     const [catalog, setCatalog] = useState<ResourceCatalogEntry[]>([]);
@@ -45,6 +62,9 @@ export function NeedPostingForm({ onClose }: Props) {
     const [location, setLocation] = useState<{ lat: number; lng: number }>(DEFAULT_PULSE_CENTER);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const mapContainer = useRef<HTMLDivElement>(null);
+    const [mapLoaded, setMapLoaded] = useState(false);
 
     const left = MAX - content.length;
 
@@ -187,6 +207,53 @@ export function NeedPostingForm({ onClose }: Props) {
         };
     }, [location, selectedResources, showResourceSelector]);
 
+    useEffect(() => {
+        if (type === 'incident') {
+            fetchIncidentTypes().then(setIncidentTypes).catch(console.error);
+        }
+    }, [type]);
+
+    useEffect(() => {
+        if (type !== 'incident' || !isAdmin || !mapContainer.current) return;
+
+        let disposed = false;
+        let map: any;
+
+        import('maplibre-gl').then(async (maplibregl) => {
+            if (disposed || !mapContainer.current) return;
+
+            map = new maplibregl.Map({
+                container: mapContainer.current as HTMLElement,
+                style: 'https://tiles.openfreemap.org/styles/liberty',
+                center: [location.lng, location.lat],
+                zoom: 14,
+            });
+
+            const marker = new maplibregl.Marker({ draggable: true })
+                .setLngLat([location.lng, location.lat])
+                .addTo(map);
+
+            marker.on('dragend', () => {
+                const lngLat = marker.getLngLat();
+                setLocation({ lat: lngLat.lat, lng: lngLat.lng });
+            });
+
+            map.on('click', (e: any) => {
+                marker.setLngLat(e.lngLat);
+                setLocation({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+            });
+
+            map.on('load', () => {
+                if (!disposed) setMapLoaded(true);
+            });
+        });
+
+        return () => {
+            disposed = true;
+            map?.remove();
+        };
+    }, [type, isAdmin]);
+
     const toggleResource = (resourceValue: string) => {
         const normalized = resourceValue.trim().toLowerCase();
         if (!normalized) {
@@ -204,6 +271,41 @@ export function NeedPostingForm({ onClose }: Props) {
 
     const handleSubmit = async (e: Event) => {
         e.preventDefault();
+
+        if (type === 'incident') {
+            if (!incidentTitle.trim() || !incidentTypeId || !content.trim()) return;
+            setSending(true);
+            setError(null);
+            try {
+                let success = false;
+                if (isAdmin) {
+                    success = await reportIncidentAdmin({
+                        title: incidentTitle,
+                        description: content,
+                        typeId: incidentTypeId,
+                        lat: location.lat,
+                        lng: location.lng,
+                        range: adminRange,
+                    });
+                } else {
+                    success = await reportIncident({
+                        title: incidentTitle,
+                        description: content,
+                        typeId: incidentTypeId,
+                        lat: location.lat,
+                        lng: location.lng,
+                    });
+                }
+                if (success) onClose();
+                else setError('Failed to submit incident report.');
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Unable to report incident.');
+            } finally {
+                setSending(false);
+            }
+            return;
+        }
+
         if (!content.trim() || left < 0) return;
         setSending(true);
         setError(null);
@@ -232,25 +334,15 @@ export function NeedPostingForm({ onClose }: Props) {
             role="dialog"
             aria-modal="true"
             aria-label="Post a pulse"
-            style="position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);"
+            class="modal-overlay"
         >
             {/* Tap-outside to close */}
-            <div style="position:absolute;inset:0;" onClick={onClose} aria-hidden="true" />
+            <div class="absolute inset-0" onClick={onClose} aria-hidden="true" />
 
-            {/* Sheet */}
+            {/* Modal Content */}
             <div
-                class="animate-slide-up"
-                style={`
-					position:relative;
-					width:100%;
-					max-width:680px;
-					background:var(--surface);
-					border:1px solid var(--border);
-					border-bottom:none;
-					border-radius:14px 14px 0 0;
-					box-shadow:0 -8px 40px rgba(0,0,0,0.2);
-					padding:20px 20px 28px;
-				`}
+                class="modal-content animate-slide-up"
+                style="max-width:680px; padding:20px 20px 28px;"
             >
                 {/* Header */}
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -274,41 +366,50 @@ export function NeedPostingForm({ onClose }: Props) {
 
                 <form onSubmit={handleSubmit}>
                     {/* Type pills */}
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-                        {TYPES.map((t) => {
-                            const Icon = t.icon;
-                            const active = type === t.val;
-                            return (
-                                <HoverButton
-                                    key={t.val}
-                                    type="button"
-                                    onClick={() => setType(t.val)}
-                                    style={`
-										display:inline-flex;align-items:center;gap:5px;
-										padding:4px 10px;border-radius:6px;border:1px solid;
-										font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;
-										${
-                                            active
-                                                ? `background:var(--type-${t.css}-bg);color:var(--type-${t.css}-text);border-color:var(--type-${t.css}-border);`
-                                                : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
-                                        }
-									`}
-                                    onMouseEnter={(e) => {
-                                        (e.target as HTMLElement).style.filter =
-                                            'var(--hover-brightness)';
-                                        (e.target as HTMLElement).style.background =
-                                            'var(--bg-muted)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        (e.target as HTMLElement).style.filter = 'none';
-                                        (e.target as HTMLElement).style.background = 'transparent';
-                                    }}
-                                >
-                                    <Icon size={11} />
-                                    {t.label}
-                                </HoverButton>
-                            );
-                        })}
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;justify-content:space-between;width:100%;">
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            {TYPES.filter((t) => t.val !== 'incident').map((t) => {
+                                const Icon = t.icon;
+                                const active = type === t.val;
+                                return (
+                                    <HoverButton
+                                        key={t.val}
+                                        type="button"
+                                        onClick={() => setType(t.val)}
+                                        style={`
+                                            display:inline-flex;align-items:center;gap:5px;
+                                            padding:4px 10px;border-radius:6px;border:1px solid;
+                                            font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;
+                                            ${
+                                                active
+                                                    ? `background:var(--type-${t.css}-bg);color:var(--type-${t.css}-text);border-color:var(--type-${t.css}-border);`
+                                                    : 'background:transparent;color:var(--text-tertiary);border-color:var(--border);'
+                                            }
+                                        `}
+                                    >
+                                        <Icon size={11} />
+                                        {t.label}
+                                    </HoverButton>
+                                );
+                            })}
+                        </div>
+                        <HoverButton
+                            type="button"
+                            onClick={() => setType('incident')}
+                            style={`
+                                display:inline-flex;align-items:center;gap:5px;
+                                padding:4px 10px;border-radius:6px;border:1px solid;
+                                font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;
+                                ${
+                                    type === 'incident'
+                                        ? 'background:var(--danger);color:white;border-color:var(--danger);'
+                                        : 'background:transparent;color:var(--danger);border-color:var(--danger);'
+                                }
+                            `}
+                        >
+                            <AlertTriangle size={11} />
+                            Incident
+                        </HoverButton>
                     </div>
 
                     {canMarkEmergency && (
@@ -328,12 +429,81 @@ export function NeedPostingForm({ onClose }: Props) {
                         </label>
                     )}
 
+                    {/* Incident Specific Fields */}
+                    {type === 'incident' && (
+                        <div class="stack-v gap-sm mb-3">
+                            <input
+                                type="text"
+                                placeholder="Incident Title"
+                                class="input-field"
+                                value={incidentTitle}
+                                onInput={(e) =>
+                                    setIncidentTitle((e.target as HTMLInputElement).value)
+                                }
+                                style="height:38px;font-size:13px;"
+                            />
+                            <select
+                                class="input-field"
+                                value={incidentTypeId}
+                                onChange={(e) =>
+                                    setIncidentTypeId((e.target as HTMLSelectElement).value)
+                                }
+                                style="height:38px;font-size:13px;background:var(--surface-raised);"
+                            >
+                                <option value="">Select Incident Type</option>
+                                {incidentTypes.map((it) => (
+                                    <option key={it.id} value={it.id}>
+                                        {it.label}
+                                    </option>
+                                ))}
+                            </select>
+                            {isAdmin && (
+                                <div class="stack-v gap-xs mt-1">
+                                    <label class="label-caps" style="font-size:10px;">
+                                        Incident Range
+                                    </label>
+                                    <div class="stack-h gap-xs">
+                                        {(
+                                            ['block', 'neighborhood', 'district', 'city'] as const
+                                        ).map((r) => (
+                                            <HoverButton
+                                                key={r}
+                                                type="button"
+                                                onClick={() => setAdminRange(r)}
+                                                style={`flex:1;padding:4px;border-radius:6px;font-size:10px;font-weight:700;text-transform:capitalize;border:1px solid ${adminRange === r ? 'var(--accent)' : 'var(--border)'};background:${adminRange === r ? 'var(--accent-subtle)' : 'transparent'};color:${adminRange === r ? 'var(--accent)' : 'var(--text-tertiary)'};`}
+                                            >
+                                                {r}
+                                            </HoverButton>
+                                        ))}
+                                    </div>
+                                    <div
+                                        ref={mapContainer}
+                                        style="height:150px;width:100%;border-radius:8px;border:1px solid var(--border);margin-top:8px;overflow:hidden;background:var(--bg-muted);"
+                                    >
+                                        {!mapLoaded && (
+                                            <div class="flex-center h-full text-[10px] text-(--text-tertiary)">
+                                                Loading Map Picker...
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p style="font-size:10px;color:var(--text-tertiary);margin:4px 0 0;">
+                                        Drag marker or click map to select incident epicenter
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Textarea */}
                     <div style="position:relative; margin-bottom: 12px;">
                         <textarea
                             value={content}
                             onInput={(e) => setContent((e.target as HTMLTextAreaElement).value)}
-                            placeholder="What's happening in your neighborhood?"
+                            placeholder={
+                                type === 'incident'
+                                    ? 'Describe the situation...'
+                                    : "What's happening in your neighborhood?"
+                            }
                             class="input-field"
                             style="height:100px;resize:none;padding-bottom:28px;font-family:inherit;font-size:13px;line-height:1.6;"
                             maxLength={MAX + 20}

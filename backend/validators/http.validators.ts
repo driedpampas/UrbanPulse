@@ -221,6 +221,14 @@ export const updateUserSchema = z.strictObject({
         .nullish(),
     quietDays: z.array(z.number().min(0).max(6)).max(7).nullish(),
     timezone: z.string().trim().min(1).optional(),
+    legalFirstName: z.string().nonempty().optional(),
+    legalLastName: z.string().nonempty().optional(),
+    birthday: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+    homeAddress: z.string().nonempty().optional(),
+    phoneNumber: z.string().nonempty().optional(),
 });
 
 export const updatePassSchema = z
@@ -355,6 +363,17 @@ export type CreateIncidentTypeBody = z.infer<typeof createIncidentTypeSchema>;
 export type CreateIncidentAdminBody = z.infer<typeof createIncidentAdminSchema>;
 export type VerifyIncidentBody = z.infer<typeof verifyIncidentSchema>;
 export type CreateIncidentBody = z.infer<typeof createIncidentSchema>;
+
+export const createLostDocumentSchema = z.strictObject({
+    title: z.string().nonempty().max(255),
+    description: z.string().nonempty().max(2000),
+    location: z.object({
+        lat: z.number(),
+        lng: z.number(),
+    }),
+});
+
+export type CreateLostDocumentBody = z.infer<typeof createLostDocumentSchema>;
 
 export const adminRoleSchema = z.enum(['admin', 'mod', 'user', 'banned', 'first_responder']);
 
