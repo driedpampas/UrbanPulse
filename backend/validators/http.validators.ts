@@ -398,7 +398,7 @@ export const createIncidentAdminSchema = z.strictObject({
     typeId: z.uuid(),
     lat: z.number(),
     lng: z.number(),
-    range: z.enum(['block', 'neighborhood', 'district', 'city']),
+    range: z.enum(['neighborhood', 'district', 'city']),
     title: z.string().nonempty().max(500),
     description: z.string().nonempty().max(2000),
 });

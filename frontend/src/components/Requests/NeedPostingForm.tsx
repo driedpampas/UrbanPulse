@@ -48,7 +48,7 @@ export function NeedPostingForm({ onClose }: Props) {
     const [incidentTitle, setIncidentTitle] = useState('');
     const [incidentTypeId, setIncidentTypeId] = useState('');
     const [incidentTypes, setIncidentTypes] = useState<IncidentType[]>([]);
-    const [adminRange, setAdminRange] = useState<'block' | 'neighborhood' | 'district' | 'city'>(
+    const [adminRange, setAdminRange] = useState<'neighborhood' | 'district' | 'city'>(
         'neighborhood'
     );
     const [resourceQuery, setResourceQuery] = useState('');
@@ -463,18 +463,18 @@ export function NeedPostingForm({ onClose }: Props) {
                                         Incident Range
                                     </label>
                                     <div class="stack-h gap-xs">
-                                        {(
-                                            ['block', 'neighborhood', 'district', 'city'] as const
-                                        ).map((r) => (
-                                            <HoverButton
-                                                key={r}
-                                                type="button"
-                                                onClick={() => setAdminRange(r)}
-                                                style={`flex:1;padding:4px;border-radius:6px;font-size:10px;font-weight:700;text-transform:capitalize;border:1px solid ${adminRange === r ? 'var(--accent)' : 'var(--border)'};background:${adminRange === r ? 'var(--accent-subtle)' : 'transparent'};color:${adminRange === r ? 'var(--accent)' : 'var(--text-tertiary)'};`}
-                                            >
-                                                {r}
-                                            </HoverButton>
-                                        ))}
+                                        {(['neighborhood', 'district', 'city'] as const).map(
+                                            (r) => (
+                                                <HoverButton
+                                                    key={r}
+                                                    type="button"
+                                                    onClick={() => setAdminRange(r)}
+                                                    style={`flex:1;padding:4px;border-radius:6px;font-size:10px;font-weight:700;text-transform:capitalize;border:1px solid ${adminRange === r ? 'var(--accent)' : 'var(--border)'};background:${adminRange === r ? 'var(--accent-subtle)' : 'transparent'};color:${adminRange === r ? 'var(--accent)' : 'var(--text-tertiary)'};`}
+                                                >
+                                                    {r}
+                                                </HoverButton>
+                                            )
+                                        )}
                                     </div>
                                     <div
                                         ref={mapContainer}

@@ -3759,7 +3759,7 @@
             "post": {
                 "tags": ["Crisis & Incidents"],
                 "summary": "Create incidents for an administrative area (Elevated)",
-                "description": "Authoritative incident creation for admins, moderators, and first responders. Unlike the community `/api/incident` POST, this endpoint:\n\n1. Queries the **Overpass Turbo API** to fetch the real administrative boundary polygon for the given coordinates at the specified granularity level (block, neighborhood, district, or city).\n2. Splits the boundary into a grid of smaller sector polygons to allow fine-grained spatial queries.\n3. Creates one incident report per sector, each immediately scored with the caller's authority level, often pushing the confidence score past the confirmation threshold right away.\n4. Sends `crisis.alert` WebSocket events to all users with a shared crisis location inside the affected area.\n\nIf the Overpass API is unavailable or returns no boundary, the system falls back to a single bounding box of the appropriate size centred on the given point.\n\n**Range → admin level mapping**: block=10, neighborhood=9, district=8, city=6.",
+                "description": "Authoritative incident creation for admins, moderators, and first responders. Unlike the community `/api/incident` POST, this endpoint:\n\n1. Queries the **Overpass Turbo API** to fetch the real administrative boundary polygon for the given coordinates at the specified granularity level (neighborhood, district, or city).\n2. Splits the boundary into a grid of smaller sector polygons to allow fine-grained spatial queries.\n3. Creates one incident report per sector, each immediately scored with the caller's authority level, often pushing the confidence score past the confirmation threshold right away.\n4. Sends `crisis.alert` WebSocket events to all users with a shared crisis location inside the affected area.\n\nIf the Overpass API is unavailable or returns no boundary, the system falls back to a single bounding box of the appropriate size centred on the given point.\n\n**Range → admin level mapping**: neighborhood=9, district=8, city=6.",
                 "security": [{ "bearerAuth": [] }],
                 "requestBody": {
                     "required": true,
@@ -3787,7 +3787,7 @@
                                     },
                                     "range": {
                                         "type": "string",
-                                        "enum": ["block", "neighborhood", "district", "city"],
+                                        "enum": ["neighborhood", "district", "city"],
                                         "description": "Granularity of the affected area. Controls the OSM admin_level queried and the grid step size.",
                                         "example": "neighborhood"
                                     },

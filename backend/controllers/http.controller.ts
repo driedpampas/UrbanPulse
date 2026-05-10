@@ -3420,13 +3420,11 @@ export const httpRoutes: HttpRoutes = {
                             .then((raw) => createIncidentAdminSchema.parse(raw));
 
                         const adminLevelMap: Record<string, number> = {
-                            block: 10,
                             neighborhood: 9,
                             district: 8,
                             city: 6,
                         };
                         const stepDegMap: Record<string, number> = {
-                            block: 0.001,
                             neighborhood: 0.003,
                             district: 0.006,
                             city: 0.015,

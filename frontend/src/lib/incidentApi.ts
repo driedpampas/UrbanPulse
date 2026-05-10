@@ -196,7 +196,7 @@ export async function reportIncidentAdmin(input: {
     description: string;
     lat: number;
     lng: number;
-    range: 'block' | 'neighborhood' | 'district' | 'city';
+    range: 'neighborhood' | 'district' | 'city';
 }): Promise<boolean> {
     try {
         await apiFetch('/incident/admin', {
