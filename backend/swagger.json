@@ -17,6 +17,124 @@
                 "scheme": "bearer",
                 "bearerFormat": "JWT"
             }
+        },
+        "schemas": {
+            "IncidentType": {
+                "type": "object",
+                "description": "A global incident category label created by admins/mods.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Unique identifier for the incident type.",
+                        "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "Human-readable name of the incident type.",
+                        "example": "Flooding"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Timestamp when this type was created.",
+                        "example": "2026-05-10T14:00:00Z"
+                    }
+                }
+            },
+            "IncidentFeedItem": {
+                "type": "object",
+                "description": "A single incident as returned in the crisis/incident feed.",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Unique identifier of the incident.",
+                        "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    },
+                    "typeId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "UUID of the incident type."
+                    },
+                    "typeLabel": {
+                        "type": "string",
+                        "description": "Human-readable label of the incident type.",
+                        "example": "Flooding"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Short title of the incident.",
+                        "example": "Major flooding on Bulevardul Independentei"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Full description submitted with the first report.",
+                        "example": "River overflowing its banks."
+                    },
+                    "confidenceScore": {
+                        "type": "number",
+                        "description": "Current confidence score. Incidents with score ≥40 are confirmed.",
+                        "example": 75
+                    },
+                    "confirmed": {
+                        "type": "boolean",
+                        "description": "Whether the incident has crossed the confirmation threshold.",
+                        "example": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Timestamp of when the incident was first reported.",
+                        "example": "2026-05-10T14:00:00Z"
+                    },
+                    "approvalState": {
+                        "type": "string",
+                        "enum": ["none", "reported", "voted"],
+                        "description": "The requesting user's participation in this incident: 'none' if they have not interacted, 'reported' if they submitted a report, 'voted' if they cast a vote.",
+                        "example": "reported"
+                    }
+                }
+            },
+            "UserCrisisEntry": {
+                "type": "object",
+                "description": "A user's shared crisis location and self-reported status.",
+                "properties": {
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Unique identifier of the user.",
+                        "example": "c3d4e5f6-a7b8-9012-cdef-123456789012"
+                    },
+                    "displayName": {
+                        "type": "string",
+                        "description": "The user's display name.",
+                        "example": "Alex Slanina"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["safe", "need_help", "injured", "available_to_help", "no_response"],
+                        "description": "The user's self-reported crisis status.",
+                        "example": "need_help"
+                    },
+                    "lat": {
+                        "type": "number",
+                        "description": "Latitude of the user's shared location (WGS-84).",
+                        "example": 47.1585
+                    },
+                    "lng": {
+                        "type": "number",
+                        "description": "Longitude of the user's shared location (WGS-84).",
+                        "example": 27.6014
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Timestamp of the last location or status update.",
+                        "example": "2026-05-10T14:05:00Z"
+                    }
+                }
+            }
         }
     },
     "security": [
@@ -3408,6 +3526,484 @@
                     "500": {
                         "description": "Server error"
                     }
+                }
+            }
+        },
+        "/api/crisis": {
+            "get": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Get confirmed crisis incidents near a point",
+                "description": "Returns all **confirmed** incidents whose coverage polygon contains the given coordinates. An incident is confirmed when its confidence score reaches the threshold (≥40 pts) via community reports and votes, or when an admin/first-responder submits a report. Use this endpoint to decide whether a location is inside an active crisis zone and to populate the crisis feed.",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [
+                    {
+                        "name": "lat",
+                        "in": "query",
+                        "required": true,
+                        "schema": { "type": "number", "example": 47.1585 },
+                        "description": "Latitude of the point to check (WGS-84)."
+                    },
+                    {
+                        "name": "lng",
+                        "in": "query",
+                        "required": true,
+                        "schema": { "type": "number", "example": 27.6014 },
+                        "description": "Longitude of the point to check (WGS-84)."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of confirmed incidents that spatially contain the given point.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "incidents": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/components/schemas/IncidentFeedItem" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "description": "Missing or non-finite lat/lng query parameters." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/incident": {
+            "get": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Get unconfirmed (pending) incidents near a point",
+                "description": "Returns all **unconfirmed** incidents whose coverage polygon contains the given coordinates. Pending incidents have a positive confidence score but have not yet crossed the confirmation threshold. Useful for showing community-submitted reports that are still being validated.",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [
+                    {
+                        "name": "lat",
+                        "in": "query",
+                        "required": true,
+                        "schema": { "type": "number", "example": 47.1585 },
+                        "description": "Latitude of the point to check (WGS-84)."
+                    },
+                    {
+                        "name": "lng",
+                        "in": "query",
+                        "required": true,
+                        "schema": { "type": "number", "example": 27.6014 },
+                        "description": "Longitude of the point to check (WGS-84)."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of unconfirmed incidents that spatially contain the given point.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "incidents": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/components/schemas/IncidentFeedItem" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "description": "Missing or non-finite lat/lng query parameters." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "500": { "description": "Server error." }
+                }
+            },
+            "post": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Report a new incident",
+                "description": "Submits a community incident report. The system either associates the report with an existing nearby incident of the same type or creates a new one. Each report increases the incident's confidence score based on the reporter's role and trust level:\n\n- **Admin**: +40 pts\n- **First Responder**: +30 pts\n- **Mod**: +10 pts\n- **Regular user**: +5 pts (plus up to +5 pts from trust score)\n\nWhen the score reaches **40 pts**, the incident is automatically confirmed and affected users receive a `crisis.alert` WebSocket event.\n\nIf `lat`/`lng` are omitted, the user's stored profile location is used. A 100-metre radius polygon is created around the point to represent the incident's coverage area.",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["typeId", "title", "description"],
+                                "properties": {
+                                    "typeId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "description": "UUID of the incident type (from GET /api/incident/type).",
+                                        "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                                    },
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 500,
+                                        "description": "Short title describing the incident.",
+                                        "example": "Gas leak on Strada Independentei"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "description": "Detailed description of what is happening.",
+                                        "example": "Strong smell of gas between blocks 12 and 14. Residents are evacuating."
+                                    },
+                                    "lat": {
+                                        "type": "number",
+                                        "description": "Latitude of the incident (optional; falls back to the user's stored location).",
+                                        "example": 47.1585
+                                    },
+                                    "lng": {
+                                        "type": "number",
+                                        "description": "Longitude of the incident (optional; falls back to the user's stored location).",
+                                        "example": 27.6014
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Report submitted successfully.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "description": "Invalid request body or no location available for the user." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/incident/type": {
+            "get": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "List all incident types",
+                "description": "Returns the full catalogue of incident types available for reporting. Incident types are global labels created by administrators (e.g. 'Fire', 'Flood', 'Gas Leak'). Sorted alphabetically.",
+                "security": [{ "bearerAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Array of incident types.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "types": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/components/schemas/IncidentType" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "500": { "description": "Server error." }
+                }
+            },
+            "post": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Create an incident type (Admin/Mod)",
+                "description": "Creates a new global incident type label. Only administrators and moderators can create types. The label must be unique and is used to categorise incident reports.",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["label"],
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "maxLength": 255,
+                                        "description": "Human-readable incident type name.",
+                                        "example": "Flooding"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Incident type created.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": { "$ref": "#/components/schemas/IncidentType" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "403": { "description": "Forbidden — admin or mod role required." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/incident/admin": {
+            "post": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Create incidents for an administrative area (Elevated)",
+                "description": "Authoritative incident creation for admins, moderators, and first responders. Unlike the community `/api/incident` POST, this endpoint:\n\n1. Queries the **Overpass Turbo API** to fetch the real administrative boundary polygon for the given coordinates at the specified granularity level (block, neighborhood, district, or city).\n2. Splits the boundary into a grid of smaller sector polygons to allow fine-grained spatial queries.\n3. Creates one incident report per sector, each immediately scored with the caller's authority level, often pushing the confidence score past the confirmation threshold right away.\n4. Sends `crisis.alert` WebSocket events to all users with a shared crisis location inside the affected area.\n\nIf the Overpass API is unavailable or returns no boundary, the system falls back to a single bounding box of the appropriate size centred on the given point.\n\n**Range → admin level mapping**: block=10, neighborhood=9, district=8, city=6.",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["typeId", "lat", "lng", "range", "title", "description"],
+                                "properties": {
+                                    "typeId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "description": "UUID of the incident type.",
+                                        "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                                    },
+                                    "lat": {
+                                        "type": "number",
+                                        "description": "Latitude of the focal point within the affected area (WGS-84).",
+                                        "example": 47.1585
+                                    },
+                                    "lng": {
+                                        "type": "number",
+                                        "description": "Longitude of the focal point within the affected area (WGS-84).",
+                                        "example": 27.6014
+                                    },
+                                    "range": {
+                                        "type": "string",
+                                        "enum": ["block", "neighborhood", "district", "city"],
+                                        "description": "Granularity of the affected area. Controls the OSM admin_level queried and the grid step size.",
+                                        "example": "neighborhood"
+                                    },
+                                    "title": {
+                                        "type": "string",
+                                        "maxLength": 500,
+                                        "description": "Short title for the incident.",
+                                        "example": "Major flooding — neighborhood-wide evacuation"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "description": "Detailed description of the situation.",
+                                        "example": "River overflowing its banks. Residents on the ground floor should evacuate immediately."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Incidents created for all sectors of the affected area.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": { "type": "boolean", "example": true },
+                                        "sectorsCreated": {
+                                            "type": "integer",
+                                            "description": "Number of sector polygons that received an incident report.",
+                                            "example": 12
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "description": "Invalid request body." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "403": { "description": "Forbidden — admin, mod, or first_responder role required." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/incident/verify": {
+            "put": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Vote on an incident (approve or deny)",
+                "description": "Submits a community vote on an existing incident. Votes adjust the incident's confidence score based on the voter's role and trust level:\n\n**Upvote (approved=true):**\n- Admin / First Responder: +10 pts\n- Mod: +4 pts\n- Regular user: +2 pts (plus up to +3 pts from trust score)\n\n**Downvote (approved=false):**\n- Admin / First Responder: −20 pts\n- Mod: −3 pts\n- Regular user: −2 pts (minus up to −2 pts from trust score)\n\nIf the score drops to 0 or below, the incident is automatically deleted. If a newly downvoted confirmed incident drops below 15 pts, it is also deleted. When an unconfirmed incident crosses 40 pts from a vote, it becomes confirmed and affected users receive a `crisis.alert` WebSocket event.\n\nNote: A user cannot both report and vote on the same incident — submitting a downvote removes the reporter's existing report from that incident.",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["incidentId", "approved"],
+                                "properties": {
+                                    "incidentId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "description": "UUID of the incident to vote on.",
+                                        "example": "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                                    },
+                                    "approved": {
+                                        "type": "boolean",
+                                        "description": "true to upvote (confirm), false to downvote (deny).",
+                                        "example": true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": { "description": "Vote recorded successfully." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "404": { "description": "Incident not found." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/user/location": {
+            "patch": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Share your crisis location",
+                "description": "Registers or updates the authenticated user's real-time crisis location. The coordinates must fall inside at least one **confirmed** incident polygon — if the user is not in an active crisis zone the request is rejected with 403.\n\nOnce registered, the location is stored in the `user_crisis` table and is visible to other users in the same crisis zone (via `GET /api/user/location`) and to elevated staff (via `GET /api/admin/location`). The initial crisis status is set to `no_response` until the user updates it with `PATCH /api/user/status`.",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["lat", "lng"],
+                                "properties": {
+                                    "lat": {
+                                        "type": "number",
+                                        "description": "User's current latitude (WGS-84).",
+                                        "example": 47.1585
+                                    },
+                                    "lng": {
+                                        "type": "number",
+                                        "description": "User's current longitude (WGS-84).",
+                                        "example": 27.6014
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": { "description": "Location registered/updated successfully." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "403": { "description": "The provided coordinates are not inside any active confirmed crisis zone." },
+                    "500": { "description": "Server error." }
+                }
+            },
+            "get": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Get nearby users in your crisis zone",
+                "description": "Returns all users who have shared their crisis location within `radius` metres of the authenticated user's own stored crisis location. Both the requesting user and the returned users must be inside an active (confirmed) incident polygon — the endpoint returns 403 if the requesting user has not shared their location or is no longer within a confirmed zone.\n\nThis is intended for mutual-aid coordination: users can see who is nearby, what their status is, and whether they need help or can offer it.",
+                "security": [{ "bearerAuth": [] }],
+                "parameters": [
+                    {
+                        "name": "radius",
+                        "in": "query",
+                        "required": false,
+                        "schema": { "type": "integer", "default": 5000, "example": 2000 },
+                        "description": "Search radius in metres. Defaults to 5000 m (5 km)."
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of nearby users with their crisis status and location.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "users": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/components/schemas/UserCrisisEntry" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "403": { "description": "The user has not shared a crisis location or is not inside an active confirmed crisis zone." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/user/status": {
+            "patch": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Update your crisis status",
+                "description": "Updates the authenticated user's self-reported crisis status. The user must have previously shared their location via `PATCH /api/user/location` — the request is rejected with 400 if no crisis location entry exists.\n\nStatus values:\n- `safe` — The user is unharmed and not in immediate danger.\n- `need_help` — The user requires assistance.\n- `injured` — The user is physically injured.\n- `available_to_help` — The user is safe and able to assist others.\n- `no_response` — Default state; the user has not yet updated their status.",
+                "security": [{ "bearerAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["status"],
+                                "properties": {
+                                    "status": {
+                                        "type": "string",
+                                        "enum": ["safe", "need_help", "injured", "available_to_help", "no_response"],
+                                        "description": "The user's current crisis status.",
+                                        "example": "safe"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": { "description": "Status updated successfully." },
+                    "400": { "description": "User has not shared a crisis location yet." },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "500": { "description": "Server error." }
+                }
+            }
+        },
+        "/api/admin/location": {
+            "get": {
+                "tags": ["Crisis & Incidents"],
+                "summary": "Get all crisis user locations (Elevated)",
+                "description": "Returns the real-time location and crisis status of **all** users who have shared their crisis location, regardless of which incident zone they are in. Available to administrators, moderators, and first responders. Intended for a global crisis dashboard or incident command view.",
+                "security": [{ "bearerAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "All crisis user entries across all active zones.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "users": {
+                                            "type": "array",
+                                            "items": { "$ref": "#/components/schemas/UserCrisisEntry" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "description": "Unauthorized — valid Bearer token required." },
+                    "403": { "description": "Forbidden — admin, mod, or first_responder role required." },
+                    "500": { "description": "Server error." }
                 }
             }
         }
