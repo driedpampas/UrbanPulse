@@ -11,7 +11,9 @@ team: `ciorbă`
 Instance URL: [https://urbanpulse.syu.nl.eu.org](https://urbanpulse.syu.nl.eu.org)
 
 >User Email: user@gmail.com
+>
 >User Pass: password
 
 >Admin Email: admin@gmail.com
+>
 >Admin Pass: admin123
