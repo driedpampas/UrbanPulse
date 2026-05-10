@@ -22,7 +22,12 @@ import {
 import { useTheme } from '../lib/theme';
 import { useAuth } from '../lib/auth';
 import { useLocation } from 'wouter';
-import { startDirectConversation } from '../lib/chatApi';
+import {
+    connectChatWebSocket,
+    disconnectChatWebSocket,
+    startDirectConversation,
+} from '../lib/chatApi';
+import type { ChatSocketEvent } from '../lib/chatApi';
 import { fetchCurrentUser } from '../lib/userApi';
 import type { LostDocument } from '../types';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -67,6 +72,32 @@ export function LostDocuments() {
                 if (u.lat !== 0 || u.lng !== 0) setLocation({ lat: u.lat, lng: u.lng });
             })
             .catch(() => {});
+    }, []);
+
+    // Listen for live lost_doc.matched WS events and update state immediately
+    useEffect(() => {
+        const handleWS = (event: ChatSocketEvent) => {
+            const raw = event as unknown as { event: string; docId?: string; matchedUserId?: string };
+            if (raw.event !== 'lost_doc.matched' || !raw.docId || !raw.matchedUserId) return;
+
+            // Update the doc in the list
+            setDocs((prev) =>
+                prev.map((d) =>
+                    d.id === raw.docId
+                        ? ({ ...d, matchedUserId: raw.matchedUserId!, status: 'matched' } as LostDocument)
+                        : d
+                )
+            );
+            // Also update selectedDoc if it's open
+            setSelectedDoc((prev) =>
+                prev?.id === raw.docId
+                    ? ({ ...prev, matchedUserId: raw.matchedUserId!, status: 'matched' } as LostDocument)
+                    : prev
+            );
+        };
+
+        connectChatWebSocket(handleWS);
+        return () => disconnectChatWebSocket(handleWS);
     }, []);
 
     const loadDocs = async () => {

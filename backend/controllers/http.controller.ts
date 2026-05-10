@@ -437,8 +437,8 @@ export const httpRoutes: HttpRoutes = {
 
                         await writeFile(imagePath, bytes);
 
-                        // Create redacted version (for now just blur it heavily or black it out)
-                        await sharp(bytes).blur(50).toFile(redactedPath);
+                        // Save original as redacted initially, will be updated after OCR
+                        await Bun.write(redactedPath, bytes);
 
                         const id = await db.insertLostDocument({
                             userId: payload.id,
@@ -450,38 +450,116 @@ export const httpRoutes: HttpRoutes = {
                             redactedImagePath: redactedFilename,
                         });
 
-                        // Trigger OCR matching in background
+                        // Run OCR in background: detect sensitive regions, blur only those, then match users
                         void (async () => {
                             try {
-                                const proc = Bun.spawn(['tesseract', imagePath, 'stdout']);
-                                const text = await new Response(proc.stdout).text();
+                                const { createWorker } = await import('tesseract.js');
+                                const worker = await createWorker('eng');
+
+                                // Get words with bounding boxes via blocks
+                                const { data } = await worker.recognize(imagePath);
+                                await worker.terminate();
+
+                                const imgMeta = await sharp(bytes).metadata();
+                                const imgW = imgMeta.width ?? 1;
+                                const imgH = imgMeta.height ?? 1;
+
+                                // Collect all words from the block→paragraph→line→word tree
+                                type TWord = { text: string; bbox: { x0: number; y0: number; x1: number; y1: number } };
+                                const allWords: TWord[] = [];
+                                for (const block of (data.blocks ?? [])) {
+                                    for (const para of block.paragraphs) {
+                                        for (const line of para.lines) {
+                                            for (const word of line.words) {
+                                                allWords.push({ text: word.text, bbox: word.bbox });
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Identify "sensitive" words — names, dates, ID numbers
+                                const sensitiveWords = allWords.filter((w) => {
+                                    const t = w.text.trim();
+                                    if (t.length < 2) return false;
+                                    // All-caps token >= 2 chars (IDs, surnames on docs)
+                                    if (/^[A-Z]{2,}$/.test(t)) return true;
+                                    // Starts with capital — looks like a proper name
+                                    if (/^[A-Z][a-z]{1,}$/.test(t)) return true;
+                                    // Looks like a date (digits with separators)
+                                    if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(t)) return true;
+                                    // Looks like an ID number (6+ consecutive digits)
+                                    if (/\d{6,}/.test(t)) return true;
+                                    return false;
+                                });
+
+                                let redactedImg = sharp(bytes);
+
+                                if (sensitiveWords.length > 0) {
+                                    const composites: sharp.OverlayOptions[] = [];
+                                    for (const word of sensitiveWords) {
+                                        const b = word.bbox;
+                                        const left = Math.max(0, b.x0 - 2);
+                                        const top = Math.max(0, b.y0 - 2);
+                                        const width = Math.min(imgW - left, b.x1 - b.x0 + 4);
+                                        const height = Math.min(imgH - top, b.y1 - b.y0 + 4);
+                                        if (width <= 0 || height <= 0) continue;
+
+                                        // Extract the region, blur it heavily, then composite back
+                                        const blurredPatch = await sharp(bytes)
+                                            .extract({ left, top, width, height })
+                                            .blur(15)
+                                            .toBuffer();
+
+                                        composites.push({ input: blurredPatch, left, top });
+                                    }
+                                    if (composites.length > 0) {
+                                        redactedImg = sharp(
+                                            await sharp(bytes).composite(composites).toBuffer()
+                                        );
+                                    }
+                                }
+
+                                await redactedImg.toFile(redactedPath);
+
+                                // Text for matching
+                                const ocrText = data.text;
 
                                 // Search for matching users
-                                const users = await db.searchUsers({
-                                    limit: 1000, // In a real app we'd filter better
-                                } as any);
+                                const users = await db.searchUsers({ limit: 1000 } as any);
 
                                 for (const user of users) {
                                     if (!user.legalFirstName || !user.legalLastName) continue;
 
-                                    const firstNameMatch = text
+                                    const firstNameMatch = ocrText
                                         .toLowerCase()
                                         .includes(user.legalFirstName.toLowerCase());
-                                    const lastNameMatch = text
+                                    const lastNameMatch = ocrText
                                         .toLowerCase()
                                         .includes(user.legalLastName.toLowerCase());
 
                                     if (firstNameMatch && lastNameMatch) {
                                         await db.setMatchedUser(id, user.id);
+
+                                        // Dedicated lost-doc matched event for the LostDocuments page
                                         server.publish(
                                             `user-${user.id}`,
                                             JSON.stringify({
-                                                event: 'notification.message', // Reusing existing notification system structure if possible
+                                                event: 'lost_doc.matched',
+                                                docId: id,
+                                                matchedUserId: user.id,
+                                            })
+                                        );
+
+                                        // Also send a chat notification so it shows up as a toast
+                                        server.publish(
+                                            `user-${user.id}`,
+                                            JSON.stringify({
+                                                event: 'notification.message',
                                                 message: {
                                                     id: crypto.randomUUID(),
                                                     threadId: crypto.randomUUID(),
                                                     senderId: 'system',
-                                                    content: `A lost document matching your name "${user.legalFirstName} ${user.legalLastName}" was found!`,
+                                                    content: `A lost document matching your name "${user.legalFirstName} ${user.legalLastName}" was found! Open Lost Documents to contact the finder.`,
                                                     messageType: 'notice',
                                                     timestamp: Date.now(),
                                                 },
