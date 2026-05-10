@@ -3564,7 +3564,7 @@ export const httpRoutes: HttpRoutes = {
                             body.approved
                         );
 
-                        if (!result.exists) return withCors(NOT_FOUND);
+                        if (!result.exists) return withCors(SUCCESS);
 
                         await notifyNewCrises(server, result.confirmedIncidentIds);
 
