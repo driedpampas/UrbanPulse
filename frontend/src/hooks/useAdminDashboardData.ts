@@ -21,6 +21,7 @@ import {
     updateLibraryItem,
     updateReportStatus,
 } from '../lib/apiClients';
+import { fetchIncidentTypes, type IncidentType, deleteIncidentType, updateIncidentType } from '../lib/incidentApi';
 import type {
     AdminFlag,
     AdminMessageReport,
@@ -40,7 +41,8 @@ export type AdminSection =
     | 'pulses'
     | 'library'
     | 'reports'
-    | 'flaggedMessages';
+    | 'flaggedMessages'
+    | 'incidentTypes';
 
 export function useAdminDashboardData() {
     const [section, setSection] = useState<AdminSection>('overview');
@@ -54,6 +56,7 @@ export function useAdminDashboardData() {
     const [pendingDeletions, setPendingDeletions] = useState<
         Array<{ user: User; requestedAt: number; purgeAt: number }>
     >([]);
+    const [incidentTypes, setIncidentTypes] = useState<IncidentType[]>([]);
     const [pulseId, setPulseId] = useState('');
     const [userSearch, setUserSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -89,6 +92,7 @@ export function useAdminDashboardData() {
             fetchAdminReports(),
             fetchAdminMessageReports(),
             fetchAdminUserDeletions({ limit: USERS_BATCH, offset: 0 }),
+            fetchIncidentTypes(),
         ])
             .then(
                 ([
@@ -100,6 +104,7 @@ export function useAdminDashboardData() {
                     reportsData,
                     flaggedMessageReportsData,
                     deletionsData,
+                    incidentTypesData,
                 ]) => {
                     setOverview(overviewData);
                     setUsers(usersData);
@@ -109,6 +114,7 @@ export function useAdminDashboardData() {
                     setReports(reportsData);
                     setFlaggedMessageReports(flaggedMessageReportsData);
                     setPendingDeletions(deletionsData);
+                    setIncidentTypes(incidentTypesData);
                     setUsersOffset(usersData.length);
                     setUsersHasMore(usersData.length === USERS_BATCH);
                     setUserSearchActive(false);
@@ -116,6 +122,9 @@ export function useAdminDashboardData() {
                     setExpandedRequestId(null);
                 }
             )
+            .catch((error) => {
+                console.error('Failed to load admin data:', error);
+            })
             .finally(() => setLoading(false));
     }, []);
 
@@ -271,6 +280,28 @@ export function useAdminDashboardData() {
         [loadData]
     );
 
+    const removeIncidentType = useCallback(
+        async (id: string) => {
+            const success = await deleteIncidentType(id);
+            if (success) {
+                loadData();
+            }
+            return success;
+        },
+        [loadData]
+    );
+
+    const editIncidentType = useCallback(
+        async (id: string, label: string) => {
+            const success = await updateIncidentType(id, label);
+            if (success) {
+                loadData();
+            }
+            return success;
+        },
+        [loadData]
+    );
+
     const changeReportStatus = useCallback(
         async (id: string, status: 'resolved' | 'dismissed') => {
             await updateReportStatus(id, status);
@@ -357,6 +388,7 @@ export function useAdminDashboardData() {
         reports,
         flaggedMessageReports,
         pendingDeletions,
+        incidentTypes,
         pulseId,
         userSearch,
         setUserSearch,
@@ -380,6 +412,8 @@ export function useAdminDashboardData() {
         removeUser,
         cancelUserDeletion,
         removePulse,
+        removeIncidentType,
+        editIncidentType,
         changeReportStatus,
         applyFlaggedMessageAction,
         toggleRequestDetails,

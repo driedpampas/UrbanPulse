@@ -23,6 +23,27 @@ export async function insertIncidentType(label: string): Promise<IncidentType> {
     return { id: row.id as string, label: row.label as string };
 }
 
+export async function deleteIncidentType(id: string): Promise<boolean> {
+    await ensureSchema();
+    const [deleted] = await sql`
+        DELETE FROM app.incident_type
+        WHERE id = ${id}::uuid
+        RETURNING id
+    `;
+    return Boolean(deleted);
+}
+
+export async function updateIncidentType(id: string, label: string): Promise<boolean> {
+    await ensureSchema();
+    const [updated] = await sql`
+        UPDATE app.incident_type
+        SET label = ${label}
+        WHERE id = ${id}::uuid
+        RETURNING id
+    `;
+    return Boolean(updated);
+}
+
 function toApprovalState(hasAdmin: boolean, hasAuthority: boolean): IncidentApprovalState {
     if (hasAdmin) return 'admin_approved';
     if (hasAuthority) return 'first_responder_approved';

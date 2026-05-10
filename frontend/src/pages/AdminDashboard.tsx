@@ -5,6 +5,7 @@ import {
     Flag,
     LibraryBig,
     Search,
+    Tag,
     UsersRound,
 } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -21,6 +22,7 @@ import { HoverButton } from '../components/ui/HoverButton';
 import { type AdminSection, useAdminDashboardData } from '../hooks/useAdminDashboardData';
 import { useAuth } from '../lib/auth';
 import type { LibraryItem } from '../types';
+import { createIncidentType } from '../lib/incidentApi';
 
 const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }> = [
     { id: 'overview', label: 'Overview', icon: Activity },
@@ -30,6 +32,7 @@ const SECTIONS: Array<{ id: AdminSection; label: string; icon: typeof Activity }
     { id: 'library', label: 'Library', icon: LibraryBig },
     { id: 'reports', label: 'Reports', icon: Flag },
     { id: 'flaggedMessages', label: 'Flagged Messages', icon: Flag },
+    { id: 'incidentTypes', label: 'Incident Types', icon: Tag },
 ];
 
 const surfaceCard =
@@ -48,6 +51,7 @@ export function AdminDashboard() {
         reports,
         flaggedMessageReports,
         pendingDeletions,
+        incidentTypes,
         pulseId,
         userSearch,
         setUserSearch,
@@ -70,6 +74,8 @@ export function AdminDashboard() {
         removeUser,
         cancelUserDeletion,
         removePulse,
+        removeIncidentType,
+        editIncidentType,
         changeReportStatus,
         applyFlaggedMessageAction,
         toggleRequestDetails,
@@ -638,6 +644,122 @@ export function AdminDashboard() {
                                         />
                                     ))
                                 )}
+                            </div>
+                        )}
+
+                        {section === 'incidentTypes' && (
+                            <div style="display:flex;flex-direction:column;gap:10px;">
+                                <div style={`${surfaceCard};padding:20px;`}>
+                                    <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;color:var(--text);">
+                                        Add New Incident Type
+                                    </h3>
+                                    <form
+                                        onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const form = e.target as HTMLFormElement;
+                                            const input = form.elements.namedItem('label') as HTMLInputElement;
+                                            const label = input.value.trim();
+                                            if (!label) return;
+                                            
+                                            try {
+                                                await createIncidentType(label);
+                                                showToast(`Incident type "${label}" created.`);
+                                                form.reset();
+                                                loadData(); // Refresh list
+                                            } catch (error) {
+                                                console.error(error);
+                                                window.alert(error instanceof Error ? error.message : 'Failed to create incident type.');
+                                            }
+                                        }}
+                                        style="display:flex;gap:10px;align-items:center;"
+                                    >
+                                        <input
+                                            name="label"
+                                            placeholder="Enter incident type label (e.g., Fire, Flood)"
+                                            style="flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);color:var(--text);font-size:13px;"
+                                            required
+                                        />
+                                        <HoverButton
+                                            type="submit"
+                                            style="padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:var(--bg);font-size:13px;font-weight:700;cursor:pointer;"
+                                        >
+                                            Create
+                                        </HoverButton>
+                                    </form>
+                                </div>
+
+                                <div style={`${surfaceCard};padding:20px;`}>
+                                    <h3 style="margin:0 0 12px;font-size:16px;font-weight:700;color:var(--text);">
+                                        Current Incident Types
+                                    </h3>
+                                    <div style="display:flex;flex-direction:column;gap:8px;">
+                                        {incidentTypes.length === 0 ? (
+                                            <div style="font-size:13px;color:var(--text-secondary);">
+                                                No incident types found.
+                                            </div>
+                                        ) : (
+                                            incidentTypes.map((type) => (
+                                                <div
+                                                    key={type.id}
+                                                    style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg-subtle);display:flex;justify-content:space-between;align-items:center;gap:10px;"
+                                                >
+                                                    <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                                                        <span style="font-size:13px;color:var(--text);font-weight:500;">
+                                                            {type.label}
+                                                        </span>
+                                                        <span
+                                                            style="font-size:11px;color:var(--text-secondary);cursor:pointer;user-select:all;"
+                                                            onClick={() => {
+                                                                navigator.clipboard.writeText(type.id);
+                                                                showToast(`Copied ID: ${type.id}`);
+                                                            }}
+                                                            title="Click to copy UUID"
+                                                        >
+                                                            {type.id}
+                                                        </span>
+                                                    </div>
+                                                    <div style="display:flex;gap:6px;">
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newLabel = window.prompt('Enter new label for incident type:', type.label);
+                                                                if (newLabel && newLabel.trim() !== type.label) {
+                                                                    editIncidentType(type.id, newLabel.trim())
+                                                                        .then((success) => {
+                                                                            if (success) showToast('Incident type updated.');
+                                                                            else showToast('Failed to update incident type.');
+                                                                        });
+                                                                }
+                                                            }}
+                                                            style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:11px;font-weight:700;cursor:pointer;"
+                                                        >
+                                                            Edit
+                                                        </HoverButton>
+                                                        <HoverButton
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setConfirmation({
+                                                                    title: 'Delete Incident Type',
+                                                                    message: `Are you sure you want to delete the incident type "${type.label}"? This may affect existing reports.`,
+                                                                    confirmLabel: 'Delete',
+                                                                    destructive: true,
+                                                                    onConfirm: async () => {
+                                                                        const success = await removeIncidentType(type.id);
+                                                                        if (success) showToast('Incident type deleted.');
+                                                                        else showToast('Failed to delete incident type.');
+                                                                    },
+                                                                });
+                                                            }}
+                                                            style="padding:6px 10px;border-radius:6px;border:none;background:var(--danger);color:var(--bg);font-size:11px;font-weight:700;cursor:pointer;"
+                                                        >
+                                                            Delete
+                                                        </HoverButton>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
 

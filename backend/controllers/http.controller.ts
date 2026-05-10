@@ -3238,6 +3238,30 @@ export const httpRoutes: HttpRoutes = {
                 )
             ),
     },
+    '/api/incident/type/:id': {
+        PUT: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const id = req.params.id as string;
+                        const body: { label: string } = await req.json();
+                        if (!body.label) throw new Error('Label is required');
+                        const success = await db.updateIncidentType(id, body.label);
+                        return withCors(Response.json({ success }, { status: 200 }));
+                    })
+                )
+            ),
+        DELETE: async (req) =>
+            validate(req, async () =>
+                adminAuthorize(req, async () =>
+                    caught(async () => {
+                        const id = req.params.id as string;
+                        const success = await db.deleteIncidentType(id);
+                        return withCors(Response.json({ success }, { status: 200 }));
+                    })
+                )
+            ),
+    },
     '/api/incident/admin': {
         POST: async (req, server) =>
             validate(req, async () =>

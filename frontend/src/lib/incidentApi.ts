@@ -90,6 +90,37 @@ export async function fetchIncidentTypes(): Promise<IncidentType[]> {
     return data.types;
 }
 
+export async function createIncidentType(label: string): Promise<IncidentType> {
+    const data = await apiFetch<{ type: IncidentType }>('/incident/type', {
+        method: 'POST',
+        body: JSON.stringify({ label }),
+    });
+    return data.type;
+}
+
+export async function deleteIncidentType(id: string): Promise<boolean> {
+    try {
+        await apiFetch(`/incident/type/${id}`, {
+            method: 'DELETE',
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export async function updateIncidentType(id: string, label: string): Promise<boolean> {
+    try {
+        await apiFetch(`/incident/type/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ label }),
+        });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 // ─── Report an incident (user) ────────────────────────────────────────────────
 
 export async function reportIncident(input: {

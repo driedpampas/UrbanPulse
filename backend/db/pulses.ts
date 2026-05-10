@@ -161,7 +161,7 @@ export async function selectAdminRequests(limit = 50, offset = 0): Promise<Autho
             pulses.content,
             ROUND(EXTRACT(EPOCH FROM pulses.created_at) * 1000)::bigint AS "timestamp",
             ST_Y(pulses.location::geometry) AS lat,
-            ST_X(location::geometry) AS lng,
+            ST_X(pulses.location::geometry) AS lng,
             COALESCE(pulses.is_verified_info, false) AS verified,
             COALESCE(pulses.confirmation_count, 0) AS confirmations,
 
