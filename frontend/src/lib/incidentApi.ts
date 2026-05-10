@@ -44,6 +44,37 @@ export interface UserCrisisEntry {
     status: CrisisStatus;
 }
 
+export interface GroupedIncident {
+    typeId: string;
+    typeLabel: string;
+    incidents: IncidentFeedItem[];
+    maxConfidenceScore: number;
+    totalReports: number;
+}
+
+export function groupIncidentsByType(incidents: IncidentFeedItem[]): GroupedIncident[] {
+    const map = new Map<string, GroupedIncident>();
+    for (const incident of incidents) {
+        const existing = map.get(incident.typeId);
+        if (existing) {
+            existing.incidents.push(incident);
+            if (incident.confidenceScore > existing.maxConfidenceScore) {
+                existing.maxConfidenceScore = incident.confidenceScore;
+            }
+            existing.totalReports += incident.reports.length;
+        } else {
+            map.set(incident.typeId, {
+                typeId: incident.typeId,
+                typeLabel: incident.typeLabel,
+                incidents: [incident],
+                maxConfidenceScore: incident.confidenceScore,
+                totalReports: incident.reports.length,
+            });
+        }
+    }
+    return Array.from(map.values()).sort((a, b) => b.maxConfidenceScore - a.maxConfidenceScore);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function authHeaders(): Record<string, string> {

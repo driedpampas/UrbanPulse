@@ -1,14 +1,16 @@
 import { AlertCircle, ArrowRight } from 'lucide-preact';
-import type { IncidentFeedItem } from '../../lib/incidentApi';
+import type { GroupedIncident } from '../../lib/incidentApi';
 import { HoverButton } from '../ui/HoverButton';
 
 interface Props {
-    incident: IncidentFeedItem;
+    group: GroupedIncident;
     onClick: () => void;
 }
 
-export function IncidentBanner({ incident, onClick }: Props) {
-    const confidence = Math.round(incident.confidenceScore);
+export function IncidentBanner({ group, onClick }: Props) {
+    const confidence = Math.round(group.maxConfidenceScore);
+    const leadTitle = group.incidents[0]?.reports[0]?.title || 'Active Incident Reported';
+    const multipleIncidents = group.incidents.length > 1;
 
     return (
         <div class="mx-4 mt-3 animate-slide-up">
@@ -28,17 +30,23 @@ export function IncidentBanner({ incident, onClick }: Props) {
                         <div class="flex-1 min-w-0">
                             <div class="stack-h gap-xs items-center">
                                 <span class="px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-black text-white uppercase tracking-wider backdrop-blur-sm">
-                                    {incident.typeLabel}
+                                    {group.typeLabel}
                                 </span>
                                 <span class="text-[10px] font-bold text-white/80 uppercase tracking-widest">
                                     Emergency
                                 </span>
+                                {multipleIncidents && (
+                                    <span class="px-1.5 py-0.5 rounded-md bg-white/30 text-[10px] font-black text-white uppercase tracking-wider backdrop-blur-sm">
+                                        {group.incidents.length} incidents
+                                    </span>
+                                )}
                             </div>
                             <h3 class="text-base font-black text-white truncate mt-0.5 tracking-tight">
-                                {incident.reports[0]?.title || 'Active Incident Reported'}
+                                {leadTitle}
                             </h3>
                             <p class="text-xs font-bold text-white/90">
-                                Confidence score: {confidence}%
+                                Confidence: {confidence}% · {group.totalReports} report
+                                {group.totalReports === 1 ? '' : 's'}
                             </p>
                         </div>
 

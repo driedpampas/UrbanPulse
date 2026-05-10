@@ -1,5 +1,5 @@
 import { ShieldCheck } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { BatterySaverDialog } from '../components/Dashboard/BatterySaverDialog';
 import { DashboardFiltersPanel } from '../components/Dashboard/DashboardFiltersPanel';
 import { DashboardToolbar } from '../components/Dashboard/DashboardToolbar';
@@ -16,7 +16,7 @@ import { useBatterySaver } from '../hooks/useBatterySaver';
 import { useCrisisMode } from '../hooks/useCrisisMode';
 import { useDashboardViewState } from '../hooks/useDashboardViewState';
 import { useAuth } from '../lib/auth';
-import type { IncidentFeedItem } from '../lib/incidentApi';
+import { type GroupedIncident, groupIncidentsByType } from '../lib/incidentApi';
 import { requestVerificationEmail } from '../lib/settingsApi';
 import { cn } from '../lib/utils';
 
@@ -78,14 +78,16 @@ export function Dashboard() {
         autoOpenOverlay,
         setAutoOpenOverlay,
     } = useCrisisMode();
-    const [selectedIncident, setSelectedIncident] = useState<IncidentFeedItem | null>(null);
+    const [selectedGroup, setSelectedGroup] = useState<GroupedIncident | null>(null);
+
+    const incidentGroups = useMemo(() => groupIncidentsByType(activeIncidents), [activeIncidents]);
 
     useEffect(() => {
-        if (autoOpenOverlay && activeIncidents.length > 0 && !selectedIncident) {
-            setSelectedIncident(activeIncidents[0]);
+        if (autoOpenOverlay && incidentGroups.length > 0 && !selectedGroup) {
+            setSelectedGroup(incidentGroups[0]);
             setAutoOpenOverlay(false);
         }
-    }, [autoOpenOverlay, activeIncidents, selectedIncident, setAutoOpenOverlay]);
+    }, [autoOpenOverlay, incidentGroups, selectedGroup, setAutoOpenOverlay]);
 
     const { battery, shouldShowDialog, requestWakeLock, dismissDialog } = useBatterySaver({
         crisisMode,
@@ -167,11 +169,11 @@ export function Dashboard() {
                 <div class="mx-4">
                     <WeatherAlert />
                 </div>
-                {activeIncidents.map((incident) => (
+                {incidentGroups.map((group) => (
                     <IncidentBanner
-                        key={incident.id}
-                        incident={incident}
-                        onClick={() => setSelectedIncident(incident)}
+                        key={group.typeId}
+                        group={group}
+                        onClick={() => setSelectedGroup(group)}
                     />
                 ))}
                 <HeroAlert />
@@ -197,11 +199,8 @@ export function Dashboard() {
                 onDismiss={dismissDialog}
             />
 
-            {selectedIncident && (
-                <IncidentOverlay
-                    incident={selectedIncident}
-                    onClose={() => setSelectedIncident(null)}
-                />
+            {selectedGroup && (
+                <IncidentOverlay group={selectedGroup} onClose={() => setSelectedGroup(null)} />
             )}
         </AppLayout>
     );
