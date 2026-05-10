@@ -454,9 +454,12 @@ export const httpRoutes: HttpRoutes = {
                         // Run OCR in background for user-matching only (no redaction here)
                         void (async () => {
                             try {
-                                const { createWorker } = await import('tesseract.js');
-                                const worker = await createWorker('eng', 1, {
+                                const { createWorker, PSM } = await import('tesseract.js');
+                                const worker = await createWorker('eng', 3, {
                                     logger: () => {},
+                                });
+                                await worker.setParameters({
+                                    tessedit_pageseg_mode: PSM.SPARSE_TEXT,
                                 });
                                 const { data } = await worker.recognize(imagePath, {}, {
                                     text: true,
@@ -467,18 +470,20 @@ export const httpRoutes: HttpRoutes = {
                                 });
                                 await worker.terminate();
 
-                                const ocrText = data.text;
+                                const rawText = data.text || '';
+                                // Clean up text for robust matching (remove punctuation and newlines, keep spaces)
+                                const cleanOcr = rawText.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
                                 const users = await db.searchUsers({ limit: 1000 } as any);
 
                                 for (const user of users) {
                                     if (!user.legalFirstName || !user.legalLastName) continue;
 
-                                    const firstNameMatch = ocrText
-                                        .toLowerCase()
-                                        .includes(user.legalFirstName.toLowerCase());
-                                    const lastNameMatch = ocrText
-                                        .toLowerCase()
-                                        .includes(user.legalLastName.toLowerCase());
+                                    const cleanFn = user.legalFirstName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                                    const cleanLn = user.legalLastName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+                                    const firstNameMatch = cleanFn.length > 2 && cleanOcr.includes(cleanFn);
+                                    const lastNameMatch = cleanLn.length > 2 && cleanOcr.includes(cleanLn);
 
                                     if (firstNameMatch && lastNameMatch) {
                                         await db.setMatchedUser(id, user.id);
